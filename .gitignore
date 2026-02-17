@@ -43,3 +43,6 @@ malicious_*.py
 agent_feedback.txt
 *.py
 EOF
+sentry.key
+.sentry_live
+sentry.db
