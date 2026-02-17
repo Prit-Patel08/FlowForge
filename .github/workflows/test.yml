@@ -16,7 +16,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "stable"
+          go-version: "1.25.x"
+          check-latest: true
 
       - name: Print Go Toolchain
         run: |
@@ -39,10 +40,12 @@ jobs:
         run: go test ./... -race -v
 
       - name: Staticcheck
-        run: "$(go env GOPATH)/bin/staticcheck" ./...
+        run: |
+          "$(go env GOPATH)/bin/staticcheck" ./...
 
       - name: Govulncheck
-        run: "$(go env GOPATH)/bin/govulncheck" ./...
+        run: |
+          "$(go env GOPATH)/bin/govulncheck" ./...
 
   dashboard:
     runs-on: ubuntu-latest
