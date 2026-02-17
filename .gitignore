@@ -7,10 +7,15 @@ sentry
 sentry.db
 sentry.key
 *.sqlite
+*.db
+
+# Live State
+.sentry_live
 
 # Logs and Temp
 *.log
 incident_*.md
+sentry_report_*.md
 logs/
 
 # Go
@@ -35,3 +40,6 @@ __pycache__/
 
 # Test Artifacts
 malicious_*.py
+agent_feedback.txt
+*.py
+EOF

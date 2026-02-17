@@ -3,8 +3,6 @@ package cmd
 import (
 	"agent-sentry/internal/api"
 	"fmt"
-	"os/exec"
-	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -19,12 +17,7 @@ This allows the Next.js dashboard to query incident history.
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Starting Dashboard API...")
 		fmt.Println("Frontend initialized in ./dashboard. Run 'npm run dev' there to start the UI.")
-		fmt.Println("Opening API endpoint http://localhost:8080/incidents in browser...")
-
-		go func() {
-			time.Sleep(500 * time.Millisecond)
-			exec.Command("open", "http://localhost:8080/incidents").Start()
-		}()
+		fmt.Println("API Status: http://localhost:8080/incidents")
 
 		api.StartServer("8080")
 	},

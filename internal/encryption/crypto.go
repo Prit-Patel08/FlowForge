@@ -10,11 +10,9 @@ import (
 	"os"
 )
 
-const KeyFile = "sentry.key"
-
 var masterKey []byte
 
-// Init loads or generates the master key.
+// Init loads the master key from environment variables.
 func Init() error {
 	// 1. Check Env Var
 	envKey := os.Getenv("SENTRY_MASTER_KEY")
@@ -30,38 +28,7 @@ func Init() error {
 		return nil
 	}
 
-	// 2. Check File
-	data, err := os.ReadFile(KeyFile)
-	if err == nil {
-		// Found file
-		// Check if it's hex encoded (64 chars) or raw bytes (32 bytes)
-		// For consistency, we assume hex encoded as per WriteFile below
-		if len(data) == 64 {
-			key, err := hex.DecodeString(string(data))
-			if err != nil {
-				return fmt.Errorf("corrupt key file %s (hex): %v", KeyFile, err)
-			}
-			masterKey = key
-			return nil
-		}
-		// Fallback for raw if needed? No, let's stick to hex.
-	}
-
-	// 3. Generate New
-	newKey := make([]byte, 32)
-	if _, err := rand.Read(newKey); err != nil {
-		return err
-	}
-	masterKey = newKey
-
-	// Save to file (0600 permissions)
-	hexKey := hex.EncodeToString(newKey)
-	if err := os.WriteFile(KeyFile, []byte(hexKey), 0600); err != nil {
-		return fmt.Errorf("failed to save key file: %v", err)
-	}
-
-	fmt.Printf("[Sentry] 🔐 Generated new master key: %s\n", KeyFile)
-	return nil
+	return fmt.Errorf("SENTRY_MASTER_KEY environment variable is NOT set. Security policy requires an explicit master key for encryption.")
 }
 
 // Encrypt encrypts plain text using AES-GCM.

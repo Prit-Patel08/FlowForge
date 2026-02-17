@@ -2,9 +2,6 @@ package sysmon
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -31,7 +28,7 @@ func NewMonitor() *Monitor {
 }
 
 // GetStats returns current file descriptor and socket counts for the PID.
-// Uses gopsutil with a lightweight lsof fallback for better cross-platform support.
+// Uses native gopsutil for high performance and zero-shell security.
 func (m *Monitor) GetStats(pid int) (SysStats, error) {
 	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
@@ -44,22 +41,8 @@ func (m *Monitor) GetStats(pid int) (SysStats, error) {
 	// 2. Sockets (Try Native first)
 	socketCount := 0
 	conns, err := proc.Connections()
-	if err == nil && len(conns) > 0 {
+	if err == nil {
 		socketCount = len(conns)
-	} else if runtime.GOOS == "darwin" || err != nil {
-		// FALLBACK for Mac or if gopsutil is restricted:
-		// Execute a surgical lsof to count sockets only.
-		// -i: focus on internet files (sockets)
-		// -n: no hostnames
-		// -P: no port names
-		out, err := exec.Command("lsof", "-a", "-i", "-p", strconv.Itoa(pid), "-n", "-P").Output()
-		if err == nil {
-			lines := strings.Split(string(out), "\n")
-			if len(lines) > 1 {
-				// Header is line 0
-				socketCount = len(lines) - 2 // -1 for header, -1 for trailing newline
-			}
-		}
 	}
 
 	return SysStats{

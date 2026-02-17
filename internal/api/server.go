@@ -3,12 +3,15 @@ package api
 import (
 	"agent-sentry/internal/database"
 	"agent-sentry/internal/state"
+	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -54,7 +57,8 @@ func requireAuth(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	if token != apiKey {
+	// Constant-time comparison to prevent timing attacks
+	if subtle.ConstantTimeCompare([]byte(token), []byte(apiKey)) != 1 {
 		http.Error(w, `{"error":"Invalid API key"}`, http.StatusForbidden)
 		return false
 	}
@@ -76,11 +80,38 @@ func StartServer(port string) {
 		fmt.Println("⚠️  No SENTRY_API_KEY set — /process/* endpoints are OPEN")
 	}
 
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	// PROD HARDENING: Bind strictly to 127.0.0.1 to avoid external exposure
+	addr := "127.0.0.1:" + port
+	server := &http.Server{
+		Addr:    addr,
+		Handler: nil, // Use DefaultServeMux
+	}
+
+	// Graceful shutdown setup
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		fmt.Printf("API listening on %s\n", addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe error: %v", err)
+		}
+	}()
+
+	<-stop
+	fmt.Println("\n[API] Shutting down gracefully...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server Shutdown Failed: %v", err)
+	}
+	fmt.Println("[API] Server stopped")
 }
 
 func handleStream(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	corsMiddleware(w) // Enforce restricted CORS for stream as well
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -225,9 +256,9 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 			}
 			fmt.Printf("[API] 🛡️ Secure Restart: %v\n", stats.Args)
 		} else {
-			// Legacy fallback (should handle gracefully during upgrade)
-			cmd = exec.Command("sh", "-c", stats.Command)
-			fmt.Printf("[API] ⚠️ Legacy Restart (Shell): %s\n", stats.Command)
+			// Legacy fallback removed for security
+			fmt.Printf("[API] ❌ Restart REJECTED: Process has no structured arguments.\n")
+			return
 		}
 
 		if err := cmd.Start(); err != nil {

@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -25,6 +24,7 @@ import (
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/v3/process"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -69,19 +69,24 @@ func init() {
 	runCmd.Flags().BoolVar(&deepWatch, "deep", false, "Enable Deep Watch (syscall monitoring)")
 }
 
-// LogObserver is a thread-safe ring buffer for log lines.
+// LogObserver is a thread-safe bounded ring buffer for log lines.
 type LogObserver struct {
 	mu          sync.Mutex
 	lines       []string
 	capacity    int
+	index       int          // Current write index
+	isFull      bool         // Whether the buffer has wrapped
 	buf         bytes.Buffer // Partial line buffer
 	totalTokens int64
 	modelName   string
 }
 
 func NewLogObserver(capacity int, model string) *LogObserver {
+	if capacity <= 0 {
+		capacity = 10 // Safety floor
+	}
 	return &LogObserver{
-		lines:     make([]string, 0, capacity),
+		lines:     make([]string, capacity),
 		capacity:  capacity,
 		modelName: model,
 	}
@@ -111,11 +116,12 @@ func (l *LogObserver) Write(p []byte) (n int, err error) {
 }
 
 func (l *LogObserver) addLine(line string) {
-	if len(l.lines) >= l.capacity {
-		// Shift
-		l.lines = l.lines[1:]
+	l.lines[l.index] = line
+	l.index++
+	if l.index >= l.capacity {
+		l.index = 0
+		l.isFull = true
 	}
-	l.lines = append(l.lines, line)
 
 	// Count tokens
 	count := tokens.Count(line, l.modelName)
@@ -130,10 +136,29 @@ func (l *LogObserver) GetLastLines(n int) []string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if len(l.lines) < n {
-		return append([]string(nil), l.lines...)
+	if n > l.capacity {
+		n = l.capacity
 	}
-	return append([]string(nil), l.lines[len(l.lines)-n:]...)
+
+	total := l.index
+	if l.isFull {
+		total = l.capacity
+	}
+
+	if n > total {
+		n = total
+	}
+
+	result := make([]string, 0, n)
+	// Calculate starting point (n lines back from current index)
+	start := (l.index - n + l.capacity) % l.capacity
+
+	for i := 0; i < n; i++ {
+		idx := (start + i) % l.capacity
+		result = append(result, l.lines[idx])
+	}
+
+	return result
 }
 
 func NormalizeLog(line string) string {
@@ -240,6 +265,12 @@ func runProcess(args []string) {
 		ticker := time.NewTicker(time.Duration(pollInterval) * time.Millisecond)
 		defer ticker.Stop()
 
+		p, err := process.NewProcess(int32(pid))
+		if err != nil {
+			fmt.Printf("[Sentry] Error attaching monitor to PID %d: %v\n", pid, err)
+			return
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -248,7 +279,7 @@ func runProcess(args []string) {
 				if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
 					return
 				}
-				cpuUsage, err := getCPUUsage(pid)
+				cpuUsage, err := p.CPUPercent()
 				if err != nil {
 					continue
 				}
@@ -445,18 +476,17 @@ func runProcess(args []string) {
 				// 1. Memory Limit
 				maxMemMB := viper.GetFloat64("max-memory-mb")
 				if maxMemMB > 0 {
-					memMB, err := getMemoryRSS(pid)
+					memInfo, err := p.MemoryInfo()
 					if err == nil {
+						memMB := float64(memInfo.RSS) / 1024.0 / 1024.0
 						if memMB > maxMemMB {
 							fmt.Printf("\n[Sentry] 🛑 SAFETY CHOKE: Memory usage (%.2f MB) exceeded limit (%.2f MB). TERMINATING.\n", memMB, maxMemMB)
-							time.Sleep(100 * time.Millisecond) // Ensure log flushes
-
+							// ... (rest of logic same)
 							finalTokens := int(observer.TotalTokens())
 							finalCost := tokens.EstimateCost(finalTokens, modelName)
 							database.LogIncident(fullCommand, modelName, "SAFETY_LIMIT_EXCEEDED", cpuUsage, fmt.Sprintf("Memory Limit: %.2fMB", memMB), time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 
 							if err := cmd.Process.Kill(); err != nil {
-								// force kill
 								syscall.Kill(-pid, syscall.SIGKILL)
 							}
 							return
@@ -559,42 +589,5 @@ func runProcess(args []string) {
 	} else {
 		fmt.Printf("DEBUG: Wait success | UserTerminated: %v\n", userTerminated.Load())
 		// Success
-		finalTokens := int(observer.TotalTokens())
-		finalCost := tokens.EstimateCost(finalTokens, modelName)
-		database.LogIncident(fullCommand, modelName, "SUCCESS", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 	}
-}
-
-func getCPUUsage(pid int) (float64, error) {
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "%cpu").Output()
-	if err != nil {
-		return 0, err
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) < 2 {
-		return 0, fmt.Errorf("unexpected ps output")
-	}
-
-	usageStr := strings.TrimSpace(lines[1])
-	return strconv.ParseFloat(usageStr, 64)
-}
-
-func getMemoryRSS(pid int) (float64, error) {
-	// Returns in MB
-	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "rss").Output()
-	if err != nil {
-		return 0, err
-	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) < 2 {
-		return 0, fmt.Errorf("unexpected ps output")
-	}
-	// RSS is in KB
-	rssKB_str := strings.TrimSpace(lines[1])
-	rssKB, err := strconv.ParseFloat(rssKB_str, 64)
-	if err != nil {
-		return 0, err
-	}
-	return rssKB / 1024.0, nil
 }
