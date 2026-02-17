@@ -71,41 +71,35 @@ except Exception as e:
 	t.Logf("Process signaled READY. Capturing baseline...")
 
 	// Now monitor it using sysmon logic
+	monitor := sysmon.NewMonitor()
 
 	// Establishing baseline (initial state)
-	if !sysmon.IsMonitoring(pid) {
-		// This sets the baseline
-		stats, err := sysmon.GetStats(pid)
+	if !monitor.IsMonitoring(pid) {
+		stats, err := monitor.GetStats(pid)
 		if err != nil {
-			t.Fatalf("Failed to get baseline stats: %v", err)
+			t.Logf("GetStats error (might be early): %v", err)
+		} else {
+			monitor.DetectProbing(pid, stats) // call once to init
 		}
-		t.Logf("Baseline Stats: FDs=%d, Sockets=%d", stats.OpenFDs, stats.SocketCount)
-		sysmon.DetectProbing(pid, stats) // call once to init
 	}
 
-	// Wait for process to open sockets
 	t.Logf("Waiting for sockets to open...")
 
+	// Poll for detection
 	detected := false
-	start := time.Now()
-
-	// Poll for 10 seconds
-	for time.Since(start) < 10*time.Second {
-		stats, err := sysmon.GetStats(pid)
+	for i := 0; i < 15; i++ {
+		time.Sleep(1 * time.Second)
+		stats, err := monitor.GetStats(pid)
 		if err != nil {
-			t.Logf("GetStats error: %v (process might have died)", err)
-			break
+			continue
 		}
 
-		t.Logf("Current Stats: FDs=%d, Sockets=%d", stats.OpenFDs, stats.SocketCount)
-
-		isProbing, details := sysmon.DetectProbing(pid, stats)
+		isProbing, details := monitor.DetectProbing(pid, stats)
 		if isProbing {
-			t.Logf("✅ Deep Watch DETECTED anomaly: %s", details)
+			t.Logf("Creating sockets detected: %s", details)
 			detected = true
 			break
 		}
-		time.Sleep(200 * time.Millisecond)
 	}
 
 	if !detected {

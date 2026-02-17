@@ -1,12 +1,14 @@
 package sysmon
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
+
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 // SysStats holds system monitoring data
@@ -15,74 +17,91 @@ type SysStats struct {
 	SocketCount int
 }
 
-// GetStats returns current file descriptor and socket counts for the PID.
-// Uses lsof, so it might be slow. Use with timeout.
-func GetStats(pid int) (SysStats, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+// Monitor tracks process baselines safely
+type Monitor struct {
+	mu        sync.Mutex
+	baselines map[int]SysStats
+}
 
-	// lsof -p PID -n -P
-	// -n: no host names
-	// -P: no port names
-	// faster
-	cmd := exec.CommandContext(ctx, "lsof", "-p", strconv.Itoa(pid), "-n", "-P")
-	out, err := cmd.Output()
+// NewMonitor creates a thread-safe monitor
+func NewMonitor() *Monitor {
+	return &Monitor{
+		baselines: make(map[int]SysStats),
+	}
+}
+
+// GetStats returns current file descriptor and socket counts for the PID.
+// Uses gopsutil with a lightweight lsof fallback for better cross-platform support.
+func (m *Monitor) GetStats(pid int) (SysStats, error) {
+	proc, err := process.NewProcess(int32(pid))
 	if err != nil {
 		return SysStats{}, err
 	}
 
-	lines := strings.Split(string(out), "\n")
-	fdCount := 0
-	socketCount := 0
+	// 1. File Descriptors (Native)
+	fds, _ := proc.NumFDs()
 
-	// Header is line 0
-	if len(lines) > 1 {
-		for _, line := range lines[1:] {
-			if line == "" {
-				continue
-			}
-			fdCount++
-			if strings.Contains(line, "TCP") || strings.Contains(line, "UDP") || strings.Contains(line, "IPv4") || strings.Contains(line, "IPv6") {
-				socketCount++
+	// 2. Sockets (Try Native first)
+	socketCount := 0
+	conns, err := proc.Connections()
+	if err == nil && len(conns) > 0 {
+		socketCount = len(conns)
+	} else if runtime.GOOS == "darwin" || err != nil {
+		// FALLBACK for Mac or if gopsutil is restricted:
+		// Execute a surgical lsof to count sockets only.
+		// -i: focus on internet files (sockets)
+		// -n: no hostnames
+		// -P: no port names
+		out, err := exec.Command("lsof", "-a", "-i", "-p", strconv.Itoa(pid), "-n", "-P").Output()
+		if err == nil {
+			lines := strings.Split(string(out), "\n")
+			if len(lines) > 1 {
+				// Header is line 0
+				socketCount = len(lines) - 2 // -1 for header, -1 for trailing newline
 			}
 		}
 	}
 
 	return SysStats{
-		OpenFDs:     fdCount,
+		OpenFDs:     int(fds),
 		SocketCount: socketCount,
 	}, nil
 }
 
-// State for baselines
-var baselines = make(map[int]SysStats)
-
-func IsMonitoring(pid int) bool {
-	_, ok := baselines[pid]
+// IsMonitoring checks if we have a baseline for this PID
+func (m *Monitor) IsMonitoring(pid int) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.baselines[pid]
 	return ok
 }
 
-func DetectProbing(pid int, current SysStats) (bool, string) {
-	base, ok := baselines[pid]
+// DetectProbing checks for anomalies against baseline
+func (m *Monitor) DetectProbing(pid int, current SysStats) (bool, string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	base, ok := m.baselines[pid]
 	if !ok {
 		// First time seeing this PID, set baseline
-		baselines[pid] = current
+		m.baselines[pid] = current
+		// Also update baseline if current is "low"? No, just trust first.
+
+		// If startup is busy, we might have high baseline.
+		// Allow baseline to settle?
+		// For now simple logic: First observation is baseline.
 		return false, ""
 	}
 
-	// Update baseline slowly? Or keep initial?
-	// For "probing", we look for sudden spikes from initial state usually.
-	// Let's stick to initial baseline for now, or maybe update max observed?
-	// Ideally we want to detect "sudden" change.
-
-	// Logic: If sockets double AND > 10, or FDs double AND > 20
+	// Logic: If sockets double AND > 50
 	isProbing := false
 	var details strings.Builder
 
 	if current.SocketCount > 50 && current.SocketCount > base.SocketCount*2 {
 		isProbing = true
 		if base.SocketCount > 0 {
-			details.WriteString(fmt.Sprintf("Sockets: %d -> %d (+%d%%)", base.SocketCount, current.SocketCount, (current.SocketCount-base.SocketCount)*100/base.SocketCount))
+			percentage := (current.SocketCount - base.SocketCount) * 100 / base.SocketCount
+			details.WriteString(fmt.Sprintf("Sockets: %d -> %d (+%d%%)", base.SocketCount, current.SocketCount, percentage))
 		} else {
 			details.WriteString(fmt.Sprintf("Sockets: %d -> %d (New)", base.SocketCount, current.SocketCount))
 		}
@@ -94,6 +113,13 @@ func DetectProbing(pid int, current SysStats) (bool, string) {
 		}
 		isProbing = true
 		details.WriteString(fmt.Sprintf("FDs: %d -> %d", base.OpenFDs, current.OpenFDs))
+	}
+
+	// Auto-update baseline if current is LOWER (process became idle), so we catch spikes from idle?
+	// This helps with "settling".
+	if current.SocketCount < base.SocketCount {
+		base.SocketCount = current.SocketCount
+		m.baselines[pid] = base
 	}
 
 	return isProbing, details.String()

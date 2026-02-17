@@ -19,9 +19,9 @@ func TestCORSHeaders(t *testing.T) {
 
 	resp := w.Result()
 
-	origin := resp.Header.Get("Access-Control-Allow-Origin")
-	if origin != "*" {
-		t.Errorf("Expected Access-Control-Allow-Origin: *, got: %q", origin)
+	// Strict CORS: Expect specific origin, not *
+	if origin := resp.Header.Get("Access-Control-Allow-Origin"); origin != "http://localhost:3000" {
+		t.Errorf("Expected CORS header 'http://localhost:3000', got %q", origin)
 	}
 
 	methods := resp.Header.Get("Access-Control-Allow-Methods")

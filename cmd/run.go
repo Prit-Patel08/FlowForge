@@ -3,8 +3,8 @@ package cmd
 import (
 	"agent-sentry/internal/database"
 	"agent-sentry/internal/feedback"
-	"agent-sentry/internal/ipc"
 	"agent-sentry/internal/patterns"
+	"agent-sentry/internal/state"
 	"agent-sentry/internal/sysmon"
 	"agent-sentry/internal/tokens"
 	"bytes"
@@ -232,6 +232,9 @@ func runProcess(args []string) {
 	var watchdogEscalationLevel int = 0
 	var initialFDs int = 0
 
+	// Create Monitor instance
+	monitor := sysmon.NewMonitor()
+
 	// CPU Monitoring Goroutine
 	go func() {
 		ticker := time.NewTicker(time.Duration(pollInterval) * time.Millisecond)
@@ -265,19 +268,32 @@ func runProcess(args []string) {
 				isProbing := false
 				sysStatsStr := ""
 				if deepWatch {
-					stats, err := sysmon.GetStats(pid)
+					stats, err := monitor.GetStats(pid)
 					if err == nil {
+						// Check for probing (sudden spike)
+						// Use monitor's internal logic
+						probing, details := monitor.DetectProbing(pid, stats)
+						if probing {
+							isProbing = true
+							sysStatsStr = details
+						}
+
 						if initialFDs == 0 {
 							initialFDs = stats.OpenFDs
 						}
-						// Check for probing (sudden spike)
-						if stats.OpenFDs > initialFDs*2 && stats.OpenFDs > 50 {
-							isProbing = true
+
+						// Also keep local logic? No, monitor does it.
+						// But existing code check:
+						/*
+							if stats.OpenFDs > initialFDs*2 && stats.OpenFDs > 50 {
+								isProbing = true
+							}
+						*/
+						// Let's rely on Monitor's return
+						if !isProbing {
+							// Display stats if not probing for debug?
+							sysStatsStr = fmt.Sprintf("FDs: %d | Sockets: %d", stats.OpenFDs, stats.SocketCount)
 						}
-						if stats.SocketCount > 50 { // arbitrary socket threshold
-							isProbing = true
-						}
-						sysStatsStr = fmt.Sprintf("FDs: %d | Sockets: %d", stats.OpenFDs, stats.SocketCount)
 					}
 				}
 
@@ -287,13 +303,16 @@ func runProcess(args []string) {
 					fmt.Printf("\n[Sentry] 🚨 PROBING DETECTED: %s\n", sysStatsStr)
 				}
 
-				ipc.WriteLiveStats(ipc.LiveStats{
-					CPU:      cpuUsage,
-					LastLine: lastLine,
-					Status:   status,
-					Command:  fullCommand,
-					PID:      pid,
-				})
+				wd, _ := os.Getwd()
+				state.UpdateState(
+					cpuUsage,
+					lastLine,
+					status,
+					fullCommand,
+					args,
+					wd,
+					pid,
+				)
 
 				// Early blacklist check (even before high CPU)
 				if len(blacklist) > 0 {
@@ -374,13 +393,16 @@ func runProcess(args []string) {
 									database.LogIncident(fullCommand, modelName, alertType, cpuUsage, firstNormalized, time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 
 									// Broadcast
-									ipc.WriteLiveStats(ipc.LiveStats{
-										CPU:      cpuUsage,
-										LastLine: fmt.Sprintf("WATCHDOG: Loop detected (%s)", alertType),
-										Status:   alertType,
-										Command:  fullCommand,
-										PID:      pid,
-									})
+									wd, _ := os.Getwd()
+									state.UpdateState(
+										cpuUsage,
+										fmt.Sprintf("WATCHDOG: Loop detected (%s)", alertType),
+										alertType,
+										fullCommand,
+										args,
+										wd,
+										pid,
+									)
 								}
 							} else {
 								// NORMAL MODE: Kill the process
@@ -394,13 +416,16 @@ func runProcess(args []string) {
 								database.LogIncident(fullCommand, modelName, "LOOP_DETECTED", cpuUsage, firstNormalized, time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 
 								// Broadcast Stop
-								ipc.WriteLiveStats(ipc.LiveStats{
-									CPU:      cpuUsage,
-									LastLine: "LOOP DETECTED - Terminating...",
-									Status:   "LOOP_DETECTED",
-									Command:  fullCommand,
-									PID:      pid,
-								})
+								wd, _ := os.Getwd()
+								state.UpdateState(
+									cpuUsage,
+									"LOOP DETECTED - Terminating...",
+									"LOOP_DETECTED",
+									fullCommand,
+									args,
+									wd,
+									pid,
+								)
 
 								// Kill the process group
 								if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
@@ -479,7 +504,17 @@ func runProcess(args []string) {
 		finalCost := tokens.EstimateCost(finalTokens, modelName)
 		database.LogIncident(fullCommand, modelName, "USER_TERMINATED", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 
-		ipc.WriteLiveStats(ipc.LiveStats{Status: "STOPPED", Command: fullCommand, PID: pid})
+		// Write STOPPED state
+		wd, _ := os.Getwd()
+		state.UpdateState(
+			0,
+			"",
+			"STOPPED",
+			fullCommand,
+			args,
+			wd,
+			pid,
+		)
 
 		if err := syscall.Kill(-pid, sig.(syscall.Signal)); err != nil {
 			cmd.Process.Signal(sig)
@@ -489,8 +524,17 @@ func runProcess(args []string) {
 	err := cmd.Wait()
 	cancel()
 
-	// Final status update
-	ipc.WriteLiveStats(ipc.LiveStats{Status: "STOPPED", Command: fullCommand, PID: pid})
+	// Write STOPPED state on exit
+	wd, _ := os.Getwd()
+	state.UpdateState(
+		0,
+		"",
+		"STOPPED",
+		fullCommand,
+		args,
+		wd,
+		pid,
+	)
 
 	if err != nil {
 		fmt.Printf("DEBUG: Wait returned error: %v | UserTerminated: %v\n", err, userTerminated.Load())
