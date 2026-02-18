@@ -16,7 +16,7 @@ This allows the Next.js dashboard to query incident history.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Starting Dashboard API...")
-		fmt.Println("Frontend initialized in ./dashboard. Run 'npm run dev' there to start the UI.")
+		fmt.Println("Frontend initialized in ./dashboard. Run 'npm run build && npm run start -- -p 3001' for production UI.")
 		fmt.Println("API Status: http://localhost:8080/incidents")
 		fmt.Println("Health: http://localhost:8080/healthz | Metrics: http://localhost:8080/metrics")
 

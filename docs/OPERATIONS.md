@@ -5,6 +5,7 @@
 - Liveness: `GET /healthz`
 - Readiness: `GET /readyz`
 - Metrics: `GET /metrics` (Prometheus text format)
+- Timeline: `GET /timeline` (incident + audit + decision trace feed)
 
 ## Hardened Container Run
 
@@ -24,6 +25,19 @@ docker run --read-only \
 - Supervisor sends termination signals to subprocess process-groups.
 - On shutdown, process groups are first terminated gracefully then force-killed after timeout.
 - Incident records remain in `sentry.db` for post-mortem review.
+- Audit events include actor, action, reason, and timestamp for kill/restart operations.
+- Decision traces capture CPU score, entropy score, and confidence score for intervention transparency.
+
+## Demo Mode
+
+```bash
+./sentry demo
+```
+
+Expected summary:
+- `Runaway detected in X seconds`
+- `CPU peaked at Y%`
+- `Process recovered`
 
 ## Performance Validation
 

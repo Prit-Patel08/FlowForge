@@ -1,7 +1,8 @@
 import useSWR, { mutate } from 'swr';
-import { Incident } from '../types/incident';
+import { Incident, TimelineEvent } from '../types/incident';
 import IncidentTable from '../components/IncidentTable';
 import StatCard from '../components/StatCard';
+import TimelinePanel from '../components/TimelinePanel';
 import Head from 'next/head';
 import { ShieldAlert, Zap, Activity, ServerCrash, Terminal, Cpu, Skull } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -18,10 +19,15 @@ interface LiveStats {
 }
 
 export default function Dashboard() {
-  const { data: incidents, error, isLoading } = useSWR<Incident[]>(
+  const { data: incidents, error } = useSWR<Incident[]>(
     `${API_BASE}/incidents`,
     fetcher,
     { refreshInterval: 2000, fallbackData: [] }
+  );
+  const { data: timeline } = useSWR<TimelineEvent[]>(
+    `${API_BASE}/timeline`,
+    fetcher,
+    { refreshInterval: 3000, fallbackData: [] }
   );
 
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
@@ -50,9 +56,11 @@ export default function Dashboard() {
         // If the status changed from RUNNING to something else, refresh the table
         if (stats.status !== 'RUNNING' && stats.status !== 'STOPPED' && stats.command) {
           mutate(`${API_BASE}/incidents`);
+          mutate(`${API_BASE}/timeline`);
         }
         if (stats.status === 'WATCHDOG_ALERT') {
           mutate(`${API_BASE}/incidents`);
+          mutate(`${API_BASE}/timeline`);
         }
       } catch (e) {
         console.error("SSE Parse Error", e);
@@ -73,6 +81,11 @@ export default function Dashboard() {
   const totalIncidents = incidents?.length || 0;
   const loopIncidents = incidents?.filter(i => i.exit_reason === 'LOOP_DETECTED').length || 0;
   const totalSavings = incidents?.reduce((acc, curr) => acc + (curr.token_savings_estimate || 0), 0) || 0;
+  const latestActionedIncident = incidents?.find(i =>
+    i.exit_reason === 'LOOP_DETECTED' ||
+    i.exit_reason === 'WATCHDOG_ALERT' ||
+    i.exit_reason === 'SAFETY_LIMIT_EXCEEDED'
+  );
 
   return (
     <div className="min-h-screen bg-obsidian-900 text-gray-100 font-sans selection:bg-accent-500/30">
@@ -235,8 +248,36 @@ export default function Dashboard() {
             />
           </div>
 
+          {/* Trust explanation panel */}
+          {latestActionedIncident && (
+            <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h2 className="mb-3 text-lg font-semibold text-white">Why The Last Action Happened</h2>
+              <p className="mb-3 text-sm text-gray-300">
+                {latestActionedIncident.reason || "No explicit reason recorded for this action."}
+              </p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">CPU Score</p>
+                  <p className="font-mono text-xl text-red-300">{latestActionedIncident.cpu_score?.toFixed(1) || '0.0'}</p>
+                </div>
+                <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Entropy Score</p>
+                  <p className="font-mono text-xl text-amber-300">{latestActionedIncident.entropy_score?.toFixed(1) || '0.0'}</p>
+                </div>
+                <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Confidence</p>
+                  <p className="font-mono text-xl text-accent-300">{latestActionedIncident.confidence_score?.toFixed(1) || '0.0'}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-gray-500">
+                Confidence is derived from CPU pressure and repetition entropy, then used to explain why Agent-Sentry intervened.
+              </p>
+            </div>
+          )}
+
           {/* Main Content */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="space-y-4 xl:col-span-2">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
               <div className="flex gap-2">
@@ -257,6 +298,10 @@ export default function Dashboard() {
             )}
 
             <IncidentTable incidents={incidents || []} />
+            </div>
+            <div>
+              <TimelinePanel events={timeline || []} />
+            </div>
           </div>
         </main>
       </div>

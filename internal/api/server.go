@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -23,10 +24,9 @@ var (
 	apiMetrics  = metrics.NewStore()
 	apiLimiter  = newRateLimiter(120, 10, 10*time.Minute)
 	allowedCORS = []string{
-		"http://localhost:3000",
 		"http://localhost",
-		"http://127.0.0.1:3000",
-		"http://127.0.0.1",
+		"http://localhost:3000",
+		"http://localhost:3001",
 	}
 )
 
@@ -56,6 +56,7 @@ func corsMiddleware(w http.ResponseWriter, r *http.Request) {
 		origin = "http://localhost:3000"
 	}
 
+	w.Header().Set("Vary", "Origin")
 	w.Header().Set("Access-Control-Allow-Origin", origin)
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -133,6 +134,20 @@ func requireAuth(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func StartServer(port string) {
+	stop := Start(port)
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	<-sigCh
+
+	fmt.Println("\n[API] Shutting down gracefully...")
+	stop()
+	fmt.Println("[API] Server stopped")
+}
+
+// Start launches the API server and returns a stop function for graceful shutdown.
+func Start(port string) func() {
 	apiKey := os.Getenv("SENTRY_API_KEY")
 	if apiKey != "" {
 		fmt.Println("🔒 API Key authentication ENABLED for /process/* endpoints")
@@ -148,6 +163,7 @@ func StartServer(port string) {
 	mux.HandleFunc("/healthz", withSecurity(HandleHealth))
 	mux.HandleFunc("/readyz", withSecurity(HandleReady))
 	mux.HandleFunc("/metrics", withSecurity(HandleMetrics))
+	mux.HandleFunc("/timeline", withSecurity(HandleTimeline))
 
 	addr := resolveBindAddr(port)
 	server := &http.Server{
@@ -159,27 +175,20 @@ func StartServer(port string) {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(stop)
-
 	go func() {
 		fmt.Printf("API listening on %s\n", addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe error: %v", err)
+			log.Printf("ListenAndServe warning: %v", err)
 		}
 	}()
 
-	<-stop
-	fmt.Println("\n[API] Shutting down gracefully...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+	return func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(ctx); err != nil {
+			log.Printf("Server shutdown failed: %v", err)
+		}
 	}
-	fmt.Println("[API] Server stopped")
 }
 
 func resolveBindAddr(port string) string {
@@ -276,6 +285,35 @@ func HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprint(w, apiMetrics.Prometheus(active))
 }
 
+func HandleTimeline(w http.ResponseWriter, r *http.Request) {
+	corsMiddleware(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if database.GetDB() == nil {
+		if err := database.InitDB(); err != nil {
+			http.Error(w, "Database not initialized", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	events, err := database.GetTimeline(100)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(events); err != nil {
+		http.Error(w, fmt.Sprintf("Encode error: %v", err), http.StatusInternalServerError)
+	}
+}
+
 // HandleIncidents is exported for testing.
 func HandleIncidents(w http.ResponseWriter, r *http.Request) {
 	corsMiddleware(w, r)
@@ -339,6 +377,11 @@ func HandleProcessKill(w http.ResponseWriter, r *http.Request) {
 
 	state.UpdateState(0, "", "STOPPED", stats.Command, stats.Args, stats.Dir, stats.PID)
 	apiMetrics.IncProcessKill()
+	reason := mutationReason(r)
+	if reason == "" {
+		reason = "manual API kill request"
+	}
+	_ = database.LogAuditEvent(actorFromRequest(r), "KILL", reason, "api", stats.PID, stats.Command)
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"status":"killed","pid":%d}`, stats.PID)
@@ -385,6 +428,44 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	apiMetrics.IncProcessRestart()
+	reason := mutationReason(r)
+	if reason == "" {
+		reason = "manual API restart request"
+	}
+	_ = database.LogAuditEvent(actorFromRequest(r), "RESTART", reason, "api", stats.PID, stats.Command)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"status":"restarting","command":"%s"}`, stats.Command)
+}
+
+func actorFromRequest(r *http.Request) string {
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		token = strings.TrimSpace(token)
+		if len(token) > 6 {
+			token = token[:6]
+		}
+		return "token:" + token
+	}
+	return "anonymous"
+}
+
+func mutationReason(r *http.Request) string {
+	if r.Body == nil {
+		return ""
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2048))
+	if err != nil || len(body) == 0 {
+		return ""
+	}
+	// Restore an empty body for handlers that might read again in the future.
+	r.Body = io.NopCloser(strings.NewReader(string(body)))
+	type reqBody struct {
+		Reason string `json:"reason"`
+	}
+	var payload reqBody
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.Reason)
 }

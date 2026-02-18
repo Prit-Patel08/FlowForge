@@ -1,7 +1,7 @@
 import { Incident } from '../types/incident';
 import { format } from 'date-fns';
 import { AlertCircle, CheckCircle, Terminal, ChevronDown, ChevronUp, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 interface IncidentTableProps {
     incidents: Incident[];
@@ -43,7 +43,7 @@ export default function IncidentTable({ incidents }: IncidentTableProps) {
                     </thead>
                     <tbody className="divide-y divide-gray-800 bg-obsidian-800">
                         {incidents.map((incident) => (
-                            <>
+                            <Fragment key={incident.id}>
                                 <tr key={incident.id} className="hover:bg-gray-800/50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span
@@ -149,13 +149,40 @@ export default function IncidentTable({ incidents }: IncidentTableProps) {
                                                             <span>Savings: <strong className="text-green-400">${incident.token_savings_estimate.toFixed(4)}</strong></span>
                                                             <span>Peak CPU: <strong className="text-gray-300">{incident.max_cpu.toFixed(1)}%</strong></span>
                                                         </div>
+                                                        {(incident.reason || incident.confidence_score > 0) && (
+                                                            <div className="mt-4 rounded-lg border border-gray-700 bg-gray-900/50 p-3">
+                                                                <h5 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                                                    Reason For Action
+                                                                </h5>
+                                                                <p className="mb-3 text-xs text-gray-300">
+                                                                    {incident.reason || "No explicit reason recorded."}
+                                                                </p>
+                                                                <div className="grid grid-cols-3 gap-3 text-xs">
+                                                                    <div>
+                                                                        <p className="text-gray-500">CPU Score</p>
+                                                                        <p className="font-mono text-red-300">{incident.cpu_score?.toFixed(1) || "0.0"}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-gray-500">Entropy Score</p>
+                                                                        <p className="font-mono text-amber-300">{incident.entropy_score?.toFixed(1) || "0.0"}</p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-gray-500">Confidence</p>
+                                                                        <p className="font-mono text-accent-300">{incident.confidence_score?.toFixed(1) || "0.0"}</p>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="mt-2 text-[11px] text-gray-500">
+                                                                    Confidence combines CPU pressure and repetition entropy to explain why action was taken.
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
                                         </td>
                                     </tr>
                                 )}
-                            </>
+                            </Fragment>
                         ))}
                         {incidents.length === 0 && (
                             <tr>

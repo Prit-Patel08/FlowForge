@@ -42,3 +42,7 @@ The build uses webpack (`next build --webpack`) to avoid Turbopack sandbox proce
 - API base URL is configured by `NEXT_PUBLIC_SENTRY_API_BASE`.
 - API key is entered in the UI and stored only in browser session storage.
 - Security headers and a CSP are defined in `next.config.ts`.
+- Dashboard now includes:
+  - Incident timeline (`/timeline`)
+  - Reason-for-action panel
+  - Confidence breakdown (CPU score, entropy score, confidence score)

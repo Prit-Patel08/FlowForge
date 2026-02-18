@@ -8,14 +8,18 @@ import (
 
 // ProcessState holds the runtime state of the supervised process
 type ProcessState struct {
-	CPU       float64  `json:"cpu"`
-	LastLine  string   `json:"last_line"`
-	Status    string   `json:"status"` // RUNNING, STOPPED, LOOP_DETECTED, WATCHDOG_ALERT
-	Command   string   `json:"command"`
-	Args      []string `json:"args"` // Secure: Exact arguments for restart
-	Dir       string   `json:"dir"`  // Working directory
-	PID       int      `json:"pid"`
-	Timestamp int64    `json:"timestamp"`
+	CPU        float64  `json:"cpu"`
+	LastLine   string   `json:"last_line"`
+	Status     string   `json:"status"` // RUNNING, STOPPED, LOOP_DETECTED, WATCHDOG_ALERT
+	Command    string   `json:"command"`
+	Args       []string `json:"args"` // Secure: Exact arguments for restart
+	Dir        string   `json:"dir"`  // Working directory
+	PID        int      `json:"pid"`
+	Reason     string   `json:"reason"`
+	CPUScore   float64  `json:"cpu_score"`
+	Entropy    float64  `json:"entropy_score"`
+	Confidence float64  `json:"confidence_score"`
+	Timestamp  int64    `json:"timestamp"`
 }
 
 var (
@@ -40,6 +44,17 @@ func UpdateState(cpu float64, lastLine, status, command string, args []string, d
 		PID:       pid,
 		Timestamp: time.Now().UnixMilli(),
 	}
+}
+
+// UpdateDecision updates decision diagnostics while preserving current process identity.
+func UpdateDecision(reason string, cpuScore, entropy, confidence float64) {
+	mu.Lock()
+	defer mu.Unlock()
+	currentState.Reason = reason
+	currentState.CPUScore = cpuScore
+	currentState.Entropy = entropy
+	currentState.Confidence = confidence
+	currentState.Timestamp = time.Now().UnixMilli()
 }
 
 // GetState safely returns a copy of the current state

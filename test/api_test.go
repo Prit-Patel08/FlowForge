@@ -94,8 +94,8 @@ func TestKillEndpointAuthPasses(t *testing.T) {
 	}
 }
 
-// TestKillEndpointNoKeySetIsOpen verifies that without SENTRY_API_KEY, endpoints are open.
-func TestKillEndpointNoKeySetIsOpen(t *testing.T) {
+// TestKillEndpointNoKeySetIsBlocked verifies that without SENTRY_API_KEY, mutating endpoints are blocked.
+func TestKillEndpointNoKeySetIsBlocked(t *testing.T) {
 	os.Unsetenv("SENTRY_API_KEY")
 
 	req := httptest.NewRequest("POST", "/process/kill", nil)
@@ -116,6 +116,18 @@ func TestHealthEndpoint(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	api.HandleHealth(w, req)
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestTimelineEndpoint(t *testing.T) {
+	req := httptest.NewRequest("GET", "/timeline", nil)
+	w := httptest.NewRecorder()
+
+	api.HandleTimeline(w, req)
 	resp := w.Result()
 
 	if resp.StatusCode != http.StatusOK {

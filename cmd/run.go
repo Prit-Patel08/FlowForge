@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"agent-sentry/internal/api"
 	"agent-sentry/internal/database"
 	"agent-sentry/internal/feedback"
 	"agent-sentry/internal/patterns"
@@ -205,11 +206,50 @@ func terminateProcessGroupGracefully(pid int, timeout time.Duration) {
 	_ = syscall.Kill(pid, syscall.SIGKILL)
 }
 
+func calculateDecisionScores(cpuUsage, threshold float64, lines []string) (cpuScore, entropyScore, confidence float64) {
+	if threshold <= 0 {
+		threshold = 100
+	}
+	cpuScore = (cpuUsage / threshold) * 100.0
+	if cpuScore > 100 {
+		cpuScore = 100
+	}
+	if cpuScore < 0 {
+		cpuScore = 0
+	}
+
+	if len(lines) == 0 {
+		entropyScore = 100
+	} else {
+		uniq := make(map[string]struct{}, len(lines))
+		for _, line := range lines {
+			uniq[NormalizeLog(line)] = struct{}{}
+		}
+		entropyScore = (float64(len(uniq)) / float64(len(lines))) * 100.0
+	}
+
+	// Confidence increases with CPU pressure and repetitive output (low entropy).
+	confidence = 0.65*cpuScore + 0.35*(100.0-entropyScore)
+	if confidence > 100 {
+		confidence = 100
+	}
+	if confidence < 0 {
+		confidence = 0
+	}
+
+	return cpuScore, entropyScore, confidence
+}
+
 func runProcess(args []string) {
 	if err := database.InitDB(); err != nil {
 		fmt.Printf("Warning: Failed to initialize database: %v\n", err)
 	}
 	defer database.CloseDB()
+
+	// Start API server in background
+	fmt.Println("[Sentry] Starting API server on port 8080...")
+	stopAPI := api.Start("8080")
+	defer stopAPI()
 
 	// Pull known bad patterns on startup
 	blacklist := patterns.PullPatterns()
@@ -278,6 +318,7 @@ func runProcess(args []string) {
 
 	var maxObservedCpu float64 = 0.0
 	var lastWatchdogAlert time.Time
+	var lastDecisionTrace time.Time
 	var watchdogEscalationLevel int = 0
 	var initialFDs int = 0
 	var sentryTerminated atomic.Bool
@@ -396,14 +437,26 @@ func runProcess(args []string) {
 							currentNormalized := NormalizeLog(line)
 							similarity := strutil.Similarity(firstNormalized, currentNormalized, lev)
 
-							// DEBUG
-							fmt.Printf("DEBUG: Sim=%.2f\nBase: %s\nCurr: %s\n", similarity, firstNormalized, currentNormalized)
-
 							if similarity < 0.9 { // < 90% similarity means different
 								isStagnant = false
 								break
 							}
 						}
+
+						cpuScore, entropyScore, confidenceScore := calculateDecisionScores(cpuUsage, maxCpu, lastLines)
+						reason := fmt.Sprintf(
+							"CPU %.1f%% exceeded threshold %.1f%% and output entropy %.1f%% indicates repetition",
+							cpuUsage,
+							maxCpu,
+							entropyScore,
+						)
+
+						// Keep decision logs useful without flooding.
+						if time.Since(lastDecisionTrace) > 5*time.Second || isStagnant {
+							_ = database.LogDecisionTrace(fullCommand, pid, cpuScore, entropyScore, confidenceScore, "HIGH_CPU_ANALYSIS", reason)
+							lastDecisionTrace = time.Now()
+						}
+						state.UpdateDecision(reason, cpuScore, entropyScore, confidenceScore)
 
 						if isStagnant {
 							// Sync pattern to blacklist
@@ -441,12 +494,31 @@ func runProcess(args []string) {
 
 									fmt.Printf("\n🔍 WATCHDOG [%s]: Loop detected. Escalation Level %d.\n", alertType, watchdogEscalationLevel)
 									fmt.Println("Pattern (Normalized):", firstNormalized)
+									fmt.Printf("[Sentry] Decision: CPU=%.1f Entropy=%.1f Confidence=%.1f\n", cpuScore, entropyScore, confidenceScore)
 
 									finalTokens := int(observer.TotalTokens())
 									finalCost := tokens.EstimateCost(finalTokens, modelName)
 
 									// Log to DB
-									database.LogIncident(fullCommand, modelName, alertType, cpuUsage, firstNormalized, time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+									_ = database.LogIncidentWithDecision(
+										fullCommand,
+										modelName,
+										alertType,
+										cpuUsage,
+										firstNormalized,
+										time.Since(startTime).Seconds(),
+										finalTokens,
+										finalCost,
+										agentID,
+										agentVersion,
+										reason,
+										cpuScore,
+										entropyScore,
+										confidenceScore,
+										"watchdog",
+										0,
+									)
+									_ = database.LogAuditEvent("agent-sentry", "WATCHDOG_ALERT", reason, "monitor", pid, fullCommand)
 
 									// Broadcast
 									wd, _ := os.Getwd()
@@ -464,12 +536,31 @@ func runProcess(args []string) {
 								// NORMAL MODE: Kill the process
 								fmt.Printf("\n🚨 LOOP DETECTED: Semantic Stagnation (CPU: %.2f%% > %.2f%%)\n", cpuUsage, maxCpu)
 								fmt.Println("Pattern (Normalized):", firstNormalized)
+								fmt.Printf("[Sentry] Decision: CPU=%.1f Entropy=%.1f Confidence=%.1f\n", cpuScore, entropyScore, confidenceScore)
 
 								finalTokens := int(observer.TotalTokens())
 								finalCost := tokens.EstimateCost(finalTokens, modelName)
 
 								// Log to DB
-								database.LogIncident(fullCommand, modelName, "LOOP_DETECTED", cpuUsage, firstNormalized, time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+								_ = database.LogIncidentWithDecision(
+									fullCommand,
+									modelName,
+									"LOOP_DETECTED",
+									cpuUsage,
+									firstNormalized,
+									time.Since(startTime).Seconds(),
+									finalTokens,
+									finalCost,
+									agentID,
+									agentVersion,
+									reason,
+									cpuScore,
+									entropyScore,
+									confidenceScore,
+									"terminated",
+									0,
+								)
+								_ = database.LogAuditEvent("agent-sentry", "AUTO_KILL", reason, "monitor", pid, fullCommand)
 
 								// Broadcast Stop
 								wd, _ := os.Getwd()
@@ -486,7 +577,7 @@ func runProcess(args []string) {
 								sentryTerminated.Store(true)
 								terminateProcessGroupGracefully(pid, 2*time.Second)
 								cancel()
-								fmt.Println("Synthetic Error: Loop detected. Terminating process.")
+								fmt.Println("[Sentry] Process terminated after high-confidence runaway detection.")
 								return
 							}
 						}
@@ -555,7 +646,8 @@ func runProcess(args []string) {
 		userTerminated.Store(true)
 		finalTokens := int(observer.TotalTokens())
 		finalCost := tokens.EstimateCost(finalTokens, modelName)
-		database.LogIncident(fullCommand, modelName, "USER_TERMINATED", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+		_ = database.LogIncident(fullCommand, modelName, "USER_TERMINATED", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+		_ = database.LogAuditEvent("operator", "TERMINATE", "received OS signal", "cli", pid, fullCommand)
 
 		// Write STOPPED state
 		wd, _ := os.Getwd()
@@ -589,14 +681,13 @@ func runProcess(args []string) {
 	)
 
 	if err != nil {
-		fmt.Printf("DEBUG: Wait returned error: %v | UserTerminated: %v\n", err, userTerminated.Load())
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			isSignal := strings.Contains(exitErr.String(), "signal: killed") || strings.Contains(exitErr.String(), "signal: interrupt")
 
 			if !userTerminated.Load() && !isSignal {
 				finalTokens := int(observer.TotalTokens())
 				finalCost := tokens.EstimateCost(finalTokens, modelName)
-				database.LogIncident(fullCommand, modelName, "COMMAND_FAILURE", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+				_ = database.LogIncident(fullCommand, modelName, "COMMAND_FAILURE", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 			}
 			if sentryTerminated.Load() {
 				os.Exit(1)
@@ -611,15 +702,13 @@ func runProcess(args []string) {
 			if !userTerminated.Load() {
 				finalTokens := int(observer.TotalTokens())
 				finalCost := tokens.EstimateCost(finalTokens, modelName)
-				database.LogIncident(fullCommand, modelName, "COMMAND_FAILURE", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
+				_ = database.LogIncident(fullCommand, modelName, "COMMAND_FAILURE", maxObservedCpu, "N/A", time.Since(startTime).Seconds(), finalTokens, finalCost, agentID, agentVersion)
 			}
 			os.Exit(1)
 		}
-	} else {
-		fmt.Printf("DEBUG: Wait success | UserTerminated: %v\n", userTerminated.Load())
-		if sentryTerminated.Load() {
-			os.Exit(1)
-		}
-		// Success
+	}
+
+	if sentryTerminated.Load() {
+		os.Exit(1)
 	}
 }

@@ -11,6 +11,7 @@ sentry.key
 
 # Live State
 .sentry_live
+.sentry.env
 
 # Logs and Temp
 *.log

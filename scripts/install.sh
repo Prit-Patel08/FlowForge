@@ -1,134 +1,99 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
-# ─────────────────────────────────────────────
-# Agent-Sentry — Universal Install Script
-# ─────────────────────────────────────────────
+API_PORT="${API_PORT:-8080}"
+DASHBOARD_PORT="${DASHBOARD_PORT:-3001}"
+ENV_FILE=".sentry.env"
+OPEN_BROWSER=0
+RUN_DEMO="${RUN_DEMO:-1}"
 
-BOLD='\033[1m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+for arg in "$@"; do
+  case "$arg" in
+    --open-browser) OPEN_BROWSER=1 ;;
+    --no-demo) RUN_DEMO=0 ;;
+  esac
+done
 
-info()    { echo -e "${CYAN}[info]${NC}  $1"; }
-success() { echo -e "${GREEN}[  ✓ ]${NC}  $1"; }
-warn()    { echo -e "${YELLOW}[warn]${NC}  $1"; }
-fail()    { echo -e "${RED}[fail]${NC}  $1"; exit 1; }
+echo "== Agent-Sentry production setup =="
 
-echo -e "${BOLD}"
-echo "  ╔══════════════════════════════════════╗"
-echo "  ║   🛡️  Agent-Sentry — Installer       ║"
-echo "  ╚══════════════════════════════════════╝"
-echo -e "${NC}"
+command -v go >/dev/null 2>&1 || { echo "Go is required"; exit 1; }
+command -v npm >/dev/null 2>&1 || { echo "npm is required"; exit 1; }
 
-# ── Detect OS ────────────────────────────────
-OS="$(uname -s)"
-case "$OS" in
-  Darwin) info "Detected macOS" ;;
-  Linux)  info "Detected Linux" ;;
-  *)      fail "Unsupported OS: $OS. Agent-Sentry supports macOS and Linux." ;;
-esac
-
-ARCH="$(uname -m)"
-info "Architecture: $ARCH"
-
-# ── Check Go ─────────────────────────────────
-if command -v go &>/dev/null; then
-  GO_VERSION=$(go version | awk '{print $3}')
-  success "Go found: $GO_VERSION"
-else
-  fail "Go is not installed. Install it from https://go.dev/dl/ and try again."
-fi
-
-# ── Check Node/npm ───────────────────────────
-if command -v node &>/dev/null; then
-  NODE_VERSION=$(node --version)
-  success "Node.js found: $NODE_VERSION"
-else
-  warn "Node.js not found. Dashboard will not be available."
-  warn "Install Node.js from https://nodejs.org/ for dashboard support."
-fi
-
-if command -v npm &>/dev/null; then
-  NPM_VERSION=$(npm --version)
-  success "npm found: v$NPM_VERSION"
-else
-  warn "npm not found. Dashboard dependencies cannot be installed."
-fi
-
-# ── Build Go Binary ─────────────────────────
-echo ""
-info "Building Agent-Sentry binary..."
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-
-cd "$PROJECT_DIR"
-
-if go build -o sentry .; then
-  success "Binary built: ./sentry"
-else
-  fail "Go build failed. Check the errors above."
-fi
-
-# ── Install Dashboard Dependencies ──────────
-if [ -d "dashboard" ] && command -v npm &>/dev/null; then
-  echo ""
-  info "Installing dashboard dependencies..."
-  cd dashboard
-  if npm install --silent 2>/dev/null; then
-    success "Dashboard dependencies installed"
+random_hex_32() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
   else
-    warn "Dashboard dependency install had issues (non-fatal)"
+    od -An -N32 -tx1 /dev/urandom | tr -d ' \n'
   fi
-  cd "$PROJECT_DIR"
-else
-  warn "Skipping dashboard setup (missing ./dashboard or npm)"
-fi
+}
 
-# ── Create Default Config ───────────────────
-if [ ! -f "sentry.yaml" ]; then
-  echo ""
-  info "Creating default sentry.yaml..."
-  cat > sentry.yaml << 'EOF'
-# Agent-Sentry Configuration
-max-cpu: 90.0
-profile: standard
-
-profiles:
-  light:
-    max-cpu: 95.0
-    poll-interval: 1000
-    log-window: 5
-
-  standard:
-    max-cpu: 90.0
-    poll-interval: 500
-    log-window: 10
-
-  heavy:
-    max-cpu: 80.0
-    poll-interval: 250
-    log-window: 20
+if [[ ! -f "$ENV_FILE" ]]; then
+  API_KEY="$(random_hex_32)"
+  MASTER_KEY="$(random_hex_32)"
+  cat > "$ENV_FILE" <<EOF
+SENTRY_API_KEY=$API_KEY
+SENTRY_MASTER_KEY=$MASTER_KEY
+SENTRY_ALLOWED_ORIGIN=http://localhost:${DASHBOARD_PORT}
+SENTRY_BIND_HOST=127.0.0.1
+NEXT_PUBLIC_SENTRY_API_BASE=http://localhost:${API_PORT}
 EOF
-  success "Default sentry.yaml created"
+  chmod 600 "$ENV_FILE"
+  echo "Generated secure runtime secrets."
+  echo "API key (shown once): $API_KEY"
 else
-  success "sentry.yaml already exists — skipping"
+  echo "Using existing $ENV_FILE"
 fi
 
-# ── Done ────────────────────────────────────
-echo ""
-echo -e "${BOLD}${GREEN}  ✅ Agent-Sentry installed successfully!${NC}"
-echo ""
-echo "  Quick Start:"
-echo "    ./sentry run -- python3 script.py    # Monitor a process"
-echo "    ./sentry run --no-kill -- python3 s.py  # Watchdog mode"
-echo "    ./sentry dashboard                   # Start the API"
-echo "    ./sentry report --id 1               # Generate report"
-echo "    ./sentry docs                        # Generate docs"
-echo ""
-echo "  Set SENTRY_API_KEY for secured endpoints:"
-echo "    export SENTRY_API_KEY=your-secret-key"
-echo ""
+set -a
+source "$ENV_FILE"
+set +a
+
+echo "Building backend..."
+go mod download
+go build -o sentry .
+
+echo "Building dashboard (production)..."
+pushd dashboard >/dev/null
+npm ci
+npm run build
+popd >/dev/null
+
+if command -v lsof >/dev/null 2>&1; then
+  lsof -t -i :"${API_PORT}" -i :"${DASHBOARD_PORT}" | xargs kill -9 2>/dev/null || true
+fi
+
+if [[ "$RUN_DEMO" == "1" ]]; then
+  echo "Running 60-second value demo..."
+  ./sentry demo || true
+fi
+
+cleanup() {
+  pkill -f "./sentry dashboard" 2>/dev/null || true
+  pkill -f "next start -p ${DASHBOARD_PORT}" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+echo "Starting API..."
+./sentry dashboard &
+sleep 1
+
+echo "Starting dashboard server..."
+(
+  cd dashboard
+  NEXT_PUBLIC_SENTRY_API_BASE="http://localhost:${API_PORT}" npm run start -- -p "${DASHBOARD_PORT}"
+) &
+
+echo "API:       http://localhost:${API_PORT}/healthz"
+echo "Dashboard: http://localhost:${DASHBOARD_PORT}"
+echo "Metrics:   http://localhost:${API_PORT}/metrics"
+
+if [[ "$OPEN_BROWSER" == "1" ]]; then
+  if command -v open >/dev/null 2>&1; then
+    open "http://localhost:${DASHBOARD_PORT}" || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "http://localhost:${DASHBOARD_PORT}" || true
+  fi
+fi
+
+wait
