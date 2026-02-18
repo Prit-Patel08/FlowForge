@@ -64,7 +64,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 
 	// Local flags
-	runCmd.Flags().Float64Var(&maxCpu, "max-cpu", 90.0, "Maximum CPU usage threshold (Default: 90.0)")
+	runCmd.Flags().Float64Var(&maxCpu, "max-cpu", 60.0, "Maximum CPU usage threshold (Default: 60.0)")
 	runCmd.Flags().StringVar(&modelName, "model", "gpt-4", "Model name for ROI calculation")
 	runCmd.Flags().BoolVar(&noKill, "no-kill", false, "Watchdog mode: log & alert on loops but don't kill the process")
 	runCmd.Flags().StringVar(&injectFeedback, "inject-feedback", "", "Path to feedback file to inject into subprocess stdin")

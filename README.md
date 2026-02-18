@@ -6,7 +6,7 @@ It supervises a command, detects runaway behavior, intervenes safely, and record
 ## 60-Second Quickstart
 
 ```bash
-cd /Users/pritpatel/Desktop/flowforge
+cd /Users/pritpatel/Desktop/agent-sentry
 chmod +x scripts/install.sh
 ./scripts/install.sh --open-browser
 ```
@@ -39,6 +39,13 @@ Start API only:
 
 ```bash
 ./flowforge dashboard
+```
+
+Use baseline profile defaults:
+
+```bash
+cp flowforge.yaml.example flowforge.yaml
+./flowforge run --profile standard -- python3 your_script.py
 ```
 
 ## How It Works (Mental Model)
@@ -147,10 +154,18 @@ npm run build
 - run recovery drill: `./scripts/recovery_drill.sh`
 - run release checkpoint: `./scripts/release_checkpoint.sh`
 
+## Week 2 Ops
+
+- baseline decision: `docs/WEEK2_BASELINE.md` (`max-cpu: 60.0`)
+- run real-workload pilot: `./scripts/week2_real_pilot.sh scripts/pilot_commands.example.txt`
+- replace sample commands with your own workload commands before final run
+- run release checkpoint again before tagging
+
 ## Docs
 
 - operations: `docs/OPERATIONS.md`
 - threat model: `docs/THREAT_MODEL.md`
 - runbook: `docs/RUNBOOK.md`
 - week 1 checklist: `docs/WEEK1_PILOT.md`
+- week 2 baseline: `docs/WEEK2_BASELINE.md`
 - security policy: `SECURITY.md`

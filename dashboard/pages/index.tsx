@@ -102,6 +102,19 @@ export default function Dashboard() {
     i.exit_reason === 'WATCHDOG_ALERT' ||
     i.exit_reason === 'SAFETY_LIMIT_EXCEEDED'
   );
+  const confidence = latestActionedIncident?.confidence_score ?? 0;
+  const confidenceBand =
+    confidence >= 85 ? 'High certainty'
+    : confidence >= 65 ? 'Medium certainty'
+    : 'Low certainty';
+  const actionSummary =
+    latestActionedIncident?.exit_reason === 'LOOP_DETECTED'
+      ? 'FlowForge stopped the process to prevent runaway cost.'
+      : latestActionedIncident?.exit_reason === 'WATCHDOG_ALERT'
+        ? 'FlowForge flagged risky behavior and kept the process running.'
+        : latestActionedIncident?.exit_reason === 'SAFETY_LIMIT_EXCEEDED'
+          ? 'FlowForge enforced a safety limit and stopped the process.'
+          : 'FlowForge recorded an action for this process.';
 
   return (
     <div className="min-h-screen bg-obsidian-900 text-gray-100 font-sans selection:bg-accent-500/30">
@@ -273,26 +286,27 @@ export default function Dashboard() {
           {/* Trust explanation panel */}
           {latestActionedIncident && (
             <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-              <h2 className="mb-3 text-lg font-semibold text-white">Why The Last Action Happened</h2>
+              <h2 className="mb-2 text-lg font-semibold text-white">Why FlowForge Took Action</h2>
+              <p className="mb-2 text-sm text-gray-200">{actionSummary}</p>
               <p className="mb-3 text-sm text-gray-300">
-                {latestActionedIncident.reason || "No explicit reason recorded for this action."}
+                {latestActionedIncident.reason || "No detailed reason text was recorded for this event."}
               </p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">CPU Score</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">CPU Pressure</p>
                   <p className="font-mono text-xl text-red-300">{latestActionedIncident.cpu_score?.toFixed(1) || '0.0'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Entropy Score</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Pattern Repetition</p>
                   <p className="font-mono text-xl text-amber-300">{latestActionedIncident.entropy_score?.toFixed(1) || '0.0'}</p>
                 </div>
                 <div className="rounded-lg border border-gray-700 bg-black/20 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Confidence</p>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Action Confidence</p>
                   <p className="font-mono text-xl text-accent-300">{latestActionedIncident.confidence_score?.toFixed(1) || '0.0'}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs text-gray-500">
-                Confidence is derived from CPU pressure and repetition entropy, then used to explain why FlowForge intervened.
+                {confidenceBand}: confidence is computed from CPU pressure + repetition score to explain this action.
               </p>
             </div>
           )}

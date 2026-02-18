@@ -1,0 +1,5 @@
+# name|max_cpu|expected|command
+# Replace commands with your real jobs.
+healthy-real|75|no intervention|python3 demo/pilot/healthy_worker.py
+bursty-real|70|no intervention|python3 demo/pilot/bursty_worker.py
+runaway-real|60|loop detection + termination|python3 demo/pilot/runaway_worker.py

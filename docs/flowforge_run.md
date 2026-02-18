@@ -21,7 +21,7 @@ flowforge run -- <command> [args...] [flags]
       --deep                     Enable Deep Watch (syscall monitoring)
   -h, --help                     help for run
       --inject-feedback string   Path to feedback file to inject into subprocess stdin
-      --max-cpu float            Maximum CPU usage threshold (Default: 90.0) (default 90)
+      --max-cpu float            Maximum CPU usage threshold (Default: 60.0) (default 60)
       --model string             Model name for ROI calculation (default "gpt-4")
       --no-kill                  Watchdog mode: log & alert on loops but don't kill the process
 ```

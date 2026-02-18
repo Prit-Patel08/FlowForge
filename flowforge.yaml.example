@@ -1,0 +1,18 @@
+# FlowForge baseline profile
+profile: standard
+
+profiles:
+  light:
+    max-cpu: 75.0
+    poll-interval: 800
+    log-window: 8
+
+  standard:
+    max-cpu: 60.0
+    poll-interval: 500
+    log-window: 10
+
+  heavy:
+    max-cpu: 45.0
+    poll-interval: 250
+    log-window: 20

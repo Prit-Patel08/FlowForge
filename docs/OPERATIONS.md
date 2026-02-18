@@ -61,3 +61,23 @@ go test ./... -race -v
 ./scripts/recovery_drill.sh
 ./scripts/release_checkpoint.sh
 ```
+
+## Week 2 Real-Workload Pilot
+
+1. Copy and edit command list:
+
+```bash
+cp scripts/pilot_commands.example.txt pilot_commands.txt
+```
+
+2. Replace commands with your real workloads.
+
+3. Run pilot:
+
+```bash
+./scripts/week2_real_pilot.sh pilot_commands.txt
+```
+
+4. Review:
+- `pilot_artifacts/.../summary.md`
+- `pilot_artifacts/.../incidents_snapshot.txt`

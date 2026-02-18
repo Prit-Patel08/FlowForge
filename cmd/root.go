@@ -108,7 +108,7 @@ func resolveProfile() {
 		}
 	} else {
 		// Fallback defaults if no profiles section exists
-		viper.SetDefault("max-cpu", 90.0)
+		viper.SetDefault("max-cpu", 60.0)
 		viper.SetDefault("poll-interval", 500)
 		viper.SetDefault("log-window", 10)
 	}
