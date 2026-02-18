@@ -3,25 +3,23 @@ package cmd
 import (
 	"agent-sentry/internal/database"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/process"
 	"github.com/spf13/cobra"
 )
 
 var demoMaxCPU float64
-var demoPollMs int
 
 var demoCmd = &cobra.Command{
 	Use:   "demo",
 	Short: "Run a 60-second product demo with automatic runaway recovery",
-	Long: `Runs a deterministic demonstration:
-1) launches a runaway process,
-2) detects it quickly,
+	Long: `Runs a deterministic demonstration using the same supervision pipeline as 'run':
+1) launches a runaway process under sentry run,
+2) detects runaway behavior,
 3) terminates it automatically,
 4) restarts a healthy worker,
 5) prints an outcome summary.`,
@@ -33,128 +31,120 @@ var demoCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(demoCmd)
 	demoCmd.Flags().Float64Var(&demoMaxCPU, "max-cpu", 30.0, "CPU threshold used to trigger runaway handling")
-	demoCmd.Flags().IntVar(&demoPollMs, "poll-ms", 250, "monitor polling interval in milliseconds")
 }
 
 func runDemo() error {
+	fmt.Println("[Demo] Starting runaway worker through 'sentry run'...")
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve executable: %w", err)
+	}
+
+	startTime := time.Now()
+	runArgs := []string{
+		"run",
+		"--max-cpu", fmt.Sprintf("%.1f", demoMaxCPU),
+		"--",
+		"python3", "demo/runaway.py",
+	}
+
+	supervised := exec.Command(exePath, runArgs...)
+	supervised.Stdout = os.Stdout
+	supervised.Stderr = os.Stderr
+
+	if err := supervised.Run(); err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			fmt.Printf("[Demo] Supervision exited with code %d (expected after intervention).\n", exitErr.ExitCode())
+		} else {
+			return fmt.Errorf("run supervised demo: %w", err)
+		}
+	}
+
 	if err := database.InitDB(); err != nil {
 		return fmt.Errorf("init db: %w", err)
 	}
 	defer database.CloseDB()
 
-	fmt.Println("[Demo] Starting a broken worker...")
-
-	startTime := time.Now()
-	broken := exec.Command("python3", "demo/runaway.py")
-	broken.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	broken.Stdout = io.MultiWriter(os.Stdout)
-	broken.Stderr = io.MultiWriter(os.Stderr)
-	if err := broken.Start(); err != nil {
-		return fmt.Errorf("start broken worker: %w", err)
-	}
-	pid := broken.Process.Pid
-
-	mon, err := process.NewProcess(int32(pid))
+	incident, err := latestDemoIncidentSince(startTime)
 	if err != nil {
-		return fmt.Errorf("attach monitor: %w", err)
+		return fmt.Errorf("locate demo incident: %w", err)
 	}
 
-	peakCPU := 0.0
-	consecutiveAbove := 0
-	detected := false
-	detectedReason := ""
-	ticker := time.NewTicker(time.Duration(demoPollMs) * time.Millisecond)
-	defer ticker.Stop()
-
-	// Warm-up call so subsequent samples are meaningful on all platforms.
-	_, _ = mon.CPUPercent()
-
-	for range ticker.C {
-		cpu, err := mon.CPUPercent()
-		if err != nil {
-			continue
-		}
-		if cpu > peakCPU {
-			peakCPU = cpu
-		}
-		if cpu > demoMaxCPU {
-			consecutiveAbove++
-		} else {
-			consecutiveAbove = 0
-		}
-		if consecutiveAbove >= 2 {
-			detected = true
-			detectedReason = fmt.Sprintf("CPU stayed above %.1f%% for %d consecutive samples", demoMaxCPU, consecutiveAbove)
-			break
-		}
-		if time.Since(startTime) > 15*time.Second {
-			detected = true
-			detectedReason = "runaway behavior persisted for 15s during demo window"
-			break
-		}
+	detectedAt := incident.TokenSavingsEstimate
+	if detectedAt <= 0 {
+		detectedAt = time.Since(startTime).Seconds()
 	}
-
-	detectedAt := time.Since(startTime)
-	reason := "demo runaway detected"
-	if detected {
-		reason = "demo runaway: " + detectedReason
-	}
-	cpuScore := (peakCPU / demoMaxCPU) * 100
-	if cpuScore > 100 {
-		cpuScore = 100
-	}
-	entropyScore := 5.0
-	confidenceScore := 0.65*cpuScore + 0.35*(100.0-entropyScore)
-
-	_ = database.LogDecisionTrace("python3 demo/runaway.py", pid, cpuScore, entropyScore, confidenceScore, "RUNAWAY_DETECTED", reason)
-	_ = database.LogAuditEvent("agent-sentry-demo", "AUTO_KILL", reason, "demo", pid, "python3 demo/runaway.py")
-	_ = database.LogIncidentWithDecision(
-		"python3 demo/runaway.py",
-		"demo",
-		"LOOP_DETECTED",
-		peakCPU,
-		"demo-runaway",
-		detectedAt.Seconds(),
-		0,
-		0,
-		"demo",
-		"1.0.0",
-		reason,
-		cpuScore,
-		entropyScore,
-		confidenceScore,
-		"restarting",
-		1,
-	)
-
-	terminateDemoGroup(pid)
-	_, _ = broken.Process.Wait()
 
 	fmt.Println("[Demo] Restarting a healthy worker...")
-	healthy := exec.Command("python3", "demo/recovered.py")
-	healthy.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	healthy.Stdout = io.MultiWriter(os.Stdout)
-	healthy.Stderr = io.MultiWriter(os.Stderr)
-	if err := healthy.Start(); err != nil {
-		return fmt.Errorf("restart healthy worker: %w", err)
-	}
-
-	time.Sleep(3 * time.Second)
-	recovered := healthy.Process.Signal(syscall.Signal(0)) == nil
+	recovered, healthyPID := restartHealthyWorker()
 	if recovered {
-		_ = database.LogAuditEvent("agent-sentry-demo", "AUTO_RESTART", "restarted with healthy worker profile", "demo", healthy.Process.Pid, "python3 demo/recovered.py")
+		_ = database.LogAuditEvent("agent-sentry-demo", "AUTO_RESTART", "restarted with healthy worker profile", "demo", healthyPID, "python3 demo/recovered.py")
 	}
-	terminateDemoGroup(healthy.Process.Pid)
-	_, _ = healthy.Process.Wait()
 
-	fmt.Printf("\nRunaway detected in %.1f seconds\n", detectedAt.Seconds())
-	fmt.Printf("CPU peaked at %.1f%%\n", peakCPU)
+	fmt.Printf("\nRunaway detected in %.1f seconds\n", detectedAt)
+	fmt.Printf("CPU peaked at %.1f%%\n", incident.MaxCPU)
 	if recovered {
 		fmt.Println("Process recovered")
 	} else {
 		fmt.Println("Process recovery failed")
 	}
+
 	return nil
+}
+
+func latestDemoIncidentSince(start time.Time) (database.Incident, error) {
+	incidents, err := database.GetAllIncidents()
+	if err != nil {
+		return database.Incident{}, err
+	}
+	for _, inc := range incidents {
+		ts := parseIncidentTimestamp(inc.Timestamp)
+		if !ts.IsZero() && ts.Before(start.Add(-1*time.Second)) {
+			continue
+		}
+		if !strings.Contains(inc.Command, "demo/runaway.py") {
+			continue
+		}
+		switch inc.ExitReason {
+		case "LOOP_DETECTED", "WATCHDOG_ALERT", "WATCHDOG_WARN", "WATCHDOG_CRITICAL", "SAFETY_LIMIT_EXCEEDED":
+			return inc, nil
+		}
+	}
+	return database.Incident{}, fmt.Errorf("no demo incident found in recent history")
+}
+
+func parseIncidentTimestamp(raw string) time.Time {
+	layouts := []string{
+		"2006-01-02 15:04:05",
+		time.RFC3339,
+		time.RFC3339Nano,
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t
+		}
+		if t, err := time.ParseInLocation(layout, raw, time.Local); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func restartHealthyWorker() (bool, int) {
+	healthy := exec.Command("python3", "demo/recovered.py")
+	healthy.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	healthy.Stdout = os.Stdout
+	healthy.Stderr = os.Stderr
+	if err := healthy.Start(); err != nil {
+		return false, 0
+	}
+
+	time.Sleep(3 * time.Second)
+	recovered := healthy.Process.Signal(syscall.Signal(0)) == nil
+	terminateDemoGroup(healthy.Process.Pid)
+	_, _ = healthy.Process.Wait()
+	return recovered, healthy.Process.Pid
 }
 
 func terminateDemoGroup(pid int) {

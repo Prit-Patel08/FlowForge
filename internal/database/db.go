@@ -69,6 +69,19 @@ type TimelineEvent struct {
 	Confidence float64 `json:"confidence_score,omitempty"`
 }
 
+type UnifiedEvent struct {
+	ID         int     `json:"id"`
+	Timestamp  string  `json:"timestamp"`
+	Type       string  `json:"type"`
+	Title      string  `json:"title"`
+	Summary    string  `json:"summary"`
+	Reason     string  `json:"reason"`
+	PID        int     `json:"pid"`
+	CPUScore   float64 `json:"cpu_score"`
+	Entropy    float64 `json:"entropy_score"`
+	Confidence float64 `json:"confidence_score"`
+}
+
 func InitDB() error {
 	dbPath := os.Getenv("SENTRY_DB_PATH")
 	if dbPath == "" {
@@ -147,6 +160,22 @@ func InitDB() error {
 		return err
 	}
 
+	createEventsTableSQL := `CREATE TABLE IF NOT EXISTS events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		type TEXT NOT NULL,
+		title TEXT NOT NULL,
+		summary TEXT DEFAULT '',
+		reason TEXT DEFAULT '',
+		pid INTEGER DEFAULT 0,
+		cpu_score REAL DEFAULT 0.0,
+		entropy_score REAL DEFAULT 0.0,
+		confidence_score REAL DEFAULT 0.0
+	);`
+	if _, err := db.Exec(createEventsTableSQL); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -200,7 +229,10 @@ func LogIncidentWithDecision(
 	defer stmt.Close()
 
 	_, err = stmt.Exec(encCmd, modelName, exitReason, maxCpu, encPat, savings, tokenCount, cost, agentID, agentVersion, reason, cpuScore, entropyScore, confidenceScore, recoveryStatus, restartCount)
-	return err
+	if err != nil {
+		return err
+	}
+	return logUnifiedEvent("incident", exitReason, fmt.Sprintf("%s (CPU %.1f%%)", exitReason, maxCpu), reason, 0, cpuScore, entropyScore, confidenceScore)
 }
 
 func GetIncidentByID(id int) (Incident, error) {
@@ -261,7 +293,10 @@ func LogAuditEvent(actor, action, reason, source string, pid int, details string
 	}
 	defer stmt.Close()
 	_, err = stmt.Exec(actor, action, reason, source, pid, details)
-	return err
+	if err != nil {
+		return err
+	}
+	return logUnifiedEvent("audit", action, fmt.Sprintf("%s by %s", action, actor), reason, pid, 0, 0, 0)
 }
 
 func GetAuditEvents(limit int) ([]AuditEvent, error) {
@@ -297,7 +332,11 @@ func LogDecisionTrace(command string, pid int, cpuScore, entropyScore, confidenc
 	}
 	defer stmt.Close()
 	_, err = stmt.Exec(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason)
-	return err
+	if err != nil {
+		return err
+	}
+	summary := fmt.Sprintf("CPU %.1f / Entropy %.1f / Confidence %.1f", cpuScore, entropyScore, confidenceScore)
+	return logUnifiedEvent("decision", decision, summary, reason, pid, cpuScore, entropyScore, confidenceScore)
 }
 
 func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
@@ -324,6 +363,28 @@ func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
 }
 
 func GetTimeline(limit int) ([]TimelineEvent, error) {
+	events, err := GetUnifiedEvents(limit)
+	if err == nil && len(events) > 0 {
+		out := make([]TimelineEvent, 0, len(events))
+		for _, e := range events {
+			out = append(out, TimelineEvent{
+				Type:       e.Type,
+				Timestamp:  e.Timestamp,
+				Title:      e.Title,
+				Summary:    e.Summary,
+				Reason:     e.Reason,
+				PID:        e.PID,
+				CPUScore:   e.CPUScore,
+				Entropy:    e.Entropy,
+				Confidence: e.Confidence,
+			})
+		}
+		return out, nil
+	}
+	return getLegacyTimeline(limit)
+}
+
+func getLegacyTimeline(limit int) ([]TimelineEvent, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -407,6 +468,42 @@ func GetTimeline(limit int) ([]TimelineEvent, error) {
 		out = append(out, r.event)
 	}
 	return out, nil
+}
+
+func GetUnifiedEvents(limit int) ([]UnifiedEvent, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db missing")
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := db.Query("SELECT id, timestamp, COALESCE(type, ''), COALESCE(title, ''), COALESCE(summary, ''), COALESCE(reason, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0) FROM events ORDER BY id DESC LIMIT ?", limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []UnifiedEvent
+	for rows.Next() {
+		var e UnifiedEvent
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Type, &e.Title, &e.Summary, &e.Reason, &e.PID, &e.CPUScore, &e.Entropy, &e.Confidence); err != nil {
+			return nil, err
+		}
+		list = append(list, e)
+	}
+	return list, nil
+}
+
+func logUnifiedEvent(eventType, title, summary, reason string, pid int, cpuScore, entropyScore, confidenceScore float64) error {
+	if db == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	stmt, err := db.Prepare("INSERT INTO events(type, title, summary, reason, pid, cpu_score, entropy_score, confidence_score) VALUES(?, ?, ?, ?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(eventType, title, summary, reason, pid, cpuScore, entropyScore, confidenceScore)
+	return err
 }
 
 func parseTimestamp(raw string) time.Time {

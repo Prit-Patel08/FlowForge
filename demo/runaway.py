@@ -11,8 +11,8 @@ def main() -> None:
         i += 1
         # Keep CPU very high while still producing deterministic output.
         _ = sum(math.sqrt(x) for x in range(120000))
-        if i % 200 == 0:
-            print("processing request 4242 failed, retrying endlessly")
+        if i % 5 == 0:
+            print("processing request 4242 failed, retrying endlessly", flush=True)
 
 
 if __name__ == "__main__":
