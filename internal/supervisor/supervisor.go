@@ -159,18 +159,6 @@ func (s *Supervisor) stopInternal(grace time.Duration) error {
 	return nil
 }
 
-func waitWithTimeout(ch <-chan struct{}, timeout time.Duration) bool {
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	select {
-	case <-ch:
-		return true
-	case <-timer.C:
-		return false
-	}
-}
-
 func signalGroup(pid int, sig syscall.Signal) error {
 	if pid <= 0 {
 		return nil
