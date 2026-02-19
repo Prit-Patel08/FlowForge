@@ -129,6 +129,18 @@ One-command local gate:
 ./scripts/verify_local.sh
 ```
 
+Release smoke gate:
+
+```bash
+./scripts/smoke_local.sh
+```
+
+Expected smoke output:
+- `Runaway detected in ...`
+- `CPU peaked at ...`
+- `Process recovered`
+- health/metrics/timeline probes succeed
+
 Backend:
 
 ```bash
@@ -176,6 +188,7 @@ npm run build
 ## Docs
 
 - operations: `docs/OPERATIONS.md`
+- branch protection: `docs/BRANCH_PROTECTION.md`
 - threat model: `docs/THREAT_MODEL.md`
 - runbook: `docs/RUNBOOK.md`
 - week 1 checklist: `docs/WEEK1_PILOT.md`

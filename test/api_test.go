@@ -5,10 +5,36 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"flowforge/internal/api"
+	"flowforge/internal/database"
 )
+
+func setupTempDBForAPI(t *testing.T) {
+	t.Helper()
+	oldPath, hadPath := os.LookupEnv("FLOWFORGE_DB_PATH")
+	dbPath := filepath.Join(t.TempDir(), "flowforge-api-test.db")
+
+	if err := os.Setenv("FLOWFORGE_DB_PATH", dbPath); err != nil {
+		t.Fatalf("set db path: %v", err)
+	}
+
+	database.CloseDB()
+	if err := database.InitDB(); err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+
+	t.Cleanup(func() {
+		database.CloseDB()
+		if hadPath {
+			_ = os.Setenv("FLOWFORGE_DB_PATH", oldPath)
+		} else {
+			_ = os.Unsetenv("FLOWFORGE_DB_PATH")
+		}
+	})
+}
 
 // TestCORSHeaders ensures that the /incidents endpoint returns proper CORS headers.
 func TestCORSHeaders(t *testing.T) {
@@ -132,6 +158,90 @@ func TestTimelineEndpoint(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestTimelineEndpointIncidentFilterAndContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-api-contract")
+	incidentID := "incident-contract-001"
+
+	if _, err := database.InsertEvent(
+		"decision",
+		"system",
+		"CPU threshold breach",
+		"run-api-contract",
+		incidentID,
+		"KILL",
+		"CPU 100 / Entropy 12 / Confidence 95",
+		4040,
+		100.0,
+		12.0,
+		95.0,
+	); err != nil {
+		t.Fatalf("insert decision event: %v", err)
+	}
+	if _, err := database.InsertEvent(
+		"audit",
+		"api-key",
+		"operator restart",
+		"run-api-contract",
+		incidentID,
+		"RESTART",
+		"manual restart by operator",
+		4040,
+		0,
+		0,
+		0,
+	); err != nil {
+		t.Fatalf("insert audit event: %v", err)
+	}
+	if _, err := database.InsertEvent(
+		"decision",
+		"system",
+		"different incident",
+		"run-api-contract",
+		"incident-other-002",
+		"ALERT",
+		"not part of contract chain",
+		9090,
+		70.0,
+		45.0,
+		50.0,
+	); err != nil {
+		t.Fatalf("insert unrelated event: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/timeline?incident_id="+incidentID, nil)
+	w := httptest.NewRecorder()
+	api.HandleTimeline(w, req)
+	resp := w.Result()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(payload) != 2 {
+		t.Fatalf("expected 2 filtered events, got %d", len(payload))
+	}
+
+	for _, ev := range payload {
+		if ev["incident_id"] != incidentID {
+			t.Fatalf("unexpected incident_id %v", ev["incident_id"])
+		}
+		for _, key := range []string{"event_id", "run_id", "event_type", "actor", "reason_text", "created_at"} {
+			raw, ok := ev[key]
+			if !ok {
+				t.Fatalf("missing key %q in response object", key)
+			}
+			if s, ok := raw.(string); !ok || s == "" {
+				t.Fatalf("expected non-empty string for key %q, got %#v", key, raw)
+			}
+		}
 	}
 }
 

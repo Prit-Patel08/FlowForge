@@ -41,6 +41,13 @@ jobs:
       - name: Benchmark Corpus Gate
         run: ./scripts/benchmark_corpus.sh ci_artifacts/corpus
 
+      - name: Upload benchmark corpus artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-corpus
+          path: ci_artifacts/corpus
+
       - name: Staticcheck
         run: |
           "$(go env GOPATH)/bin/staticcheck" ./...

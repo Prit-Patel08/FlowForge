@@ -1,14 +1,22 @@
 import useSWR, { mutate } from 'swr';
-import { Incident, TimelineEvent } from '../types/incident';
+import {
+  Incident,
+  IncidentChainEvent,
+  TimelineEvent,
+  parseIncidentChainPayload,
+  parseIncidentsPayload,
+  parseTimelinePayload
+} from '../types/incident';
 import IncidentTable from '../components/IncidentTable';
 import StatCard from '../components/StatCard';
 import TimelinePanel from '../components/TimelinePanel';
+import IncidentDrilldownPanel from '../components/IncidentDrilldownPanel';
 import Head from 'next/head';
 import { ShieldAlert, Zap, Activity, ServerCrash, Terminal, Cpu, Skull } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_FLOWFORGE_API_BASE || 'http://localhost:8080';
-const fetcher = async (url: string) => {
+const fetchJSON = async (url: string): Promise<unknown> => {
   const res = await fetch(url);
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -25,6 +33,10 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
+const fetchIncidents = async (url: string): Promise<Incident[]> => parseIncidentsPayload(await fetchJSON(url));
+const fetchTimeline = async (url: string): Promise<TimelineEvent[]> => parseTimelinePayload(await fetchJSON(url));
+const fetchIncidentChain = async (url: string): Promise<IncidentChainEvent[]> => parseIncidentChainPayload(await fetchJSON(url));
+
 interface LiveStats {
   cpu: number;
   last_line: string;
@@ -36,13 +48,25 @@ interface LiveStats {
 export default function Dashboard() {
   const { data: incidents, error } = useSWR<Incident[]>(
     `${API_BASE}/incidents`,
-    fetcher,
+    fetchIncidents,
     { refreshInterval: 2000, fallbackData: [] }
   );
   const { data: timeline } = useSWR<TimelineEvent[]>(
     `${API_BASE}/timeline`,
-    fetcher,
+    fetchTimeline,
     { refreshInterval: 3000, fallbackData: [] }
+  );
+  const [selectedIncidentID, setSelectedIncidentID] = useState<string | null>(null);
+  const {
+    data: incidentChain,
+    error: incidentChainError,
+    isLoading: incidentChainLoading
+  } = useSWR<IncidentChainEvent[]>(
+    selectedIncidentID
+      ? `${API_BASE}/timeline?incident_id=${encodeURIComponent(selectedIncidentID)}`
+      : null,
+    fetchIncidentChain,
+    { refreshInterval: selectedIncidentID ? 3000 : 0, fallbackData: [] }
   );
 
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
@@ -92,6 +116,21 @@ export default function Dashboard() {
       eventSource.close();
     };
   }, []);
+
+  useEffect(() => {
+    if (!timeline || timeline.length === 0) {
+      return;
+    }
+
+    if (selectedIncidentID && timeline.some((event) => event.incident_id === selectedIncidentID)) {
+      return;
+    }
+
+    const nextIncident = timeline.find((event) => event.incident_id)?.incident_id;
+    if (nextIncident) {
+      setSelectedIncidentID(nextIncident);
+    }
+  }, [timeline, selectedIncidentID]);
 
   // Calculate Stats
   const totalIncidents = incidents?.length || 0;
@@ -335,8 +374,18 @@ export default function Dashboard() {
 
             <IncidentTable incidents={incidents || []} />
             </div>
-            <div>
-              <TimelinePanel events={timeline || []} />
+            <div className="space-y-6">
+              <TimelinePanel
+                events={timeline || []}
+                selectedIncidentId={selectedIncidentID}
+                onSelectIncident={(incidentId) => setSelectedIncidentID(incidentId)}
+              />
+              <IncidentDrilldownPanel
+                incidentId={selectedIncidentID}
+                events={incidentChain || []}
+                loading={incidentChainLoading}
+                error={incidentChainError instanceof Error ? incidentChainError.message : null}
+              />
             </div>
           </div>
         </main>

@@ -3,9 +3,11 @@ import { TimelineEvent } from '../types/incident';
 
 interface TimelinePanelProps {
   events: TimelineEvent[];
+  selectedIncidentId: string | null;
+  onSelectIncident: (incidentId: string) => void;
 }
 
-export default function TimelinePanel({ events }: TimelinePanelProps) {
+export default function TimelinePanel({ events, selectedIncidentId, onSelectIncident }: TimelinePanelProps) {
   const parseTs = (raw: string) => new Date(raw.includes("T") ? raw : raw.replace(" ", "T"));
   const eventsByIncident = new Map<string, TimelineEvent[]>();
 
@@ -19,7 +21,7 @@ export default function TimelinePanel({ events }: TimelinePanelProps) {
   const groups = Array.from(eventsByIncident.entries()).map(([incidentId, groupedEvents]) => {
     const sorted = groupedEvents.slice().sort((a, b) => parseTs(a.timestamp).getTime() - parseTs(b.timestamp).getTime());
     return { incidentId, events: sorted };
-  });
+  }).sort((a, b) => parseTs(b.events[b.events.length - 1].timestamp).getTime() - parseTs(a.events[a.events.length - 1].timestamp).getTime());
 
   return (
     <div className="rounded-xl border border-gray-800 bg-obsidian-800 p-4 shadow-lg">
@@ -27,11 +29,23 @@ export default function TimelinePanel({ events }: TimelinePanelProps) {
       <div className="space-y-3">
         {events.length === 0 && <p className="text-sm text-gray-500">No timeline events yet.</p>}
         {groups.map((group) => (
-          <div key={group.incidentId} className="rounded-lg border border-gray-700 bg-gray-900/30 p-3">
+          <div
+            key={group.incidentId}
+            className={`rounded-lg border p-3 ${selectedIncidentId === group.incidentId ? "border-accent-500/70 bg-accent-900/10" : "border-gray-700 bg-gray-900/30"}`}
+          >
             <div className="mb-3 flex items-center justify-between border-b border-gray-800 pb-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-accent-300">
+              <button
+                type="button"
+                disabled={group.incidentId.startsWith("ungrouped-")}
+                onClick={() => onSelectIncident(group.incidentId)}
+                className={`rounded px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
+                  group.incidentId.startsWith("ungrouped-")
+                    ? "cursor-not-allowed text-gray-500"
+                    : "cursor-pointer text-accent-300 hover:bg-accent-500/10"
+                }`}
+              >
                 {group.incidentId.startsWith("ungrouped-") ? "Uncorrelated Event" : `Incident ${group.incidentId.slice(0, 8)}`}
-              </span>
+              </button>
               <span className="text-[11px] text-gray-500">
                 {formatDistanceToNow(parseTs(group.events[0].timestamp), { addSuffix: true })}
               </span>
