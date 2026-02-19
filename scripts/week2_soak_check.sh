@@ -64,3 +64,8 @@ Artifacts:
 EOF
 
 echo "Soak check complete: $OUT_DIR/summary.md"
+
+if [[ "$status" != "PASS" ]]; then
+  echo "Week 2 soak check failed expectation checks (status=$status)." >&2
+  exit 1
+fi

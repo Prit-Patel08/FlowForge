@@ -79,6 +79,12 @@ cp scripts/pilot_commands.example.txt pilot_commands.txt
 ./scripts/week2_real_pilot.sh pilot_commands.txt
 ```
 
+Optional strict mode (non-zero exit if expectations fail):
+
+```bash
+PILOT_FAIL_ON_MISMATCH=1 ./scripts/week2_real_pilot.sh pilot_commands.txt
+```
+
 4. Review:
 - `pilot_artifacts/.../summary.md`
 - `pilot_artifacts/.../incidents_snapshot.txt`

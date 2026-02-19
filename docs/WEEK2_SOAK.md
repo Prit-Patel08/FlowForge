@@ -19,6 +19,7 @@ This runs:
 - False negatives: `0`
 - Release checkpoint: pass every day
 - No unexplained crash/lockup in operator logs
+- `week2_soak_check.sh` exits non-zero on FAIL status
 
 ## What To Review Each Day
 

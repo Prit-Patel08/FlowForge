@@ -7,6 +7,7 @@ cd "$ROOT_DIR"
 
 COMMANDS_FILE="${1:-pilot_commands.txt}"
 ARTIFACT_DIR="${2:-pilot_artifacts/week2-real-$(date +%Y%m%d-%H%M%S)}"
+FAIL_ON_MISMATCH="${PILOT_FAIL_ON_MISMATCH:-0}"
 
 if [[ ! -f "$COMMANDS_FILE" ]]; then
   echo "Commands file not found: $COMMANDS_FILE"
@@ -160,6 +161,28 @@ while IFS='|' read -r name threshold expected command_text; do
   run_case "$name" "$threshold" "$expected" "$command_text"
 done < "$COMMANDS_FILE"
 
+false_positive_count=0
+false_negative_count=0
+total_cases=0
+
+while IFS=, read -r name _threshold _exit_code detected expected _exit_reason _duration_s _decision_reason; do
+  [[ "$name" == "name" ]] && continue
+  total_cases=$((total_cases + 1))
+
+  if [[ "$expected" == "no intervention" && "$detected" == "yes" ]]; then
+    false_positive_count=$((false_positive_count + 1))
+  fi
+
+  if [[ "$expected" == "loop detection + termination" && "$detected" != "yes" ]]; then
+    false_negative_count=$((false_negative_count + 1))
+  fi
+done < "$RESULTS_CSV"
+
+status="PASS"
+if [[ "$false_positive_count" -gt 0 || "$false_negative_count" -gt 0 ]]; then
+  status="FAIL"
+fi
+
 FLOWFORGE_DB_PATH="${FLOWFORGE_DB_PATH:-flowforge.db}" python3 - <<'PY' > "$ARTIFACT_DIR/incidents_snapshot.txt"
 import os
 import sqlite3
@@ -191,6 +214,12 @@ PY
     echo "| $name | $threshold | $code | $detected | ${exit_reason:-none} | ${duration_s:-0} | $expected |"
   done
   echo
+  echo "Result:"
+  echo "- total cases: $total_cases"
+  echo "- false positives: $false_positive_count"
+  echo "- false negatives: $false_negative_count"
+  echo "- status: **$status**"
+  echo
   echo "Artifacts:"
   echo "- results: \`$RESULTS_CSV\`"
   echo "- pilot db: \`$PILOT_DB\`"
@@ -198,3 +227,8 @@ PY
 } > "$ARTIFACT_DIR/summary.md"
 
 echo "Week 2 real pilot complete: $ARTIFACT_DIR/summary.md"
+
+if [[ "$status" != "PASS" && "$FAIL_ON_MISMATCH" == "1" ]]; then
+  echo "Week 2 real pilot failed expectation checks (status=$status)." >&2
+  exit 1
+fi
