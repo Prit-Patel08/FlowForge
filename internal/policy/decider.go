@@ -39,6 +39,8 @@ type Telemetry struct {
 	MemoryMB      float64
 	LogRepetition float64 // 0..1 where 1 means highly repetitive
 	LogEntropy    float64 // 0..1 where 0 means repetitive
+	RawDiversity  float64 // 0..1 where 1 means highly diverse raw lines
+	ProgressLike  bool    // true when output suggests forward progress, not stagnation
 }
 
 type Policy struct {
@@ -107,7 +109,9 @@ func (ThresholdDecider) Evaluate(t Telemetry, p Policy) Decision {
 		}
 	}
 
-	highRisk := memBreach || (cpuBreach && (repetitionBreach || entropyBreach))
+	potentialRuntimeRisk := cpuBreach && (repetitionBreach || entropyBreach)
+	progressGuard := potentialRuntimeRisk && t.ProgressLike && t.RawDiversity >= 0.85
+	highRisk := memBreach || (potentialRuntimeRisk && !progressGuard)
 
 	action := ActionAlert
 	if highRisk {
@@ -116,6 +120,10 @@ func (ThresholdDecider) Evaluate(t Telemetry, p Policy) Decision {
 		} else {
 			action = ActionKill
 		}
+	}
+
+	if progressGuard {
+		reasons = append(reasons, "progressing output pattern detected; destructive action suppressed")
 	}
 
 	reason := strings.Join(reasons, " AND ")

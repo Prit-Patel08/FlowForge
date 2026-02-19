@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,7 @@ var noKill bool
 var shadowMode bool
 var injectFeedback string
 var deepWatch bool
+var firstNumberRegex = regexp.MustCompile(`\d+`)
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
@@ -221,6 +223,73 @@ func calculateDecisionScores(cpuUsage, threshold float64, lines []string) (cpuSc
 	}
 
 	return cpuScore, entropyScore, confidence
+}
+
+func rawDiversityScore(lines []string) float64 {
+	if len(lines) == 0 {
+		return 1.0
+	}
+	uniq := make(map[string]struct{}, len(lines))
+	for _, line := range lines {
+		uniq[line] = struct{}{}
+	}
+	return float64(len(uniq)) / float64(len(lines))
+}
+
+func detectProgressLikeOutput(lines []string) bool {
+	if len(lines) < 4 {
+		return false
+	}
+
+	progressHints := 0
+	numericLines := 0
+	increaseCount := 0
+	comparisons := 0
+
+	var prevNumber int
+	hasPrevNumber := false
+
+	for _, line := range lines {
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "progress") ||
+			strings.Contains(lower, "step=") ||
+			strings.Contains(lower, "tick=") ||
+			strings.Contains(lower, "phase=") ||
+			strings.Contains(lower, "heartbeat") {
+			progressHints++
+		}
+
+		match := firstNumberRegex.FindString(lower)
+		if match == "" {
+			continue
+		}
+
+		numericLines++
+		value, err := strconv.Atoi(match)
+		if err != nil {
+			continue
+		}
+
+		if hasPrevNumber {
+			comparisons++
+			if value > prevNumber {
+				increaseCount++
+			}
+		}
+
+		prevNumber = value
+		hasPrevNumber = true
+	}
+
+	if comparisons == 0 {
+		return false
+	}
+
+	progressHintRatio := float64(progressHints) / float64(len(lines))
+	numericCoverage := float64(numericLines) / float64(len(lines))
+	increaseRatio := float64(increaseCount) / float64(comparisons)
+
+	return progressHintRatio >= 0.40 && numericCoverage >= 0.70 && increaseRatio >= 0.70
 }
 
 func runProcess(args []string) {
@@ -453,6 +522,8 @@ func runProcess(args []string) {
 					}
 
 					cpuScore, entropyScore, confidenceScore := calculateDecisionScores(cpuUsage, maxCpu, windowLines)
+					rawDiversity := rawDiversityScore(windowLines)
+					progressLike := detectProgressLikeOutput(windowLines)
 					cpuOverFor := time.Duration(0)
 					if !highCPUStart.IsZero() {
 						cpuOverFor = time.Since(highCPUStart)
@@ -468,6 +539,8 @@ func runProcess(args []string) {
 						MemoryMB:      memMB,
 						LogRepetition: repetitionScore,
 						LogEntropy:    entropyScore / 100.0,
+						RawDiversity:  rawDiversity,
+						ProgressLike:  progressLike,
 					}, policyConfig)
 					reason := decision.Reason
 

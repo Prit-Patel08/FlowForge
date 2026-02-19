@@ -102,3 +102,30 @@ func TestEvaluateAlertOnSingleSignal(t *testing.T) {
 		t.Fatalf("unexpected reason\nexpected: %q\ngot:      %q", expected, out.Reason)
 	}
 }
+
+func TestEvaluateProgressGuardSuppressesDestructiveAction(t *testing.T) {
+	d := NewThresholdDecider()
+	p := Policy{
+		MaxCPUPercent:    90,
+		CPUWindow:        10 * time.Second,
+		MinLogEntropy:    0.20,
+		MaxLogRepetition: 0.80,
+	}
+
+	out := d.Evaluate(Telemetry{
+		CPUPercent:    96,
+		CPUOverFor:    12 * time.Second,
+		LogRepetition: 0.95,
+		LogEntropy:    0.10,
+		RawDiversity:  0.95,
+		ProgressLike:  true,
+	}, p)
+
+	if out.Action != ActionAlert {
+		t.Fatalf("expected alert due to progress guard, got %s", out.Action.String())
+	}
+	expected := "CPU exceeded 90% for 10s AND log repetition exceeded 0.80 AND log entropy dropped below 0.20 AND progressing output pattern detected; destructive action suppressed"
+	if out.Reason != expected {
+		t.Fatalf("unexpected reason\nexpected: %q\ngot:      %q", expected, out.Reason)
+	}
+}
