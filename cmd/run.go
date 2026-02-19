@@ -225,6 +225,28 @@ func calculateDecisionScores(cpuUsage, threshold float64, lines []string) (cpuSc
 	return cpuScore, entropyScore, confidence
 }
 
+func calculateRepetitionScore(lines []string) (firstNormalized string, repetitionScore float64) {
+	if len(lines) == 0 {
+		return "", 0
+	}
+	if len(lines) == 1 {
+		return NormalizeLog(lines[0]), 0
+	}
+
+	firstNormalized = NormalizeLog(lines[0])
+	stagnantMatches := 0
+	lev := metrics.NewLevenshtein()
+	for _, line := range lines[1:] {
+		currentNormalized := NormalizeLog(line)
+		if strutil.Similarity(firstNormalized, currentNormalized, lev) >= 0.9 {
+			stagnantMatches++
+		}
+	}
+
+	repetitionScore = float64(stagnantMatches) / float64(len(lines)-1)
+	return firstNormalized, repetitionScore
+}
+
 func rawDiversityScore(lines []string) float64 {
 	if len(lines) == 0 {
 		return 1.0
@@ -505,21 +527,7 @@ func runProcess(args []string) {
 
 				windowLines := observer.GetLastLines(logWindow)
 				if len(windowLines) == logWindow {
-					firstNormalized := NormalizeLog(windowLines[0])
-					stagnantMatches := 0
-					lev := metrics.NewLevenshtein()
-
-					for _, line := range windowLines[1:] {
-						currentNormalized := NormalizeLog(line)
-						if strutil.Similarity(firstNormalized, currentNormalized, lev) >= 0.9 {
-							stagnantMatches++
-						}
-					}
-
-					repetitionScore := 0.0
-					if logWindow > 1 {
-						repetitionScore = float64(stagnantMatches) / float64(logWindow-1)
-					}
+					firstNormalized, repetitionScore := calculateRepetitionScore(windowLines)
 
 					cpuScore, entropyScore, confidenceScore := calculateDecisionScores(cpuUsage, maxCpu, windowLines)
 					rawDiversity := rawDiversityScore(windowLines)
