@@ -65,7 +65,7 @@ Run:
 ```
 
 Pass criteria:
-- local verification gate passes
+- strict local verification gate passes (`./scripts/verify_local.sh --strict`)
 - no tracked secret/runtime artifacts
 - no legacy naming
 - runbook and pilot docs present

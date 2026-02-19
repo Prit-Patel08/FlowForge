@@ -16,7 +16,7 @@ check() {
   "$@"
 }
 
-check "verify-local" ./scripts/verify_local.sh
+check "verify-local" ./scripts/verify_local.sh --strict
 
 if git ls-files | rg -q "flowforge\\.key|\\.flowforge_live|flowforge\\.db|sentry\\.key"; then
   echo "Blocked: secret/runtime artifacts still tracked." >&2

@@ -136,11 +136,20 @@ One-command local gate:
 ./scripts/verify_local.sh
 ```
 
+Release-grade local gate (fails if `staticcheck`/`govulncheck` are missing):
+
+```bash
+./scripts/verify_local.sh --strict
+```
+
 Release smoke gate:
 
 ```bash
 ./scripts/smoke_local.sh
 ```
+
+Release checkpoint (`./scripts/release_checkpoint.sh`) runs `verify_local.sh --strict`.
+If `govulncheck` reports Go standard library advisories, upgrade your local Go patch version (CI uses Go `1.25.7`).
 
 Expected smoke output:
 - `Runaway detected in ...`

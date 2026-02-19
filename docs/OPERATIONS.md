@@ -53,6 +53,16 @@ Run race detector:
 go test ./... -race -v
 ```
 
+Run strict local verification before release actions:
+
+```bash
+./scripts/verify_local.sh --strict
+```
+
+Notes:
+- strict mode fails if `staticcheck`/`govulncheck` are missing
+- if `govulncheck` reports Go stdlib advisories, upgrade local Go patch version to match CI (`1.25.7`)
+
 ## Week 1 Reliability Pack
 
 ```bash

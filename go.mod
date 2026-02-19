@@ -1,6 +1,7 @@
 module flowforge
 
 go 1.25
+toolchain go1.25.7
 
 require (
 	github.com/adrg/strutil v0.3.1
