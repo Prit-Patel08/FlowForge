@@ -6,7 +6,6 @@ It supervises a command, detects runaway behavior, intervenes safely, and record
 ## 60-Second Quickstart
 
 ```bash
-cd /Users/pritpatel/Desktop/agent-sentry
 chmod +x scripts/install.sh
 ./scripts/install.sh --open-browser
 ```
