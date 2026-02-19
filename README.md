@@ -158,6 +158,7 @@ npm run build
 - baseline decision: `docs/WEEK2_BASELINE.md` (`max-cpu: 60.0`)
 - run real-workload pilot: `./scripts/week2_real_pilot.sh scripts/pilot_commands.example.txt`
 - replace sample commands with your own workload commands before final run
+- run daily soak check: `./scripts/week2_soak_check.sh pilot_commands.txt`
 - run release checkpoint again before tagging
 
 ## Docs
@@ -167,4 +168,5 @@ npm run build
 - runbook: `docs/RUNBOOK.md`
 - week 1 checklist: `docs/WEEK1_PILOT.md`
 - week 2 baseline: `docs/WEEK2_BASELINE.md`
+- week 2 soak: `docs/WEEK2_SOAK.md`
 - security policy: `SECURITY.md`

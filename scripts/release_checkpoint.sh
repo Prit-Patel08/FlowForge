@@ -23,7 +23,7 @@ if git ls-files | rg -q "sentry\\.key|\\.sentry_live|sentry\\.db"; then
   exit 1
 fi
 
-if rg -n -i --hidden "agent-sentry|Agent-Sentry" -g '!.git/*' -g '!scripts/release_checkpoint.sh' | rg -q .; then
+if rg -n -i --hidden "quenvor|agent-sentry " -g '!.git/*' -g '!scripts/release_checkpoint.sh' | rg -q .; then
   echo "Blocked: legacy brand references found." >&2
   exit 1
 fi

@@ -1,0 +1,6 @@
+# name|max_cpu|expected|command
+# Week-2 concrete workloads for this repository.
+backend-build|80|no intervention|env GOCACHE=/tmp/agent-gocache go build ./...
+backend-test|80|no intervention|env GOCACHE=/tmp/agent-gocache go test ./... -v
+dashboard-build|80|no intervention|npm --prefix dashboard run build
+runaway-control|60|loop detection + termination|python3 demo/pilot/runaway_worker.py
