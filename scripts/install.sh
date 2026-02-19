@@ -19,6 +19,7 @@ echo "== FlowForge production setup =="
 
 command -v go >/dev/null 2>&1 || { echo "Go is required"; exit 1; }
 command -v npm >/dev/null 2>&1 || { echo "npm is required"; exit 1; }
+command -v curl >/dev/null 2>&1 || { echo "curl is required"; exit 1; }
 
 random_hex_32() {
   if command -v openssl >/dev/null 2>&1; then
@@ -50,6 +51,21 @@ legacy_value() {
       exit
     }
   ' "$file"
+}
+
+wait_for_http() {
+  local url="$1"
+  local retries="${2:-30}"
+  local delay="${3:-1}"
+  local i
+  for ((i = 1; i <= retries; i++)); do
+    if curl -fsS --max-time 2 "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "$delay"
+  done
+  echo "Timed out waiting for $url" >&2
+  return 1
 }
 
 GENERATED_API_KEY=""
@@ -126,17 +142,33 @@ pushd dashboard >/dev/null
 if [[ ! -d "node_modules" ]]; then
   npm ci
 fi
+echo "Building dashboard (production)..."
+NEXT_PUBLIC_FLOWFORGE_API_BASE="http://localhost:${API_PORT}" npm run build
 popd >/dev/null
+
+if [[ "$RUN_DEMO" == "1" ]]; then
+  echo "🎬 Running 60-second value demo..."
+  FLOWFORGE_DB_PATH="${FLOWFORGE_DB_PATH:-flowforge.db}" ./flowforge demo || true
+fi
 
 if command -v lsof >/dev/null 2>&1; then
   echo "🧹 Clearing ports ${API_PORT} and ${DASHBOARD_PORT}..."
   lsof -t -i :"${API_PORT}" -i :"${DASHBOARD_PORT}" | xargs kill -9 2>/dev/null || true
 fi
 
+API_PID=""
+DASHBOARD_PID=""
+
 cleanup() {
   echo "Stopping services..."
-  pkill -f "./flowforge dashboard" 2>/dev/null || true
-  pkill -f "next" 2>/dev/null || true
+  if [[ -n "$API_PID" ]]; then
+    kill "$API_PID" 2>/dev/null || true
+    wait "$API_PID" 2>/dev/null || true
+  fi
+  if [[ -n "$DASHBOARD_PID" ]]; then
+    kill "$DASHBOARD_PID" 2>/dev/null || true
+    wait "$DASHBOARD_PID" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -144,13 +176,16 @@ echo "🚀 Starting services..."
 
 echo "Starting API..."
 ./flowforge dashboard &
-sleep 2
+API_PID=$!
+wait_for_http "http://127.0.0.1:${API_PORT}/healthz" 30 1
 
-echo "Starting dashboard (Development Mode)..."
+echo "Starting dashboard server (production)..."
 (
   cd dashboard
-  NEXT_PUBLIC_FLOWFORGE_API_BASE="http://localhost:${API_PORT}" npm run dev -- -p "${DASHBOARD_PORT}"
+  NEXT_PUBLIC_FLOWFORGE_API_BASE="http://localhost:${API_PORT}" npm run start -- -p "${DASHBOARD_PORT}"
 ) &
+DASHBOARD_PID=$!
+wait_for_http "http://127.0.0.1:${DASHBOARD_PORT}" 30 1
 
 echo "------------------------------------------------"
 echo "✅ API:       http://localhost:${API_PORT}/healthz"
@@ -158,18 +193,11 @@ echo "✅ Dashboard: http://localhost:${DASHBOARD_PORT}"
 echo "------------------------------------------------"
 
 if [[ "$OPEN_BROWSER" == "1" ]]; then
-  sleep 3
   if command -v open >/dev/null 2>&1; then
     open "http://localhost:${DASHBOARD_PORT}" || true
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open "http://localhost:${DASHBOARD_PORT}" || true
   fi
-fi
-
-if [[ "$RUN_DEMO" == "1" ]]; then
-  echo "🎬 Running product demo in 5 seconds..."
-  sleep 5
-  ./flowforge demo || true
 fi
 
 echo "Services are running. Press Ctrl+C to stop."

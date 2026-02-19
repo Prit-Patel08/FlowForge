@@ -13,12 +13,13 @@ chmod +x scripts/install.sh
 What you should see:
 1. secure API keys generated once in `.flowforge.env`
    - existing legacy keys are auto-migrated to `FLOWFORGE_*`
-2. demo run triggers detection/intervention
-3. summary printed:
+2. production dashboard build (`next build`) and server startup (`next start`)
+3. demo run triggers detection/intervention
+4. summary printed:
    - `Runaway detected in X seconds`
    - `CPU peaked at Y%`
    - `Process recovered`
-4. dashboard opens at `http://localhost:3001`
+5. dashboard opens at `http://localhost:3001`
 
 ## Daily Usage
 
