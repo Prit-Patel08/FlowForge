@@ -611,10 +611,6 @@ func LogPolicyDryRun(command string, pid int, reason string, confidenceScore flo
 	return logUnifiedEventWithMeta("policy_dry_run", "POLICY_DRY_RUN", summary, reason, "system", uuid.NewString(), pid, 0, 0, confidenceScore)
 }
 
-func logUnifiedEvent(eventType, title, summary, reason string, pid int, cpuScore, entropyScore, confidenceScore float64) error {
-	return logUnifiedEventWithMeta(eventType, title, summary, reason, "system", "", pid, cpuScore, entropyScore, confidenceScore)
-}
-
 func logUnifiedEventWithMeta(eventType, title, summary, reason, actor, incidentID string, pid int, cpuScore, entropyScore, confidenceScore float64) error {
 	_, err := InsertEvent(eventType, actor, reason, currentRunID(), incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore)
 	return err
