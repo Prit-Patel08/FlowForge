@@ -8,7 +8,6 @@ Scope: verify alignment against the 10-domain infrastructure company blueprint.
 Current direction is broadly aligned with your blueprint for domains 1, 2, 3, 4, 8, and 9 foundations.
 
 Main gaps are in:
-- full event-model unification
 - policy canary lifecycle
 - formal SLO/error-budget operations
 - integration productization (domain 10)
@@ -29,7 +28,8 @@ Main gaps are in:
 
 4. Domain 4 (Evidence and Audit)
 - append-only events baseline exists with timeline query support.
-- audit/event recording exists and is test-covered.
+- unified event migration/backfill path is implemented and test-covered.
+- incidents are now served from canonical event payloads with legacy fallback.
 
 5. Domain 8 (Security and Trust)
 - API key auth, constant-time compare, local bind defaults, redaction baseline.
@@ -42,19 +42,15 @@ Main gaps are in:
 
 ## What Is Partially Aligned (Realign Required)
 
-1. Evidence model still has legacy overlap
-- `incidents`, `audit_events`, `decision_traces`, and `events` coexist.
-- action: converge to one canonical event envelope over time.
-
-2. Decision engine versioning
+1. Decision engine versioning
 - reason outputs exist, but formal `engine_version` contract is not yet first-class.
 - action: add decision engine metadata contract in schema and API payloads.
 
-3. Policy lifecycle governance
+2. Policy lifecycle governance
 - shadow mode exists; canary rollout and approval workflow are still planned.
 - action: add policy rollout states and policy-change gates.
 
-4. SLO ritual maturity
+3. SLO ritual maturity
 - checks exist technically, but reliability governance rituals are not fully formalized.
 - action: add weekly SLO dashboard + error budget policy doc + owner cadence.
 
@@ -75,10 +71,9 @@ Main gaps are in:
 
 ## Alignment Plan (Short-Term)
 
-1. Implement unified event schema design + migration plan doc and execution PR.
-2. Implement policy canary workflow (shadow -> canary -> enforce).
-3. Formalize SLO and error-budget operating ritual.
-4. Run first chaos drill and publish findings.
+1. Implement policy canary workflow (shadow -> canary -> enforce).
+2. Formalize SLO and error-budget operating ritual.
+3. Run first chaos drill and publish findings.
 
 ## Alignment Rule Going Forward
 

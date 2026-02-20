@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS events (
   event_type TEXT NOT NULL,
   actor TEXT NOT NULL,
   reason_text TEXT NOT NULL,
+  payload_json TEXT NOT NULL DEFAULT '{}',
   confidence_score REAL NOT NULL DEFAULT 0.0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -49,6 +50,7 @@ INSERT INTO events (
   event_type,
   actor,
   reason_text,
+  payload_json,
   confidence_score,
   created_at,
   title,
@@ -63,13 +65,14 @@ INSERT INTO events (
   ?4, -- event_type
   ?5, -- actor
   ?6, -- reason_text
-  ?7, -- confidence_score
+  ?7, -- payload_json
+  ?8, -- confidence_score
   CURRENT_TIMESTAMP,
-  ?8, -- title
-  ?9, -- summary
-  ?10, -- pid
-  ?11, -- cpu_score
-  ?12  -- entropy_score
+  ?9, -- title
+  ?10, -- summary
+  ?11, -- pid
+  ?12, -- cpu_score
+  ?13  -- entropy_score
 );
 
 -- Canonical "Incident Timeline" query.
@@ -80,6 +83,7 @@ SELECT
   event_type,
   actor,
   reason_text,
+  payload_json,
   confidence_score,
   created_at,
   title,
