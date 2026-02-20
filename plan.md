@@ -1,2150 +1,4962 @@
-# FlowForge Product Execution Plan
+# FLOWFORGE — MASTER INFRASTRUCTURE COMPANY PLAN (Execution-Control Platform)
 
-Date: 2026-02-18
-Owner: Product + Engineering
-Scope: Local-first process supervision product (no SaaS, no multi-tenant, no billing)
-
----
-
-## 1) Executive Summary
-
-FlowForge should be operated as a focused reliability product for runaway process protection.
-The fastest path to a high-trust product is:
-
-1. Keep the product local-first and narrow.
-2. Make first value obvious in under 60 seconds.
-3. Make every intervention explainable.
-4. Prioritize reliability and trust before expanding scope.
-5. Delay enterprise-looking complexity until core behavior is proven.
-
-This plan turns the repo into an execution workflow with phase gates, quality bars, and timelines.
+Date: 2026-02-20  
+Owner: Founder + Product + Engineering + Reliability + Security  
+Company Direction: Local-first execution control infrastructure for AI and automation workloads
 
 ---
 
-## Reading Order (Final)
+## 0) Why This Document Exists
 
-Use this sequence when executing the plan end-to-end:
+This document replaces previous planning documents with one authoritative operating plan.
 
-1. Product mission and positioning (`Executive Summary`, `Brutal Truths`, `Product Positioning`, `Final Master Goal`)
-2. Experience design (`Simplified Mental Model`, `Onboarding Flow`, `Cloudflare-Style Website Blueprint`, `Customer Journey Workflow`)
-3. Core architecture (`Reduced Architecture`, `Platform Planes`, `Data Contracts and Schema Governance`)
-4. Feature strategy (`Feature Workflow`, `Feature Tracks`, `Complete Feature Universe`, `Anti-Overbuild Rules`)
-5. Reliability and security (`SLO/SLI/Error Budget`, `Security Program`, `Verification Matrix`, `Risk Register`)
-6. Operations and releases (`Operational Workflows`, `Release Safety Workflow`, `12-Week/18-Month timelines`, `Scoreboard Dashboard`)
-7. Team execution (`Team Topology`, `Operating Cadence`, `Immediate 30-Day Expansion Tasks`, `Delivery Milestones`)
+This is not a feature brainstorm.
+This is a build-and-scale doctrine for turning FlowForge into a durable infrastructure company.
 
-Note:
-- Section numbers are identifiers, not strict priority order.
-- Priority is defined by P0/P1/P2, SLO risk, and milestone exit criteria.
+If any roadmap or idea conflicts with this plan, this plan wins.
 
 ---
 
-## Priority Stack (Authoritative)
+## 1) Founder Intent (Authoritative)
 
-If any sections conflict, this stack wins.
+FlowForge is being built as a serious infrastructure company, not a side tool.
 
-### P0 (Now, Day 0-30) - Must Ship First
-
-Goal:
-- make FlowForge reliable, explainable, and easy to activate.
-
-Must-complete outcomes:
-1. one-command install + deterministic 60-second demo success
-2. first real workload protected in <= 5 minutes
-3. unified intervention reason format (what/why/action/outcome)
-4. lifecycle correctness (shutdown, cleanup, restart safety)
-5. release checkpoint as mandatory merge/release gate
-6. stable benchmark corpus and tracked fp/fn baseline
-7. docs clarity: README + runbook + threat model + troubleshooting consistency
-8. website skeleton with `Start in 60s`, docs, reliability, security, changelog
-
-P0 deliverables:
-1. onboarding path (`install -> demo -> protect`) validated with 3 fresh-user tests
-2. reliability pack run weekly (pilot, tuning, recovery drill, checkpoint)
-3. explicit rollback procedure tested and timed
-4. top-10 operator failure playbooks documented
-
-### P1 (Next, Day 31-90) - Zero-Command Adoption
-
-Goal:
-- remove command fatigue and make daily use near-frictionless.
-
-Must-complete outcomes:
-1. local daemon mode stable
-2. Cursor integration MVP (enable protection, status, incidents, pause/resume)
-3. Antigravity integration MVP with same core controls
-4. workspace auto-detect and auto-attach flow
-5. policy dry-run + canary rollout controls
-6. unified event schema migration plan and first implementation slice
-
-P1 deliverables:
-1. IDE integration API contract and compatibility tests
-2. no-command onboarding flow validated with external pilot users
-3. explainability preserved in all IDE-triggered actions
-
-### P2 (Later, Day 91-180) - Platform Hardening and Scale
-
-Goal:
-- raise operational maturity to platform-grade consistency.
-
-Must-complete outcomes:
-1. SLO/error-budget governance in weekly operations
-2. deeper chaos, soak, and endurance programs
-3. release train automation with canary/rollback controls
-4. forensic export, replay, and incident trend tooling
-5. interop connectors (webhooks, issue tracker, SIEM-friendly stream)
-
-P2 deliverables:
-1. repeatable low-regression release cadence
-2. evidence-backed trust pages (reliability/security/status/changelog)
-3. quarterly roadmap execution with measurable KPI movement
-
-### Explicitly Deferred Until P0 + P1 Exit
-
-Do not prioritize before P0/P1 exit criteria are met:
-1. broad integration surface beyond Cursor/Antigravity core path
-2. advanced enterprise abstractions not tied to active design-partner demand
-3. heavy policy DSL complexity without proven usage
-4. secondary analytics features that do not improve intervention trust
-5. UI polish work that does not improve onboarding speed or explainability
-
-### Critical Path Dependencies
-
-1. reliability before automation depth
-- if lifecycle/shutdown is unstable, no expansion of integrations
-
-2. explainability before autonomous action expansion
-- if users cannot understand actions, no higher automation levels
-
-3. release discipline before broader rollout
-- if checkpoint/rollback is not repeatable, do not widen adoption
-
-4. docs clarity before traffic scaling
-- if onboarding docs are unclear, do not increase acquisition spend/effort
-
-### Execution Stop Rules
-
-Immediately pause feature expansion when any condition is true:
-1. false-positive trend exceeds target for 2 consecutive weekly reviews
-2. rollback drill fails or exceeds agreed recovery window
-3. crash-free session target regresses for 2 consecutive releases
-4. intervention explainability completeness drops below 100%
+Core thesis:
+1. AI and automation workloads need deterministic execution control.
+2. Teams need explainable interventions, not black-box auto-fixes.
+3. Trust is earned through evidence, reproducibility, and disciplined operations.
+4. Expansion is gated by reliability metrics, not by hype.
 
 ---
 
-## 2) Brutal Truths (Non-Negotiable)
+## 2) Strategic Positioning
 
-1. Distribution beats architecture quality if users cannot discover and adopt the product.
-2. A security/reliability tool is judged by false positives and trust, not UI polish.
-3. If a user cannot explain why a process was killed, confidence collapses.
-4. Complex architecture before usage data creates rework and slows delivery.
-5. Most failures will come from operational discipline gaps, not missing features.
-6. Cloudflare-level quality requires years of systems/process maturity, not one big rewrite.
-7. A small team must win by focus: one persona, one painful problem, one excellent workflow.
+FlowForge becomes:
+- an execution-control platform
+- a guardrails and policy platform
+- an evidence and observability platform
+- a reliability discipline system
+- an integration surface embedded in developer workflows
 
----
-
-## 3) Product Positioning (Current)
-
-FlowForge is a local process guardrail that detects runaway behavior, intervenes safely, and explains every decision with auditable evidence.
-
-Primary user now:
-- Dev teams running long-lived AI agent jobs and automation scripts on laptops or CI runners.
-
-Primary pain now:
-- Jobs that silently loop, consume CPU, and waste time/resources.
+FlowForge does not become:
+- a generic cloud monitoring company
+- a broad AI orchestration SaaS in early stages
+- a features-first product without reliability proof
 
 ---
 
-## 4) Simplified Mental Model (4 Concepts)
+## 3) Company Blueprint (Final 10 Domains)
 
-1. Supervisor
-- Starts and monitors one child process.
-
-2. Decision
-- Evaluates CPU/output repetition and computes confidence.
-
-3. Action
-- Continue, alert, kill, or restart.
-
-4. Evidence
-- Stores what happened, why it happened, and who triggered actions.
-
-If every feature does not improve one of these four, postpone it.
+Domain 1: Execution Runtime Guard (Core)  
+Domain 2: Decision Intelligence Engine  
+Domain 3: Policy and Governance Plane  
+Domain 4: Evidence and Audit Plane  
+Domain 5: Observability Plane (Execution-Centric)  
+Domain 6: AI Cost and Model Intelligence  
+Domain 7: Agent Runtime Platform (Advanced)  
+Domain 8: Security and Trust Infrastructure  
+Domain 9: Reliability Engineering System  
+Domain 10: Ecosystem and Integrations
 
 ---
 
-## 5) Reduced Architecture (Target)
+## 4) Technical DNA (Non-Negotiable)
 
-```mermaid
-flowchart LR
-  A["CLI Supervisor"] --> B["Detector + Decision"]
-  B --> C{"Intervene?"}
-  C -- No --> D["Continue"]
-  C -- Yes --> E["Kill/Restart/Alert"]
-  B --> F["Event Log (SQLite)"]
-  E --> F
-  F --> G["Local API"]
-  G --> H["Dashboard"]
-```
-
-Key simplification rule:
-- Prefer one event model that powers both timeline and decision explainability.
+1. Deterministic over probabilistic.
+2. Explainable over opaque.
+3. Guardrails before autonomy.
+4. Reliability over velocity theater.
+5. Evidence before claims.
+6. Versioned everything.
+7. Rollbackable everything.
+8. Operational ritual over ad-hoc heroics.
 
 ---
 
-## 5.1) Node-Connected Workflows
+## 5) Explicit Non-Goals (Current Horizon)
 
-### A) User Onboarding Workflow
-
-```mermaid
-flowchart LR
-  A["Clone Repo"] --> B["Run install.sh"]
-  B --> C["Generate secure local keys"]
-  C --> D["Build backend + dashboard"]
-  D --> E["Run flowforge demo"]
-  E --> F["Open dashboard"]
-  F --> G["See detection + recovery timeline"]
-  G --> H["Run first real command with flowforge run"]
-```
-
-ASCII fallback (plain text):
-[Clone Repo] -> [Run install.sh] -> [Generate secure local keys] -> [Build backend + dashboard] -> [Run flowforge demo] -> [Open dashboard] -> [See detection + recovery timeline] -> [Run first real command with flowforge run]
-
-### B) Runtime Detection Workflow
-
-```mermaid
-flowchart LR
-  A["Start supervised process"] --> B["Sample CPU + logs"]
-  B --> C["Normalize output lines"]
-  C --> D["Compute scores (CPU/entropy/confidence)"]
-  D --> E{"Risk high?"}
-  E -- "No" --> F["Continue monitoring"]
-  E -- "Yes" --> G{"Mode"}
-  G -- "Protect" --> H["Kill/restart process"]
-  G -- "Watchdog" --> I["Raise watchdog alert"]
-  H --> J["Write evidence to DB"]
-  I --> J
-  J --> K["API serves state/events"]
-  K --> L["Dashboard shows what happened and why"]
-```
-
-ASCII fallback (plain text):
-[Start supervised process] -> [Sample CPU + logs] -> [Normalize output] -> [Compute scores] -> (Risk high?)
-No -> [Continue monitoring]
-Yes -> (Mode)
-Protect -> [Kill/restart] -> [Write evidence to DB] -> [API serves state/events] -> [Dashboard explains what/why]
-Watchdog -> [Raise alert] -> [Write evidence to DB] -> [API serves state/events] -> [Dashboard explains what/why]
-
-### C) Feature Delivery Workflow (Engineering)
-
-```mermaid
-flowchart LR
-  A["Problem brief"] --> B["Scope + anti-goals"]
-  B --> C["Technical design"]
-  C --> D["Implement"]
-  D --> E["Tests + docs update"]
-  E --> F{"All quality gates pass?"}
-  F -- "No" --> D
-  F -- "Yes" --> G["Merge + release notes"]
-  G --> H["Post-release metric review"]
-  H --> I{"Keep/tweak/revert"}
-```
-
-ASCII fallback (plain text):
-[Problem brief] -> [Scope + anti-goals] -> [Technical design] -> [Implement] -> [Tests + docs update] -> (All gates pass?)
-No -> [Implement]
-Yes -> [Merge + release notes] -> [Post-release metric review] -> [Keep / tweak / revert]
-
-### D) Release Safety Workflow
-
-```mermaid
-flowchart LR
-  A["CI: build/test/race/vet"] --> B["Dashboard production build"]
-  B --> C["Vulnerability checks"]
-  C --> D["Install/demo smoke test"]
-  D --> E{"Release criteria met?"}
-  E -- "No" --> F["Fix + rerun pipeline"]
-  E -- "Yes" --> G["Tag release"]
-  G --> H["Monitor incidents + regressions"]
-  H --> I{"Severe issue?"}
-  I -- "Yes" --> J["Rollback using checklist"]
-  I -- "No" --> K["Continue staged adoption"]
-```
-
-ASCII fallback (plain text):
-[CI build/test/race/vet] -> [Dashboard production build] -> [Vulnerability checks] -> [Install/demo smoke] -> (Release criteria met?)
-No -> [Fix + rerun pipeline]
-Yes -> [Tag release] -> [Monitor incidents/regressions] -> (Severe issue?)
-Yes -> [Rollback checklist]
-No -> [Continue staged adoption]
+For the next 12 months, FlowForge will NOT:
+1. launch multi-tenant SaaS hosting.
+2. add billing-first product tracks.
+3. ship black-box AI auto-remediation.
+4. expand integrations faster than reliability baseline allows.
+5. ship enterprise checkbox features without design-partner pull.
 
 ---
 
-## 6) Feature Workflow (Detailed)
+## 6) Stage Evolution Model
 
-Every feature must move through this exact workflow.
+Stage 1: Execution Guard Tool  
+Stage 2: Execution Governance Platform  
+Stage 3: AI Cost + Execution Observability Layer  
+Stage 4: Optional Agent Runtime Platform  
+Stage 5: Enterprise Trust + Compliance Platform
 
-## 6.1 Workflow Stages
-
-1. Problem Definition
-- Output: one-page feature brief.
-- Must include:
-  - User pain statement.
-  - Current workaround.
-  - Why now.
-  - Success metric.
-
-2. Scope Decision
-- Output: in/out list.
-- Must include:
-  - Must-have behavior.
-  - Explicit anti-goals.
-  - What will NOT be built now.
-
-3. Technical Design
-- Output: short design doc.
-- Must include:
-  - Data flow changes.
-  - API/storage impact.
-  - Failure modes and rollback.
-
-4. Build
-- Output: PR with tests and docs.
-- Must include:
-  - Unit/integration tests.
-  - Migration safety.
-  - Backward compatibility notes.
-
-5. Verify
-- Output: verification report.
-- Must include:
-  - Build/test/race/vet results.
-  - Dashboard build result.
-  - Security checks result.
-  - Manual smoke scenario.
-
-6. Release
-- Output: release notes.
-- Must include:
-  - User-visible change.
-  - Config changes.
-  - Upgrade steps.
-  - Known caveats.
-
-7. Learn
-- Output: post-release decision.
-- Must include:
-  - Metric impact after 1-2 weeks.
-  - Keep/tweak/revert decision.
-
-## 6.2 Stage Gates (Go/No-Go)
-
-A feature cannot merge unless all are true:
-- Gate A: Clear user pain and metric.
-- Gate B: Scope and anti-goals documented.
-- Gate C: Tests + docs updated.
-- Gate D: No regression in run/demo onboarding flow.
-- Gate E: Explainability preserved (reason is visible).
+Mandatory rule:
+- each stage must pass reliability and trust gates before next stage opens.
 
 ---
 
-## 7) Feature Tracks and Priority Workflow
+## 7) Current-State Alignment Audit (What We Have vs Blueprint)
 
-## 7.1 Track A - First 60-Second Value (P0)
+### 7.1 Strongly Aligned (Keep and Expand)
 
-Goal:
-- New user experiences clear value in under 60 seconds.
+1. Process-group teardown model and safety behavior.
+2. Shadow-mode policy evaluation.
+3. Append-only event foundation.
+4. Benchmark corpus fixture coverage.
+5. Strict CI checks (build/test/race/staticcheck/govulncheck).
+6. Dashboard production build path.
+7. Release checkpoint discipline.
+8. Branch protection + required checks.
+9. Onboarding usability test automation.
+10. Security baselines (API key, constant-time compare, redaction, local bind defaults).
 
-Feature workflow order:
-1. Installer reliability.
-2. Demo determinism.
-3. First-run messaging clarity.
-4. Dashboard confirmation state.
+### 7.2 Partially Aligned (Refactor/Unify)
 
-Definition of done:
-- Fresh machine install works in one command.
-- Demo always shows detect -> intervene -> recover summary.
-- User sees one clear timeline card explaining intervention.
+1. Multiple historical evidence tables still coexist (incidents/audit/decision/events).
+2. Decision engine versioning is not yet formalized as first-class schema.
+3. Policy lifecycle governance is not yet fully versioned.
+4. Observability is useful but not yet SLO-governed at company ritual level.
+5. Integration surface is still planned, not productized.
 
-## 7.2 Track B - Core Protection Reliability (P0)
+### 7.3 Misaligned or Premature (Defer/Remove from active build queue)
 
-Goal:
-- Supervision behavior is correct and stable under real workloads.
+1. Any feature that introduces black-box action without reason trace.
+2. Any expansion that bypasses release checkpoint + rollback discipline.
+3. Any cross-cloud scope creep that weakens local-first deterministic value.
+4. UI polish work that does not improve trust, explainability, or onboarding speed.
 
-Feature workflow order:
-1. Detection signal tuning.
-2. Intervention safety.
-3. Process lifecycle edge-case handling.
-4. Regression test pack.
+### 7.4 Remove-Unnecessary Directive
 
-Definition of done:
-- False positive/false negative rates measured on a benchmark corpus.
-- No goroutine leaks or shutdown orphan processes in tested scenarios.
+Operational interpretation of “remove unnecessary”:
+1. remove active priority from non-core experiments that do not map to domains 1-5 or 8-9.
+2. remove roadmap items lacking measurable reliability/trust impact.
+3. remove docs ambiguity by keeping one authoritative path per operator workflow.
 
-## 7.3 Track C - Trust and Explainability (P0)
-
-Goal:
-- Every action is understandable by a developer in under 30 seconds.
-
-Feature workflow order:
-1. Unified reason text format.
-2. Timeline simplification.
-3. Decision evidence standardization.
-4. Audit clarity.
-
-Definition of done:
-- For each intervention: what happened, why, and action outcome are present.
-
-## 7.4 Track D - Operational Hardening (P1)
-
-Goal:
-- Product behaves predictably in production-like environments.
-
-Feature workflow order:
-1. Release pipeline reliability.
-2. Dependency and vulnerability hygiene.
-3. Runtime defaults hardening.
-4. Operational runbook maturity.
-
-Definition of done:
-- CI green on all required checks.
-- Vulnerability process documented and repeatable.
-
-## 7.5 Track E - Scope Control (Always On)
-
-Goal:
-- Prevent feature creep and premature complexity.
-
-Rules:
-- Any feature not tied to current top-3 user pains gets deferred.
-- Any architectural abstraction without proven usage is deferred.
-- Any UI complexity that does not improve explanation quality is deferred.
+No destructive code removal is performed by this plan section alone.
+Code deprecation/removal requires explicit PRs with rollback notes.
 
 ---
 
-## 8) What to Temporarily Remove or Consolidate
+## 8) Prioritization Framework (Company-Level)
 
-1. Consolidate overlapping evidence models
-- Current: incidents + audit events + decision traces.
-- Simplified target: one events pipeline with typed event categories.
+P0 (Now): Domain 1 + 2 + 3 + 4 + 8 + 9 fundamentals  
+P1 (Next): Domain 5 and initial Domain 10 surface  
+P2 (After proof): Domain 6 and selective Domain 7  
+P3 (Long-range): extended enterprise programs after validated demand
 
-2. Reduce alert mode branching in UI language
-- Keep behavior, simplify wording to avoid overwhelming new users.
-
-3. Remove non-core analytics from primary dashboard path
-- Token/cost/savings can be secondary detail, not primary onboarding.
-
-4. Trim non-essential command/doc noise
-- Keep core commands prominent: run, demo, dashboard.
-
-5. Avoid premature policy engine complexity
-- Keep a small policy surface until real-world usage demands more.
+Priority decision formula:
+- user pain severity
+- trust impact
+- reliability risk
+- evidence maturity
+- operational burden
 
 ---
 
-## 9) 12-Week Detailed Timeline (Execution Plan)
+## 9) Governance Model
 
-## Weeks 1-2: Clarity + Scope Lock
+### 9.1 Product Governance
 
-Outcomes:
-- Product story, architecture, and onboarding are coherent.
+- Every feature requires: problem, scope, anti-goals, metrics, rollback path.
+- No roadmap item enters sprint without measurable success criteria.
 
-Deliverables:
-1. README rewrite with:
-- 60-second quickstart.
-- 4-concept mental model.
-- one architecture diagram.
-- troubleshooting basics.
+### 9.2 Reliability Governance
 
-2. Terminology standardization:
-- define exact terms: incident, decision, action, event.
+- Weekly reliability review is mandatory.
+- Error budget policy determines feature freeze decisions.
 
-3. Feature freeze policy:
-- no net-new feature classes during 12-week cycle.
+### 9.3 Security Governance
 
-Exit criteria:
-- New dev can explain product flow in 5 minutes.
+- Security baseline checks are required for release.
+- Vulnerability response timeline is documented and tracked.
 
-## Weeks 3-4: Core Loop Reliability
+### 9.4 Release Governance
 
-Outcomes:
-- run/demo path is deterministic and robust.
-
-Deliverables:
-1. Detection benchmark harness (fixture scripts).
-2. Process lifecycle test matrix.
-3. Graceful shutdown validation.
-4. Decision reason formatting standard.
-
-Exit criteria:
-- benchmark report exists.
-- no critical lifecycle failures in matrix.
-
-## Weeks 5-6: Evidence Simplification
-
-Outcomes:
-- one coherent event narrative in backend + UI.
-
-Deliverables:
-1. Event model simplification design.
-2. migration plan for existing DB schema.
-3. timeline rendering simplification.
-4. reason panel consistency check.
-
-Exit criteria:
-- user can trace one event end-to-end with no ambiguity.
-
-## Weeks 7-8: Operational Hardening
-
-Outcomes:
-- repeatable secure release behavior.
-
-Deliverables:
-1. release checklist.
-2. rollback checklist.
-3. security maintenance checklist.
-4. docs for API auth and local bind defaults.
-
-Exit criteria:
-- release dry-run succeeds with checklist compliance.
-
-## Weeks 9-10: Pilot Readiness
-
-Outcomes:
-- ready for limited external pilot users.
-
-Deliverables:
-1. pilot onboarding guide.
-2. issue intake template.
-3. incident triage playbook.
-4. top 10 failure-mode runbook entries.
-
-Exit criteria:
-- pilot users can self-serve onboarding with minimal support.
-
-## Weeks 11-12: Stabilize and Decide
-
-Outcomes:
-- confidence to continue, narrow, or pivot.
-
-Deliverables:
-1. KPI review report.
-2. top regressions and root cause summary.
-3. next-quarter prioritized backlog.
-
-Exit criteria:
-- written keep/tweak/revert decisions for all major changes.
+- Feature freeze windows.
+- Canary and soak windows.
+- Rollback drill evidence.
+- Public changelog discipline.
 
 ---
 
-## 10) 12-Month Roadmap (Quarterly)
+## 10) Internal Company Systems (Rituals)
 
-Q1 (0-3 months): Core Product Clarity
-- deterministic onboarding and demo.
-- stable supervision loop.
-- clear evidence model.
+A) Release Governance System  
+B) Incident Command Structure  
+C) Documentation-as-Product  
+D) Telemetry Governance and Privacy  
+E) Product Taxonomy Discipline
 
-Q2 (3-6 months): Pilot Reliability
-- benchmark-backed detection tuning.
-- hardening of release and runtime defaults.
-- pilot user retention feedback loop.
+### 10.1 Incident Command Roles
 
-Q3 (6-9 months): Production Readiness
-- versioned API behavior commitments.
-- stronger upgrade/migration story.
-- comprehensive runbook maturity.
+- Incident Commander
+- Communications Lead
+- Root Cause Analyst
+- Recovery Operator
+- Follow-up Owner
 
-Q4 (9-12 months): Team Adoption
-- improved team workflows and policy controls.
-- selective integrations only if driven by pilot demand.
+### 10.2 Mandatory Incident Outputs
 
----
-
-## 11) Success Metrics and Targets
-
-## 11.1 Onboarding Metrics
-
-1. Time-to-first-value
-- Target: <= 5 minutes from clone to first successful demo.
-
-2. Demo completion rate
-- Target: >= 95% on supported environments.
-
-## 11.2 Protection Metrics
-
-1. Detection latency
-- Target: intervention decision in <= 5 seconds for runaway fixtures.
-
-2. False positive rate
-- Target: <= 2% on benchmark corpus before broader rollout.
-
-3. False negative rate
-- Target: continuously tracked and reduced each sprint.
-
-## 11.3 Reliability Metrics
-
-1. Crash-free supervised sessions
-- Target: >= 99%.
-
-2. API availability (local runtime)
-- Target: >= 99.9% during active session.
-
-3. Clean shutdown success
-- Target: >= 99% in lifecycle tests.
-
-## 11.4 Trust Metrics
-
-1. Explainability completeness
-- Target: 100% of interventions include reason + action + outcome.
-
-2. User confidence score (survey)
-- Target: steady increase sprint-over-sprint.
+- Incident timeline
+- User impact summary
+- Root cause statement
+- Corrective action list with owners/dates
+- Regression test commitment
 
 ---
 
-## 12) Engineering Quality Workflow
+## 11) Visual Product Direction
 
-## 12.1 PR Checklist (Required)
+Website must remain proof-driven.
 
-- [ ] Problem statement included in PR body.
-- [ ] Scope and anti-goals listed.
-- [ ] Unit/integration tests added or updated.
-- [ ] Race detector clean.
-- [ ] Vet/static/vuln checks clean.
-- [ ] Dashboard build clean.
-- [ ] README/docs updated if behavior changed.
-- [ ] Rollback note included.
+Primary navigation:
+- Product
+- Solutions
+- Reliability
+- Security
+- Docs
+- Changelog
+- Status
+- Community
+- Download
 
-## 12.2 Testing Pyramid
-
-1. Unit tests
-- decision scoring math.
-- auth/rate-limit behavior.
-- parsing and normalization.
-
-2. Integration tests
-- run loop + DB writes.
-- API endpoints with auth.
-- timeline rendering contract.
-
-3. Behavior tests
-- runaway fixture.
-- noisy but healthy fixture.
-- restart path fixture.
-
-4. Release smoke tests
-- install script.
-- demo execution.
-- dashboard connection.
+Homepage proof blocks:
+1. Incident timeline demo.
+2. Confidence decomposition panel.
+3. Policy simulation snapshot.
+4. Replay demonstration.
+5. Operational trust evidence.
 
 ---
 
-## 13) Security and Trust Workflow
-
-1. Secrets discipline
-- No committed keys or runtime state files.
-- Enforced .gitignore and secret scanning checks.
-
-2. Auth discipline
-- mutating endpoints require key.
-- constant-time compare remains mandatory.
-
-3. Runtime exposure
-- localhost bind default.
-- strict CORS policy for local origins only.
-
-4. Vulnerability maintenance
-- recurring vuln check cadence.
-- patch policy for toolchain and dependencies.
-
-5. Disclosure discipline
-- clear SECURITY.md and issue response timeline.
-
----
-
-## 14) Documentation Workflow
-
-Required docs and owner responsibilities:
-
-1. README (Product owner)
-- must tell the full story in one pass.
-- must include quickstart, architecture, and common failures.
-
-2. OPERATIONS.md (Infra owner)
-- install/runbook/upgrade/rollback.
-
-3. THREAT_MODEL.md (Security owner)
-- trust boundaries and attack surface.
-
-4. CHANGELOG (Release owner)
-- user-facing diffs and migration notes.
-
-Documentation quality gate:
-- if behavior changes and docs are stale, PR does not merge.
-
----
-
-## 15) Simplified Onboarding Flow (Target UX)
-
-1. Clone repo.
-2. Run install script.
-3. Watch demo detect and recover.
-4. Open dashboard and see one clear reason timeline.
-5. Run one real command under supervision.
-
-Expected first-run message quality:
-- one sentence per step.
-- no ambiguous debug language.
-- clear next action on error.
-
----
-
-## 16) Backlog Prioritization Framework
-
-Priority model:
-- P0: directly improves onboarding speed, core reliability, or trust.
-- P1: improves operational quality but not critical for first value.
-- P2: useful later; postpone unless user demand is explicit.
-
-Current examples:
-
-P0:
-- README simplification.
-- event model coherence.
-- detection benchmark + false-positive tuning.
-- lifecycle/shutdown reliability.
-
-P1:
-- deeper metrics refinement.
-- optional UI polish around secondary stats.
-
-P2:
-- advanced policy abstractions.
-- broad integration surface.
-- anything not tied to current top-3 pain points.
-
----
-
-## 17) Team Operating Cadence
-
-Daily:
-- 15-minute standup.
-- blockers, incidents, active risks.
-
-Weekly:
-- reliability review (test failures, regressions, false positives).
-- user feedback review.
-- roadmap adjustment check.
-
-Bi-weekly:
-- release train with checklist review.
-- post-release metric check.
-
-Monthly:
-- architectural debt review.
-- threat model update check.
-
-Quarterly:
-- strategic scope reset.
-- kill non-performing feature lines.
-
----
-
-## 18) Risk Register (Top Risks + Mitigations)
-
-1. Risk: False positives reduce trust.
-- Mitigation: benchmark suite + explainability requirement + staged rollout.
-
-2. Risk: Lifecycle bugs orphan processes.
-- Mitigation: lifecycle matrix + forced kill fallback + shutdown tests.
-
-3. Risk: Scope creep slows core quality.
-- Mitigation: strict P0/P1/P2 governance and anti-goal review.
-
-4. Risk: Documentation drift.
-- Mitigation: doc update merge gate.
-
-5. Risk: Security regressions.
-- Mitigation: auth tests + vuln checks + secret scanning discipline.
-
----
-
-## 19) Kill Criteria (When to Stop or Pivot)
-
-If after two full quarterly cycles:
-- time-to-first-value not improving,
-- false positives still unacceptable,
-- pilot retention weak,
-
-then reduce scope further and revalidate core problem before adding any new features.
-
----
-
-## 20) Immediate Next Actions (Next 7 Days)
-
-1. Finalize README rewrite aligned to this plan.
-2. Define and implement benchmark fixture set.
-3. Create one-page feature brief template and enforce in PRs.
-4. Publish release checklist and rollback checklist.
-5. Run one end-to-end onboarding usability test with a new developer.
-
-### 20.1) Status (Living Checklist)
-
-Last updated: 2026-02-19
-
-- [x] Finalize README rewrite aligned to this plan.
-- [x] Define and implement benchmark fixture set.
-- [x] Create one-page feature brief template and enforce in PRs.
-- [x] Publish release checklist and rollback checklist.
-- [ ] Run one end-to-end onboarding usability test with a new developer.
-  Note: scripted onboarding tests passed internally on 2026-02-19 (`pilot_artifacts/onboarding-20260219-220513/report.md`, `pilot_artifacts/onboarding-20260219-221536/report.md`) with self feedback captured (`pilot_artifacts/onboarding-20260219-221536/feedback.txt`); pending external first-time developer run + feedback capture.
-
----
-
-## 21) One-Paragraph Positioning Statement
-
-FlowForge is a local reliability guardrail for long-running scripts and AI agent workflows: it supervises execution, detects runaway behavior, intervenes safely, and records clear, auditable reasons for every action so developers can trust automation without losing control.
-
----
-
-## 22) Appendix - Feature Workflow Template
-
-Use this template for every feature request:
-
-1. Feature Name:
-2. User Pain:
-3. Success Metric:
-4. In Scope:
-5. Out of Scope:
-6. Architecture Impact:
-7. Failure Modes:
-8. Test Plan:
-9. Docs Impact:
-10. Rollback Plan:
-11. Release Validation:
-12. Post-Release Review Date:
-
----
-
-## 23) Ideal Domain Expansion Map (Cloudflare-Style Breadth, Sequenced)
-
-Purpose:
-- keep a large long-term vision without breaking short-term focus.
-- expand by domains only after hard readiness gates are met.
-
-Domain sequencing rule:
-1. Core Runtime Reliability (must be excellent first)
-2. Security Controls
-3. Policy and Governance
-4. Observability and Forensics
-5. Deployment Surface
-6. Ecosystem and Integrations
-
-Readiness gate before opening any new domain:
-- onboarding <= 5 minutes
-- false-positive rate within target
-- crash-free session target met
-- release checklist and rollback drills passing
-- docs/runbooks current
-
-### Domain A) Core Runtime Reliability
-
-Scope:
-- stronger runaway classification profiles
-- bounded restart policies
-- deterministic shutdown and child cleanup
-- command resource guardrails (cpu/mem/token-rate)
-
-Example features:
-- per-command runtime profile presets
-- restart backoff and max restart window
-- stuck-process timeout policy
-- run replay summary from persisted events
-
-Unlock criteria:
-- baseline domain; always active until mature.
-
-### Domain B) Security Controls
-
-Scope:
-- local auth hardening
-- secret hygiene
-- execution safety boundaries
-
-Example features:
-- signed local action approvals (optional)
-- stricter endpoint permission tiers
-- immutable audit export bundle
-- key rotation helper workflow
-
-Unlock criteria:
-- Domain A stable with low operational incidents.
-
-### Domain C) Policy and Governance
-
-Scope:
-- reusable policy packs for teams
-- policy validation/linting
-- policy simulation before enforcement
-
-Example features:
-- policy dry-run mode with impact report
-- profile registry for team-standard policies
-- confidence threshold policy packs by workload type
-- policy conflict checker
-
-Unlock criteria:
-- Domain A and B stable, with clear user demand for shared policy.
-
-### Domain D) Observability and Forensics
-
-Scope:
-- high-clarity operational timeline
-- deeper forensic context for interventions
-- robust benchmark and incident analytics
-
-Example features:
-- event correlation view (incident + decision + action chain)
-- benchmark trend tracking across commits
-- forensic export command (sanitized)
-- anomaly score drift report
-
-Unlock criteria:
-- Domain A baseline metrics stable for two release cycles.
-
-### Domain E) Deployment Surface
-
-Scope:
-- repeatable deployment across environments
-- hardened packaging and upgrade safety
-
-Example features:
-- hermetic build profile
-- offline install bundle
-- migration preflight checker
-- host capability validator
-
-Unlock criteria:
-- runbooks mature and rollback drills proven.
-
-### Domain F) Ecosystem and Integrations
-
-Scope:
-- connect to existing dev workflows without bloating core
-
-Example features:
-- CI adapters (consume events and enforce policy outcome gates)
-- chat notifications for intervention summaries
-- issue tracker incident export
-- SIEM-friendly JSON event stream exporter
-
-Unlock criteria:
-- Domain A-D stable and clear integration pull from users.
-
----
-
-## 24) Feature Universe Backlog (Ideal, Not Immediate)
-
-These are intentionally broad and should remain parked until domain gates open.
-
-Reliability universe:
-- workload fingerprinting
-- adaptive threshold tuning from local history
-- bounded auto-remediation playbooks
-- run safety scorecard
-
-Security universe:
-- tamper-evident local audit chain
-- host integrity prechecks before run
-- secret source scanning of process output channels
-- policy-based kill approval modes
-
-Policy universe:
-- policy templates by language/runtime
-- policy provenance metadata
-- policy test harness fixtures
-- policy rollout canary mode
-
-Observability universe:
-- incident diff between two runs
-- confidence decomposition timeline
-- postmortem report generator from event graph
-- benchmark comparison CLI
-
-Operations universe:
-- upgrade planner with migration checks
-- environment compatibility matrix command
-- release health snapshot command
-- disaster recovery checklist automation
-
-Integrations universe:
-- git hook guardrail mode
-- pipeline status gate mode
-- message bus exporter (local forwarding)
-- standardized event schema adapters
-
----
-
-## 25) Anti-Overbuild Rules For Domain Expansion
-
-1. No domain expansion if P0 metrics are below target.
-2. No new domain features without a named design-partner request pattern.
-3. No architecture abstraction added unless used by at least two active features.
-4. No integration feature before core event schema is stable for two cycles.
-5. Every new domain feature must include removal criteria if adoption is weak.
-
----
-
-## 26) Domain Planning Template
-
-Use this before opening a domain:
-
-1. Domain Name:
-2. Why now:
-3. User pull evidence:
-4. Prerequisite gates status:
-5. First 3 features (max):
-6. Success metrics:
-7. Failure signals:
-8. Rollback/retire plan:
-
----
-
-## 27) Cloudflare-Level North Star (Long-Range)
-
-FlowForge long-range goal:
-- become a high-trust reliability and protection layer for runtime workloads, with explainable automated intervention, strong security defaults, and production-grade operational controls.
-
-North-star outcomes:
-1. Intervention decisions are accurate, explainable, and reversible.
-2. Runtime protections are always-on and safe by default.
-3. Operators can enforce policy at scale without losing local developer speed.
-4. Platform upgrades are boring, repeatable, and low-risk.
-5. Every failure mode has a tested runbook and rollback path.
-
-Guardrail:
-- Expand feature surface only when reliability, trust, and onboarding targets are met.
-
----
-
-## 28) Platform Planes (Target Architecture)
-
-### Plane A: Runtime Agent Plane
-
-Responsibilities:
-- process supervision and lifecycle control
-- signal collection (cpu, memory, io, logs)
-- decision scoring and policy evaluation
-- action execution (continue, alert, kill, restart, isolate)
-
-Must-have features:
-1. process tree ownership and cleanup
-2. graceful shutdown with bounded force-kill fallback
-3. deterministic restart backoff and jitter
-4. resource guards (cpu, memory, wall-time)
-5. decision trace emission for every intervention
-
-### Plane B: Local Control Plane
-
-Responsibilities:
-- API endpoints for state, incidents, actions, policies
-- authn/authz and audit trail
-- config lifecycle and validation
-
-Must-have features:
-1. API key and service token support
-2. constant-time token compare
-3. per-endpoint auth policy matrix
-4. local-only secure bind default
-5. schema-validated config updates
-
-### Plane C: Policy Plane
-
-Responsibilities:
-- define what is risky
-- define what action to take
-- define when automation requires manual approval
-
-Must-have features:
-1. policy schema versioning
-2. policy dry-run mode with impact preview
-3. policy packs by workload type
-4. policy precedence and conflict checks
-5. policy rollout controls (shadow, canary, enforce)
-
-### Plane D: Evidence and Data Plane
-
-Responsibilities:
-- durable incident/audit/decision event storage
-- timeline and forensic retrieval
-- retention and export
-
-Must-have features:
-1. unified event model with typed event categories
-2. append-only event history guarantees
-3. event correlation id across one incident chain
-4. export bundle with redaction guarantees
-5. retention policy and compaction controls
-
-### Plane E: Observability Plane
-
-Responsibilities:
-- metrics, traces, logs, health signals
-- SLO reporting and alerting
-- benchmark trend tracking
-
-Must-have features:
-1. Prometheus metrics with stable cardinality
-2. OpenTelemetry traces for action pipeline
-3. health/readiness/degraded endpoints
-4. burn-rate alerts for SLO violations
-5. incident quality scorecards
-
-### Plane F: Delivery and Operations Plane
-
-Responsibilities:
-- build, test, release, rollback, upgrade
-- vulnerability and dependency governance
-- production readiness gates
-
-Must-have features:
-1. reproducible builds
-2. signed release artifacts
-3. release checkpoint and rollback drills
-4. automated dependency and vuln checks
-5. migration preflight and rollback guardrails
-
----
-
-## 29) Complete Feature Universe (Sequenced)
-
-This is the target universe. Do not build all at once.
-
-### Domain 1: Core Supervision Engine
-
-1. single-command supervision with process-group ownership
-2. cpu, memory, io, and wall-time threshold guards
-3. output repetition detection and entropy scoring
-4. multi-signal confidence score
-5. bounded action policies (alert/kill/restart/isolate)
-6. restart budgets (max restarts per window)
-7. startup grace periods and warmup windows
-8. stuck-progress detector (heartbeat and progress timeout)
-9. crash-loop detector with suppression windows
-10. controlled pause mode and maintenance windows
-
-### Domain 2: Decision Intelligence and Explainability
-
-1. reason template standardization
-2. confidence breakdown (cpu, entropy, trend, policy hit)
-3. decision replay from raw evidence
-4. decision diff across versions
-5. explainability completeness validator
-6. confidence threshold tuning assistant
-7. false-positive review workflow
-8. false-negative review workflow
-9. regression fixtures for high-risk patterns
-10. model-less deterministic fallback mode
-
-### Domain 3: API and Action Security
-
-1. endpoint-level auth matrix
-2. role-based action permissions
-3. anti-bruteforce rate limiting
-4. action cooldowns and idempotency keys
-5. signed action requests option
-6. per-action approval requirement policy
-7. local mTLS for advanced deployments
-8. rotating key lifecycle tooling
-9. audit-immutable action log
-10. emergency lockout mode
-
-### Domain 4: Incident and Audit Data
-
-1. unified event schema (incident, decision, action, outcome)
-2. event lineage and causal linking
-3. incident lifecycle states
-4. actor attribution for manual interventions
-5. retention classes (hot, warm, archive)
-6. forensic export with checksum manifest
-7. incident replay report generator
-8. data integrity checks
-9. migration-safe schema evolution
-10. historical query performance budgets
-
-### Domain 5: Dashboard and Operator UX
-
-1. live health panel with risk summary
-2. incident timeline with reason-first cards
-3. action outcome panel (what changed)
-4. confidence explanation panel
-5. policy hit visualization
-6. manual action controls with confirmation safety
-7. incident filter/search with saved views
-8. drift and trend panels (fp/fn, latency, restart rate)
-9. run-level forensic view
-10. operator guidance text for each failure class
-
-### Domain 6: Zero-Command Integrations (Critical)
-
-1. local daemon mode (always-on supervisor)
-2. workspace auto-discovery
-3. auto-attach to active dev process
-4. cursor extension: enable/disable protection toggle
-5. cursor extension: incident side panel
-6. antigravity integration: attach/status/actions
-7. launch hooks for npm/go/python common commands
-8. deep-link from IDE to incident detail
-9. one-click policy preset selection
-10. local integration diagnostics panel
-
-### Domain 7: Reliability and Recovery Engineering
-
-1. graceful shutdown matrix (signals and parent death)
-2. orphan process prevention guarantees
-3. restart correctness under partial failures
-4. action execution timeout and retries
-5. state restore on supervisor restart
-6. watchdog for supervisor self-health
-7. fail-safe mode when policy/config invalid
-8. deterministic fallback config
-9. recovery drills as code
-10. periodic chaos/fault-injection suite
-
-### Domain 8: Performance and Capacity
-
-1. detection latency budget tracking
-2. resource overhead budget tracking
-3. benchmark harness for real workloads
-4. profile-guided optimization loop
-5. event ingestion throughput tests
-6. timeline query latency tests
-7. memory leak detection tests
-8. sustained soak and endurance tests
-9. load-shed behavior under stress
-10. capacity planning dashboards
-
-### Domain 9: Supply Chain and Platform Security
-
-1. SBOM generation and attestation
-2. dependency drift and vuln SLA policy
-3. build provenance and signing
-4. secret scanning with fail gates
-5. static analysis and lint policy
-6. fuzzing for parsers and normalization
-7. binary hardening flags
-8. container hardening baseline
-9. least-privilege runtime defaults
-10. security incident response playbook
-
-### Domain 10: Deployment and Fleet Operations
-
-1. local single-node deploy profile
-2. multi-node self-hosted profile
-3. environment promotion pipeline (dev/stage/prod)
-4. canary deployment controls
-5. blue-green rollback path
-6. migration preflight checks
-7. config drift detection
-8. backup and restore automation
-9. disaster recovery game days
-10. release train automation
-
-### Domain 11: Enterprise Trust and Compliance (Later)
-
-1. immutable audit evidence package
-2. policy change approval trail
-3. access review workflows
-4. data retention enforcement by policy
-5. compliance evidence export templates
-6. signed incident postmortem packages
-7. security baseline conformance checks
-8. change-management reporting
-9. runbook execution evidence tracking
-10. periodic trust posture scorecards
-
-### Domain 12: Ecosystem and Interop
-
-1. webhook action/event integrations
-2. issue tracker incident export
-3. chatops intervention summaries
-4. SIEM-compatible event streaming
-5. OpenAPI stability and SDK generation
-6. policy import/export tooling
-7. CI gate mode for workload protection checks
-8. workflow automation connectors
-9. external evidence archive integration
-10. schema compatibility contract tests
-
----
-
-## 30) Cloud-Scale Workflow (Idea to Production)
-
-Every feature follows this 10-step workflow.
-
-1. Problem brief with measurable user pain
-2. Scope and anti-goals written and approved
-3. Threat model delta and failure mode analysis
-4. Design review with rollback and migration plan
-5. Implementation with feature flags
-6. Test matrix execution (unit/integration/behavior/race/fuzz)
-7. Shadow mode validation on real workloads
-8. Canary rollout with error-budget guardrails
-9. General availability with docs and runbooks
-10. Post-release review with keep/tweak/revert decision
-
-Mandatory artifacts per feature:
-- feature brief
-- design note
-- test evidence
-- release note
-- rollback playbook delta
-- metric impact report
-
----
-
-## 31) Multi-Stage Release Workflow (Node-Connected)
-
-```mermaid
-flowchart LR
-  A["Feature RFC"] --> B["Design + Threat Delta"]
-  B --> C["Implement Behind Flag"]
-  C --> D["CI + Verification Matrix"]
-  D --> E{"Shadow Mode Clean?"}
-  E -- "No" --> C
-  E -- "Yes" --> F["Canary Rollout"]
-  F --> G{"SLO + Error Budget OK?"}
-  G -- "No" --> H["Rollback + Fix"]
-  G -- "Yes" --> I["GA Release"]
-  I --> J["Post-Release Review"]
-```
-
-Promotion guardrails:
-1. no unresolved P0 defects
-2. no unexplained SLO regressions
-3. release checkpoint pass required
-4. rollback dry-run less than 15 minutes
-
----
-
-## 32) Reliability Objectives (SLO/SLI/Error Budget)
-
-### SLO Group A: Detection and Action
-
-1. decision latency p95 <= 2s
-2. intervention completion p95 <= 5s
-3. false-positive rate <= 1% on benchmark corpus
-4. false-negative trend decreasing release-over-release
-
-### SLO Group B: Runtime Stability
-
-1. crash-free supervisor sessions >= 99.5%
-2. clean shutdown success >= 99.5%
-3. orphaned child processes = 0 in verified drills
-
-### SLO Group C: API and Dashboard
-
-1. local API availability during active sessions >= 99.9%
-2. timeline query p95 <= 300ms (local profile)
-3. dashboard first paint <= 2s in standard dev machine profile
+## 12) SLO and Error Budget Baseline
+
+SLO Group A: Detection and Action
+- detection latency p95
+- intervention precision
+- false positive ceiling
+
+SLO Group B: Runtime Stability
+- crash-free sessions
+- clean shutdown success
+- restart storm prevention
+
+SLO Group C: API and Dashboard
+- availability during active sessions
+- timeline API correctness
+- dashboard data freshness
 
 Error budget policy:
-- If monthly budget is exhausted, freeze new features and ship only reliability fixes until budget recovers.
+- if budget burns above threshold: feature freeze + reliability sprint.
 
 ---
 
-## 33) Security Program (Required for Trust)
+## 13) Security and Trust Baseline
 
-1. security design review for every P0/P1 feature
-2. threat model update each release cycle
-3. mandatory auth tests for mutating endpoints
-4. constant-time token compare regression test
-5. secret scanning in CI and pre-release gates
-6. monthly dependency and toolchain patch window
-7. quarterly security chaos drills
-8. mandatory incident response runbook validation
-9. signed release artifacts and provenance checks
-10. vulnerability triage SLA matrix
-
-Vulnerability SLA example:
-- critical: patch or mitigate in 24h
-- high: patch or mitigate in 7 days
-- medium: patch in 30 days
-- low: scheduled backlog
+Required baseline controls:
+1. SBOM generation.
+2. dependency/vuln scanning.
+3. secret redaction.
+4. local secure defaults.
+5. signed release path roadmap.
+6. disclosure policy and response SLA.
 
 ---
 
-## 34) Verification Matrix (Full Quality Gate)
+## 14) Telemetry and Privacy Baseline
 
-### Test Layers
-
-1. unit tests for scoring, policies, auth checks
-2. integration tests for api, db, lifecycle
-3. behavior fixtures (runaway, healthy burst, crash-loop, hang)
-4. race detector and leak detection checks
-5. fuzz tests for parsers and redactors
-6. load tests for event and timeline endpoints
-7. soak tests for multi-day stability
-8. chaos tests for signal loss, slow disk, api timeouts
-
-### Release Gate Checklist
-
-1. build/test/race/vet pass
-2. staticcheck and govulncheck pass
-3. dashboard production build pass
-4. install and demo smoke pass
-5. recovery drill pass
-6. release checkpoint pass
-7. rollback drill pass
-8. docs and runbook diffs complete
+1. local-first default.
+2. explicit opt-in for any outbound telemetry.
+3. documented data retention policy.
+4. data deletion path.
+5. encryption-at-rest for persisted sensitive data.
 
 ---
 
-## 35) Data Contracts and Schema Governance
+## 15) Documentation-as-Product System
 
-1. one canonical event envelope schema
-2. schema versioning with backward-compatible reads
-3. strict validation before persistence
-4. nullable-field discipline and deprecation windows
-5. migration scripts with checksum verification
-6. contract tests for api and dashboard consumers
-7. event replay harness for compatibility checks
-8. explicit retention and compaction strategy
+Documentation classes:
+1. Quickstart
+2. Operational runbook
+3. Incident response
+4. Migration guides
+5. Upgrade warnings
+6. API contract references
+7. Architecture deep dives
+8. Why-did-this-happen explainability guides
 
-Event envelope minimum fields:
-- event_id
-- run_id
-- incident_id
-- event_type
-- actor
-- reason
-- scores
-- action
-- outcome
-- created_at
-- schema_version
+Doc quality gates:
+- every behavior change updates relevant docs.
+- stale docs block release.
 
 ---
 
-## 36) Integration Blueprint (Cursor + Antigravity)
+## 16) Commercial Direction (No SaaS requirement today)
 
-Goal:
-- user gets protection without typing repetitive commands.
+Potential packaging layers:
+1. Core local runtime package.
+2. Team reliability bundle.
+3. Enterprise trust and governance bundle.
 
-Architecture:
-1. local daemon process starts on login or first use
-2. IDE extension registers workspace with daemon
-3. daemon discovers active command or launch task
-4. daemon attaches supervision profile automatically
-5. extension shows health and incidents inline
-6. one-click intervene controls call local daemon API
-
-MVP integration feature set:
-1. enable protection toggle
-2. choose profile (standard/strict/watchdog)
-3. show latest incident reason and action
-4. open timeline deep-link
-5. pause/resume supervision
-
-Safety requirements:
-1. no silent destructive action without policy approval
-2. full audit trail for IDE-triggered actions
-3. visible indicator when protection is active
+Commercial principle:
+- monetize trust + cost savings + operational certainty.
 
 ---
 
-## 37) Operational Workflows (Detailed)
+## 17) Alignment Decision for Existing Work (Keep / Realign / Pause)
 
-### Workflow A: New Workload Onboarding
+### Keep (already valuable)
+- strict CI
+- release checkpoint
+- benchmark corpus
+- append-only event baseline
+- policy shadow mode
+- supervisor teardown hardening
+- branch protection
+- issue/postmortem templates
 
-1. select profile preset
-2. run in shadow mode for baseline capture
-3. review baseline report and suggested thresholds
-4. enable enforce mode
-5. monitor first 24h with tuned alerts
+### Realign (keep but redesign)
+- evidence model unification into canonical event contract
+- decision-engine versioning and reproducibility
+- formal SLO dashboard rituals
 
-### Workflow B: Incident Response
-
-1. detect incident and classify severity
-2. inspect reason and confidence breakdown
-3. validate expected vs unexpected behavior
-4. execute action or override with reason
-5. capture post-incident notes
-6. create follow-up fix and policy adjustment
-
-### Workflow C: Safe Policy Change
-
-1. edit policy in dry-run
-2. run impact simulation on historical events
-3. apply to canary workloads
-4. verify no major fp/fn regressions
-5. roll out broadly
-
-### Workflow D: Release and Rollback
-
-1. freeze non-release changes
-2. run release checkpoint + soak snapshot
-3. publish release and monitor burn-rate
-4. if severe regression, rollback via playbook
-5. publish incident and remediation notes
+### Pause
+- advanced runtime platform features not yet demanded by pilot users
+- broad integration matrix beyond core design partners
 
 ---
 
-## 38) 18-Month Detailed Timeline
+## 18) 24-Month Milestone Timeline (High-Level)
 
-### Phase 0 (Month 0-1): Foundation Lock
+Phase A (Month 0-3): Core Trust Lock
+- domains 1-4 and 8-9 foundations hardened
+- release/rollback rituals enforced
 
-Outcomes:
-1. docs and onboarding clarity complete
-2. week1 and week2 reliability pack repeatable
-3. release checkpoint enforced for all releases
+Phase B (Month 4-6): Operator Confidence
+- explainability and observability improvements
+- pilot reliability consistency
 
-### Phase 1 (Month 2-3): Engine Reliability
+Phase C (Month 7-12): Expansion with Discipline
+- selective integrations
+- cost intelligence entry
 
-Outcomes:
-1. lifecycle correctness and shutdown guarantees
-2. benchmark corpus and fp/fn baselines
-3. unified reason formatting in UI/API
+Phase D (Month 13-18): Platform Consolidation
+- policy governance maturity
+- evidence export and compliance utilities
 
-### Phase 2 (Month 4-6): Zero-Command Adoption
-
-Outcomes:
-1. local daemon mode GA
-2. cursor integration MVP
-3. antigravity integration MVP
-4. one-click workspace protection flow
-
-### Phase 3 (Month 7-9): Policy and Evidence Maturity
-
-Outcomes:
-1. unified event schema migration complete
-2. policy dry-run and canary rollout controls
-3. forensic export and replay tooling
-
-### Phase 4 (Month 10-12): Production Operations
-
-Outcomes:
-1. staged deploy and rollback automation
-2. chaos and endurance programs running continuously
-3. formal SLO/error-budget governance
-
-### Phase 5 (Month 13-18): Platform Expansion
-
-Outcomes:
-1. advanced integrations and interop connectors
-2. enterprise trust workflows
-3. hardened fleet operations patterns
+Phase E (Month 19-24): Enterprise Readiness Gate
+- measured proof of reliability at scale
+- controlled expansion decisions
 
 ---
 
-## 39) Team Topology and Ownership
+## 19) Execution Rules (Founder Mandates)
 
-Required ownership lanes:
-1. runtime engine
-2. control plane api
-3. dashboard and operator ux
-4. reliability and test infra
-5. security engineering
-6. release and operations
-7. integration platform (ide + workflows)
-
-Operating model:
-1. each lane owns SLOs and runbooks
-2. cross-lane release reviews every two weeks
-3. one reliability captain per release cycle
+1. No major new domain work while P0 reliability gates fail.
+2. No integration expansion if explainability completeness < 100% for interventions.
+3. No release if rollback drill evidence is stale.
+4. No security exception without explicit risk acceptance note.
+5. No roadmap inflation without metrics and owners.
 
 ---
 
-## 40) Brutal Truth Addendum (Scaling Edition)
+## 20) Work Package Catalog Method
 
-1. You cannot brute-force trust with features; trust comes from low-regression releases.
-2. If explainability lags automation, users will disable automation.
-3. If incident quality is noisy, users will ignore true positives.
-4. If release and rollback are manual, scale will fail.
-5. If integration UX is weak, adoption will plateau regardless of engine quality.
-6. If quality gates are optional, reliability will decay.
+This section defines execution-level work packages for all 10 domains.
 
----
+For each work package, mandatory fields:
+- Domain
+- Strategic intent
+- Capability target
+- Phase
+- Delivery status
+- Build scope
+- Acceptance criteria
+- Metrics
+- Dependencies
+- Risks
+- Decision gate
 
-## 41) Scoreboard Dashboard (Weekly)
-
-Track weekly and review every Friday:
-1. time-to-first-value
-2. demo success rate
-3. fp/fn rates on benchmark corpus
-4. decision latency p95
-5. intervention success rate
-6. crash-free sessions
-7. clean shutdown success
-8. unresolved P0 defects
-9. release checkpoint pass rate
-10. documentation freshness score
-
-Decision rule:
-- if 2+ core metrics regress for two consecutive weeks, stop feature expansion and execute reliability sprint.
+Delivery status vocabulary:
+- implemented-baseline
+- in-flight
+- planned
+- deferred
 
 ---
 
-## 42) Immediate 30-Day Expansion Tasks
+## 21) Domain Capability Reference
 
-1. create and enforce PR templates (problem, scope, anti-goals, rollback)
-2. add issue intake and incident postmortem templates
-3. implement unified event schema design doc and migration plan
-4. add canary + shadow mode controls to policy engine
-5. ship local daemon RFC for zero-command integrations
-6. define Cursor and Antigravity integration API contracts
-7. formalize SLO dashboard and error-budget policy doc
-8. run first chaos drill and publish findings
+Domain 1 capabilities:
+- Deterministic supervision
+- Process group isolation
+- Resource guards
+- Stuck detection
+- Restart budgets
+- Crash-loop protection
+- Replayable decisions
+- Kill/restart/isolate logic
+- Multi-signal scoring
+- Runtime overhead budget
 
-### 42.1) Status (Living Checklist)
+Domain 2 capabilities:
+- Multi-signal weighted scoring
+- Drift detection
+- Confidence decomposition
+- Engine version control
+- Deterministic replay
+- Signal history baselining
+- Risk scoring by workload type
+- False positive tuning assistant
+- Explainability validator
+- Decision calibration governance
 
-Last updated: 2026-02-19
+Domain 3 capabilities:
+- Policy packs
+- Policy simulation
+- Historical replay testing
+- Shadow mode
+- Canary rollout
+- Policy conflict detection
+- Approval workflows
+- Audit-linked policy actions
+- Role-based policy controls
+- Policy lifecycle versioning
 
-- [x] create and enforce PR templates (problem, scope, anti-goals, rollback)
-- [ ] add issue intake and incident postmortem templates
-- [ ] implement unified event schema design doc and migration plan
-- [ ] add canary + shadow mode controls to policy engine
-- [x] ship local daemon RFC for zero-command integrations
-- [x] define Cursor and Antigravity integration API contracts
-- [ ] formalize SLO dashboard and error-budget policy doc
-- [ ] run first chaos drill and publish findings
+Domain 4 capabilities:
+- Append-only event store
+- Signed export bundles
+- Tamper-evident logs
+- Incident chain linking
+- Actor attribution
+- Immutable audit history
+- Forensic replay
+- Compliance export templates
+- Checksum verification
+- Retention tiers
 
----
+Domain 5 capabilities:
+- Run-level timeline
+- Incident trend tracking
+- FP/FN drift charts
+- Decision latency charts
+- Confidence decomposition dashboards
+- Performance overhead tracking
+- Burn-rate SLO alerts
+- Replay simulation visuals
+- Reliability scorecards
+- Operational review dashboards
 
-## 43) Definition of "Cloudflare-Level" for FlowForge
+Domain 6 capabilities:
+- Token tracking per run
+- Model cost breakdown
+- Embedding cache detection
+- Redundant prompt detection
+- Model routing suggestions
+- Cost heatmaps
+- Savings opportunity reports
+- Team cost governance
+- Budget threshold alerts
+- Optional cost policy enforcement
 
-FlowForge is considered cloudflare-level in execution quality when all are true:
-1. onboarding is fast and deterministic
-2. intervention system is accurate and explainable
-3. security defaults are strict and audited
-4. releases are low-risk and reversible
-5. operators trust the platform under sustained load
-6. integrations make protection nearly invisible to adopt
+Domain 7 capabilities:
+- Deterministic agent execution
+- Tool sandboxing
+- State versioning
+- Execution graph visualization
+- Exact run replay
+- State rollback
+- Policy-bound execution
+- Versioned prompts
+- Signed run artifacts
+- Execution provenance bundles
 
-This is a multi-year execution target and depends more on operational discipline than feature count.
+Domain 8 capabilities:
+- SBOM generation
+- Signed binaries
+- Supply-chain security gates
+- Threat-model lifecycle
+- Security response SLA
+- Vulnerability scanning pipeline
+- Optional mTLS runtime mode
+- Secret redaction layer
+- Access review workflows
+- Incident disclosure policy
 
----
+Domain 9 capabilities:
+- SLO governance
+- Error budget policy
+- Chaos drills
+- Recovery drills
+- Canary releases
+- Blue-green deployment
+- Release checkpoints
+- Rollback automation
+- Soak testing
+- Performance regression gates
 
-## A) Cloudflare Service Model Deconstruction (What To Learn, Not Copy Blindly)
-
-Cloudflare succeeds because service delivery is coherent across product, operations, and trust.
-FlowForge should adopt these principles in a local-first/self-hosted form.
-
-### A.1 Cloudflare-Style Service Principles
-
-1. Fast activation path
-- A user gets meaningful protection quickly, before deep setup.
-
-2. Layered product surface
-- Beginner path is simple.
-- Advanced controls exist but are progressive, not mandatory on day one.
-
-3. Global trust messaging
-- Reliability and security claims are paired with evidence.
-
-4. Strong defaults
-- Safe baseline behavior without manual hardening.
-
-5. Clear product taxonomy
-- Users always know which product/module solves which problem.
-
-6. Documentation as product
-- Docs are navigable, task-oriented, and version-aware.
-
-7. Continuous release discipline
-- Small iterative releases with strong rollback capability.
-
-8. Public operational transparency
-- Status communication and incident narratives increase trust.
-
-### A.2 FlowForge Equivalent (Local/Self-Hosted Adaptation)
-
-1. Fast activation path
-- `install -> demo -> protect first workload` in under 5 minutes.
-
-2. Layered product surface
-- Mode 1: one-click protection.
-- Mode 2: profile-based tuning.
-- Mode 3: policy engineering for advanced operators.
-
-3. Trust messaging with evidence
-- Every decision includes reason + scores + action + outcome.
-- Release notes include benchmark and soak evidence.
-
-4. Strong defaults
-- localhost bind, auth required for mutating actions, safe thresholds.
-
-5. Clear taxonomy
-- Runtime Engine, Control API, Policy, Timeline, Integrations.
-
-6. Docs-as-product
-- task-first docs, concise runbooks, failure-specific troubleshooting.
-
-7. Release discipline
-- enforced checkpoint, canary, rollback drill.
-
-8. Operational transparency
-- structured incident records and postmortem templates.
-
----
-
-## B) Cloudflare-Style Website Blueprint (FlowForge Edition)
-
-Goal:
-- Website explains value in 20 seconds.
-- User reaches first successful protected run in <= 5 minutes.
-
-### B.1 Top Navigation Information Architecture
-
-Primary nav:
-1. Product
-2. Solutions
-3. Docs
-4. Reliability
-5. Security
-6. Changelog
-7. Community
-8. Download
-
-CTA buttons:
-1. `Start in 60s`
-2. `View Demo`
-
-### B.2 Site Map (Required Pages)
-
-1. `/` Home
-- clear value proposition
-- 60-second demo strip
-- explainable intervention proof card
-- trust bar (release quality, benchmark, soak)
-
-2. `/product`
-- product pillars and modules
-- how FlowForge works diagram
-
-3. `/product/runtime-engine`
-4. `/product/control-api`
-5. `/product/policy`
-6. `/product/timeline`
-7. `/product/integrations`
-
-8. `/solutions/ai-agents`
-9. `/solutions/automation-workers`
-10. `/solutions/ci-runners`
-
-11. `/docs`
-- onboarding
-- runbook
-- troubleshooting
-- API reference
-- version selector
-
-12. `/reliability`
-- SLOs, release process, incident learning
-
-13. `/security`
-- threat model, hardening defaults, disclosure policy
-
-14. `/status`
-- current operational status and incident history format
-
-15. `/changelog`
-- user-facing release history
-
-16. `/community`
-- examples, templates, support channels
-
-17. `/download`
-- install paths for OS/runtime targets
-
-### B.3 Homepage Content Blocks (Exact Order)
-
-1. Hero
-- headline: what problem is solved
-- subheadline: local-first protection with explainable actions
-- CTA: start in 60s
-
-2. Proof in one timeline
-- a real incident card:
-  - detected signal
-  - action taken
-  - recovery result
-
-3. How it works (3 steps)
-- detect -> decide -> recover
-
-4. Why trust this
-- release checkpoint, soak stability, audit evidence
-
-5. Integrations strip
-- cursor, antigravity, CLI, API
-
-6. Operator outcomes
-- reduce runaway spend/time
-- improve incident response speed
-
-7. Quickstart panel
-- exactly 3 commands max
-
-8. Footer trust links
-- reliability, security, changelog, status
-
-### B.4 Website UX Rules
-
-1. No marketing fluff without evidence.
-2. Every major claim links to a proof source.
-3. No dead-end pages; every page has next action.
-4. Docs and product language must use same terms.
-5. Security and reliability are first-class nav entries.
+Domain 10 capabilities:
+- IDE extensions
+- CLI hooks
+- CI/CD gate mode
+- ChatOps alerts
+- Issue tracker export
+- SIEM streaming
+- Webhook subscriptions
+- SDK surface (Python/Go/JS)
+- OpenAPI contracts
+- Terraform provider (long-term)
 
 ---
 
-## C) Product Packaging and Service Experience
+## 22) Work Package Catalog (Detailed)
 
-### C.1 Packaging Levels (No SaaS Requirement)
 
-1. Developer Mode
-- single-node local use
-- ideal for laptop and prototype workloads
+### Domain 1 — Execution Runtime Guard
 
-2. Team Self-Hosted Mode
-- shared policy and incident workflows
-- stronger audit and runbook operations
+#### WP-D01-001 — Deterministic supervision (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Deterministic supervision to support deterministic, explainable execution control.
+- Capability target: Deterministic supervision
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Deterministic supervision behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic supervision.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic supervision regressions.
+- Metrics:
+  - Stability KPI for Deterministic supervision meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic supervision.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
 
-3. Production Hardened Mode
-- full release gates, SLO governance, rollback drills, security program
+#### WP-D01-002 — Deterministic supervision (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Deterministic supervision to support deterministic, explainable execution control.
+- Capability target: Deterministic supervision
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Deterministic supervision behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic supervision.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic supervision regressions.
+- Metrics:
+  - Stability KPI for Deterministic supervision meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic supervision.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
 
-### C.2 Activation Milestones
+#### WP-D01-003 — Process group isolation (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Process group isolation to support deterministic, explainable execution control.
+- Capability target: Process group isolation
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Process group isolation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Process group isolation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Process group isolation regressions.
+- Metrics:
+  - Stability KPI for Process group isolation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Process group isolation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
 
-1. `T+60s`: demo shows detection and recovery
-2. `T+5m`: first real command protected
-3. `T+1h`: operator understands timeline and action reasons
-4. `T+1d`: baseline thresholds tuned for one workload
-5. `T+1w`: stable operation with verified release checkpoint cadence
+#### WP-D01-004 — Process group isolation (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Process group isolation to support deterministic, explainable execution control.
+- Capability target: Process group isolation
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Process group isolation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Process group isolation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Process group isolation regressions.
+- Metrics:
+  - Stability KPI for Process group isolation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Process group isolation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
 
-### C.3 “No-Command Fatigue” Experience Target
+#### WP-D01-005 — Resource guards (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Resource guards to support deterministic, explainable execution control.
+- Capability target: Resource guards
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Resource guards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Resource guards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Resource guards regressions.
+- Metrics:
+  - Stability KPI for Resource guards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Resource guards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
 
-1. daemon runs locally in background
-2. IDE integration enables protection per workspace
-3. auto-detect start commands
-4. one-click attach and monitor
-5. intervention details shown in IDE and dashboard
+#### WP-D01-006 — Resource guards (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Resource guards to support deterministic, explainable execution control.
+- Capability target: Resource guards
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Resource guards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Resource guards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Resource guards regressions.
+- Metrics:
+  - Stability KPI for Resource guards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Resource guards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-007 — Stuck detection (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Stuck detection to support deterministic, explainable execution control.
+- Capability target: Stuck detection
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Stuck detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Stuck detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Stuck detection regressions.
+- Metrics:
+  - Stability KPI for Stuck detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Stuck detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-008 — Stuck detection (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Stuck detection to support deterministic, explainable execution control.
+- Capability target: Stuck detection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Stuck detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Stuck detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Stuck detection regressions.
+- Metrics:
+  - Stability KPI for Stuck detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Stuck detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-009 — Restart budgets (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Restart budgets to support deterministic, explainable execution control.
+- Capability target: Restart budgets
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Restart budgets behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Restart budgets.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Restart budgets regressions.
+- Metrics:
+  - Stability KPI for Restart budgets meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Restart budgets.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-010 — Restart budgets (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Restart budgets to support deterministic, explainable execution control.
+- Capability target: Restart budgets
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Restart budgets behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Restart budgets.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Restart budgets regressions.
+- Metrics:
+  - Stability KPI for Restart budgets meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Restart budgets.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-011 — Crash-loop protection (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Crash-loop protection to support deterministic, explainable execution control.
+- Capability target: Crash-loop protection
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Crash-loop protection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Crash-loop protection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Crash-loop protection regressions.
+- Metrics:
+  - Stability KPI for Crash-loop protection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Crash-loop protection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-012 — Crash-loop protection (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Crash-loop protection to support deterministic, explainable execution control.
+- Capability target: Crash-loop protection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Crash-loop protection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Crash-loop protection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Crash-loop protection regressions.
+- Metrics:
+  - Stability KPI for Crash-loop protection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Crash-loop protection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-013 — Replayable decisions (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Replayable decisions to support deterministic, explainable execution control.
+- Capability target: Replayable decisions
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Replayable decisions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Replayable decisions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Replayable decisions regressions.
+- Metrics:
+  - Stability KPI for Replayable decisions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Replayable decisions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-014 — Replayable decisions (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Replayable decisions to support deterministic, explainable execution control.
+- Capability target: Replayable decisions
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Replayable decisions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Replayable decisions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Replayable decisions regressions.
+- Metrics:
+  - Stability KPI for Replayable decisions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Replayable decisions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-015 — Kill/restart/isolate logic (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Kill/restart/isolate logic to support deterministic, explainable execution control.
+- Capability target: Kill/restart/isolate logic
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Kill/restart/isolate logic behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Kill/restart/isolate logic.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Kill/restart/isolate logic regressions.
+- Metrics:
+  - Stability KPI for Kill/restart/isolate logic meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Kill/restart/isolate logic.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-016 — Kill/restart/isolate logic (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Kill/restart/isolate logic to support deterministic, explainable execution control.
+- Capability target: Kill/restart/isolate logic
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Kill/restart/isolate logic behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Kill/restart/isolate logic.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Kill/restart/isolate logic regressions.
+- Metrics:
+  - Stability KPI for Kill/restart/isolate logic meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Kill/restart/isolate logic.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-017 — Multi-signal scoring (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Multi-signal scoring to support deterministic, explainable execution control.
+- Capability target: Multi-signal scoring
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Multi-signal scoring behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Multi-signal scoring.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Multi-signal scoring regressions.
+- Metrics:
+  - Stability KPI for Multi-signal scoring meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Multi-signal scoring.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-018 — Multi-signal scoring (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Multi-signal scoring to support deterministic, explainable execution control.
+- Capability target: Multi-signal scoring
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Multi-signal scoring behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Multi-signal scoring.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Multi-signal scoring regressions.
+- Metrics:
+  - Stability KPI for Multi-signal scoring meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Multi-signal scoring.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-019 — Runtime overhead budget (Foundation)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Runtime overhead budget to support deterministic, explainable execution control.
+- Capability target: Runtime overhead budget
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Runtime overhead budget behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Runtime overhead budget.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Runtime overhead budget regressions.
+- Metrics:
+  - Stability KPI for Runtime overhead budget meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Runtime overhead budget.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D01-020 — Runtime overhead budget (Hardening)
+- Domain: Execution Runtime Guard
+- Strategic intent: Strengthen Runtime overhead budget to support deterministic, explainable execution control.
+- Capability target: Runtime overhead budget
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Runtime overhead budget behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Runtime overhead budget.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Runtime overhead budget regressions.
+- Metrics:
+  - Stability KPI for Runtime overhead budget meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Runtime overhead budget.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 2 — Decision Intelligence Engine
+
+#### WP-D02-001 — Multi-signal weighted scoring (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Multi-signal weighted scoring to support deterministic, explainable execution control.
+- Capability target: Multi-signal weighted scoring
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Multi-signal weighted scoring behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Multi-signal weighted scoring.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Multi-signal weighted scoring regressions.
+- Metrics:
+  - Stability KPI for Multi-signal weighted scoring meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Multi-signal weighted scoring.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-002 — Multi-signal weighted scoring (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Multi-signal weighted scoring to support deterministic, explainable execution control.
+- Capability target: Multi-signal weighted scoring
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Multi-signal weighted scoring behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Multi-signal weighted scoring.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Multi-signal weighted scoring regressions.
+- Metrics:
+  - Stability KPI for Multi-signal weighted scoring meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Multi-signal weighted scoring.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-003 — Drift detection (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Drift detection to support deterministic, explainable execution control.
+- Capability target: Drift detection
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Drift detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Drift detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Drift detection regressions.
+- Metrics:
+  - Stability KPI for Drift detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Drift detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-004 — Drift detection (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Drift detection to support deterministic, explainable execution control.
+- Capability target: Drift detection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Drift detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Drift detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Drift detection regressions.
+- Metrics:
+  - Stability KPI for Drift detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Drift detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-005 — Confidence decomposition (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Confidence decomposition to support deterministic, explainable execution control.
+- Capability target: Confidence decomposition
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Confidence decomposition behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Confidence decomposition.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Confidence decomposition regressions.
+- Metrics:
+  - Stability KPI for Confidence decomposition meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Confidence decomposition.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-006 — Confidence decomposition (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Confidence decomposition to support deterministic, explainable execution control.
+- Capability target: Confidence decomposition
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Confidence decomposition behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Confidence decomposition.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Confidence decomposition regressions.
+- Metrics:
+  - Stability KPI for Confidence decomposition meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Confidence decomposition.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-007 — Engine version control (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Engine version control to support deterministic, explainable execution control.
+- Capability target: Engine version control
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Engine version control behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Engine version control.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Engine version control regressions.
+- Metrics:
+  - Stability KPI for Engine version control meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Engine version control.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-008 — Engine version control (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Engine version control to support deterministic, explainable execution control.
+- Capability target: Engine version control
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Engine version control behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Engine version control.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Engine version control regressions.
+- Metrics:
+  - Stability KPI for Engine version control meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Engine version control.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-009 — Deterministic replay (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Deterministic replay to support deterministic, explainable execution control.
+- Capability target: Deterministic replay
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Deterministic replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic replay regressions.
+- Metrics:
+  - Stability KPI for Deterministic replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-010 — Deterministic replay (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Deterministic replay to support deterministic, explainable execution control.
+- Capability target: Deterministic replay
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Deterministic replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic replay regressions.
+- Metrics:
+  - Stability KPI for Deterministic replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-011 — Signal history baselining (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Signal history baselining to support deterministic, explainable execution control.
+- Capability target: Signal history baselining
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signal history baselining behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signal history baselining.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signal history baselining regressions.
+- Metrics:
+  - Stability KPI for Signal history baselining meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signal history baselining.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-012 — Signal history baselining (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Signal history baselining to support deterministic, explainable execution control.
+- Capability target: Signal history baselining
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signal history baselining behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signal history baselining.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signal history baselining regressions.
+- Metrics:
+  - Stability KPI for Signal history baselining meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signal history baselining.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-013 — Risk scoring by workload type (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Risk scoring by workload type to support deterministic, explainable execution control.
+- Capability target: Risk scoring by workload type
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Risk scoring by workload type behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Risk scoring by workload type.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Risk scoring by workload type regressions.
+- Metrics:
+  - Stability KPI for Risk scoring by workload type meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Risk scoring by workload type.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-014 — Risk scoring by workload type (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Risk scoring by workload type to support deterministic, explainable execution control.
+- Capability target: Risk scoring by workload type
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Risk scoring by workload type behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Risk scoring by workload type.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Risk scoring by workload type regressions.
+- Metrics:
+  - Stability KPI for Risk scoring by workload type meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Risk scoring by workload type.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-015 — False positive tuning assistant (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen False positive tuning assistant to support deterministic, explainable execution control.
+- Capability target: False positive tuning assistant
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for False positive tuning assistant behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for False positive tuning assistant.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary False positive tuning assistant regressions.
+- Metrics:
+  - Stability KPI for False positive tuning assistant meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching False positive tuning assistant.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-016 — False positive tuning assistant (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen False positive tuning assistant to support deterministic, explainable execution control.
+- Capability target: False positive tuning assistant
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for False positive tuning assistant behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for False positive tuning assistant.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary False positive tuning assistant regressions.
+- Metrics:
+  - Stability KPI for False positive tuning assistant meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching False positive tuning assistant.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-017 — Explainability validator (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Explainability validator to support deterministic, explainable execution control.
+- Capability target: Explainability validator
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Explainability validator behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Explainability validator.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Explainability validator regressions.
+- Metrics:
+  - Stability KPI for Explainability validator meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Explainability validator.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-018 — Explainability validator (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Explainability validator to support deterministic, explainable execution control.
+- Capability target: Explainability validator
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Explainability validator behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Explainability validator.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Explainability validator regressions.
+- Metrics:
+  - Stability KPI for Explainability validator meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Explainability validator.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-019 — Decision calibration governance (Foundation)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Decision calibration governance to support deterministic, explainable execution control.
+- Capability target: Decision calibration governance
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Decision calibration governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Decision calibration governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Decision calibration governance regressions.
+- Metrics:
+  - Stability KPI for Decision calibration governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Decision calibration governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D02-020 — Decision calibration governance (Hardening)
+- Domain: Decision Intelligence Engine
+- Strategic intent: Strengthen Decision calibration governance to support deterministic, explainable execution control.
+- Capability target: Decision calibration governance
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Decision calibration governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Decision calibration governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Decision calibration governance regressions.
+- Metrics:
+  - Stability KPI for Decision calibration governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Decision calibration governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 3 — Policy and Governance Plane
+
+#### WP-D03-001 — Policy packs (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy packs to support deterministic, explainable execution control.
+- Capability target: Policy packs
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy packs behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy packs.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy packs regressions.
+- Metrics:
+  - Stability KPI for Policy packs meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy packs.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-002 — Policy packs (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy packs to support deterministic, explainable execution control.
+- Capability target: Policy packs
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy packs behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy packs.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy packs regressions.
+- Metrics:
+  - Stability KPI for Policy packs meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy packs.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-003 — Policy simulation (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy simulation to support deterministic, explainable execution control.
+- Capability target: Policy simulation
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy simulation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy simulation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy simulation regressions.
+- Metrics:
+  - Stability KPI for Policy simulation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy simulation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-004 — Policy simulation (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy simulation to support deterministic, explainable execution control.
+- Capability target: Policy simulation
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy simulation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy simulation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy simulation regressions.
+- Metrics:
+  - Stability KPI for Policy simulation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy simulation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-005 — Historical replay testing (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Historical replay testing to support deterministic, explainable execution control.
+- Capability target: Historical replay testing
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Historical replay testing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Historical replay testing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Historical replay testing regressions.
+- Metrics:
+  - Stability KPI for Historical replay testing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Historical replay testing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-006 — Historical replay testing (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Historical replay testing to support deterministic, explainable execution control.
+- Capability target: Historical replay testing
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Historical replay testing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Historical replay testing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Historical replay testing regressions.
+- Metrics:
+  - Stability KPI for Historical replay testing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Historical replay testing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-007 — Shadow mode (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Shadow mode to support deterministic, explainable execution control.
+- Capability target: Shadow mode
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Shadow mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Shadow mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Shadow mode regressions.
+- Metrics:
+  - Stability KPI for Shadow mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Shadow mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-008 — Shadow mode (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Shadow mode to support deterministic, explainable execution control.
+- Capability target: Shadow mode
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Shadow mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Shadow mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Shadow mode regressions.
+- Metrics:
+  - Stability KPI for Shadow mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Shadow mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-009 — Canary rollout (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Canary rollout to support deterministic, explainable execution control.
+- Capability target: Canary rollout
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Canary rollout behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Canary rollout.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Canary rollout regressions.
+- Metrics:
+  - Stability KPI for Canary rollout meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Canary rollout.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-010 — Canary rollout (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Canary rollout to support deterministic, explainable execution control.
+- Capability target: Canary rollout
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Canary rollout behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Canary rollout.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Canary rollout regressions.
+- Metrics:
+  - Stability KPI for Canary rollout meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Canary rollout.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-011 — Policy conflict detection (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy conflict detection to support deterministic, explainable execution control.
+- Capability target: Policy conflict detection
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy conflict detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy conflict detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy conflict detection regressions.
+- Metrics:
+  - Stability KPI for Policy conflict detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy conflict detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-012 — Policy conflict detection (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy conflict detection to support deterministic, explainable execution control.
+- Capability target: Policy conflict detection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy conflict detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy conflict detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy conflict detection regressions.
+- Metrics:
+  - Stability KPI for Policy conflict detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy conflict detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-013 — Approval workflows (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Approval workflows to support deterministic, explainable execution control.
+- Capability target: Approval workflows
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Approval workflows behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Approval workflows.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Approval workflows regressions.
+- Metrics:
+  - Stability KPI for Approval workflows meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Approval workflows.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-014 — Approval workflows (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Approval workflows to support deterministic, explainable execution control.
+- Capability target: Approval workflows
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Approval workflows behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Approval workflows.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Approval workflows regressions.
+- Metrics:
+  - Stability KPI for Approval workflows meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Approval workflows.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-015 — Audit-linked policy actions (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Audit-linked policy actions to support deterministic, explainable execution control.
+- Capability target: Audit-linked policy actions
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Audit-linked policy actions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Audit-linked policy actions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Audit-linked policy actions regressions.
+- Metrics:
+  - Stability KPI for Audit-linked policy actions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Audit-linked policy actions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-016 — Audit-linked policy actions (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Audit-linked policy actions to support deterministic, explainable execution control.
+- Capability target: Audit-linked policy actions
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Audit-linked policy actions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Audit-linked policy actions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Audit-linked policy actions regressions.
+- Metrics:
+  - Stability KPI for Audit-linked policy actions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Audit-linked policy actions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-017 — Role-based policy controls (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Role-based policy controls to support deterministic, explainable execution control.
+- Capability target: Role-based policy controls
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Role-based policy controls behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Role-based policy controls.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Role-based policy controls regressions.
+- Metrics:
+  - Stability KPI for Role-based policy controls meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Role-based policy controls.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-018 — Role-based policy controls (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Role-based policy controls to support deterministic, explainable execution control.
+- Capability target: Role-based policy controls
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Role-based policy controls behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Role-based policy controls.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Role-based policy controls regressions.
+- Metrics:
+  - Stability KPI for Role-based policy controls meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Role-based policy controls.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-019 — Policy lifecycle versioning (Foundation)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy lifecycle versioning to support deterministic, explainable execution control.
+- Capability target: Policy lifecycle versioning
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy lifecycle versioning behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy lifecycle versioning.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy lifecycle versioning regressions.
+- Metrics:
+  - Stability KPI for Policy lifecycle versioning meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy lifecycle versioning.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D03-020 — Policy lifecycle versioning (Hardening)
+- Domain: Policy and Governance Plane
+- Strategic intent: Strengthen Policy lifecycle versioning to support deterministic, explainable execution control.
+- Capability target: Policy lifecycle versioning
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy lifecycle versioning behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy lifecycle versioning.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy lifecycle versioning regressions.
+- Metrics:
+  - Stability KPI for Policy lifecycle versioning meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy lifecycle versioning.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 4 — Evidence and Audit Plane
+
+#### WP-D04-001 — Append-only event store (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Append-only event store to support deterministic, explainable execution control.
+- Capability target: Append-only event store
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Append-only event store behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Append-only event store.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Append-only event store regressions.
+- Metrics:
+  - Stability KPI for Append-only event store meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Append-only event store.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-002 — Append-only event store (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Append-only event store to support deterministic, explainable execution control.
+- Capability target: Append-only event store
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Append-only event store behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Append-only event store.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Append-only event store regressions.
+- Metrics:
+  - Stability KPI for Append-only event store meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Append-only event store.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-003 — Signed export bundles (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Signed export bundles to support deterministic, explainable execution control.
+- Capability target: Signed export bundles
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed export bundles behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed export bundles.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed export bundles regressions.
+- Metrics:
+  - Stability KPI for Signed export bundles meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed export bundles.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-004 — Signed export bundles (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Signed export bundles to support deterministic, explainable execution control.
+- Capability target: Signed export bundles
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed export bundles behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed export bundles.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed export bundles regressions.
+- Metrics:
+  - Stability KPI for Signed export bundles meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed export bundles.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-005 — Tamper-evident logs (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Tamper-evident logs to support deterministic, explainable execution control.
+- Capability target: Tamper-evident logs
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Tamper-evident logs behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Tamper-evident logs.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Tamper-evident logs regressions.
+- Metrics:
+  - Stability KPI for Tamper-evident logs meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Tamper-evident logs.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-006 — Tamper-evident logs (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Tamper-evident logs to support deterministic, explainable execution control.
+- Capability target: Tamper-evident logs
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Tamper-evident logs behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Tamper-evident logs.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Tamper-evident logs regressions.
+- Metrics:
+  - Stability KPI for Tamper-evident logs meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Tamper-evident logs.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-007 — Incident chain linking (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Incident chain linking to support deterministic, explainable execution control.
+- Capability target: Incident chain linking
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident chain linking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident chain linking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident chain linking regressions.
+- Metrics:
+  - Stability KPI for Incident chain linking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident chain linking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-008 — Incident chain linking (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Incident chain linking to support deterministic, explainable execution control.
+- Capability target: Incident chain linking
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident chain linking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident chain linking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident chain linking regressions.
+- Metrics:
+  - Stability KPI for Incident chain linking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident chain linking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-009 — Actor attribution (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Actor attribution to support deterministic, explainable execution control.
+- Capability target: Actor attribution
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Actor attribution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Actor attribution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Actor attribution regressions.
+- Metrics:
+  - Stability KPI for Actor attribution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Actor attribution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-010 — Actor attribution (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Actor attribution to support deterministic, explainable execution control.
+- Capability target: Actor attribution
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Actor attribution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Actor attribution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Actor attribution regressions.
+- Metrics:
+  - Stability KPI for Actor attribution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Actor attribution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-011 — Immutable audit history (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Immutable audit history to support deterministic, explainable execution control.
+- Capability target: Immutable audit history
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Immutable audit history behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Immutable audit history.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Immutable audit history regressions.
+- Metrics:
+  - Stability KPI for Immutable audit history meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Immutable audit history.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-012 — Immutable audit history (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Immutable audit history to support deterministic, explainable execution control.
+- Capability target: Immutable audit history
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Immutable audit history behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Immutable audit history.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Immutable audit history regressions.
+- Metrics:
+  - Stability KPI for Immutable audit history meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Immutable audit history.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-013 — Forensic replay (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Forensic replay to support deterministic, explainable execution control.
+- Capability target: Forensic replay
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Forensic replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Forensic replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Forensic replay regressions.
+- Metrics:
+  - Stability KPI for Forensic replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Forensic replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-014 — Forensic replay (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Forensic replay to support deterministic, explainable execution control.
+- Capability target: Forensic replay
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Forensic replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Forensic replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Forensic replay regressions.
+- Metrics:
+  - Stability KPI for Forensic replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Forensic replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-015 — Compliance export templates (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Compliance export templates to support deterministic, explainable execution control.
+- Capability target: Compliance export templates
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Compliance export templates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Compliance export templates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Compliance export templates regressions.
+- Metrics:
+  - Stability KPI for Compliance export templates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Compliance export templates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-016 — Compliance export templates (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Compliance export templates to support deterministic, explainable execution control.
+- Capability target: Compliance export templates
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Compliance export templates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Compliance export templates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Compliance export templates regressions.
+- Metrics:
+  - Stability KPI for Compliance export templates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Compliance export templates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-017 — Checksum verification (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Checksum verification to support deterministic, explainable execution control.
+- Capability target: Checksum verification
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Checksum verification behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Checksum verification.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Checksum verification regressions.
+- Metrics:
+  - Stability KPI for Checksum verification meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Checksum verification.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-018 — Checksum verification (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Checksum verification to support deterministic, explainable execution control.
+- Capability target: Checksum verification
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Checksum verification behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Checksum verification.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Checksum verification regressions.
+- Metrics:
+  - Stability KPI for Checksum verification meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Checksum verification.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-019 — Retention tiers (Foundation)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Retention tiers to support deterministic, explainable execution control.
+- Capability target: Retention tiers
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Retention tiers behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Retention tiers.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Retention tiers regressions.
+- Metrics:
+  - Stability KPI for Retention tiers meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Retention tiers.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D04-020 — Retention tiers (Hardening)
+- Domain: Evidence and Audit Plane
+- Strategic intent: Strengthen Retention tiers to support deterministic, explainable execution control.
+- Capability target: Retention tiers
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Retention tiers behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Retention tiers.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Retention tiers regressions.
+- Metrics:
+  - Stability KPI for Retention tiers meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Retention tiers.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 5 — Observability Plane
+
+#### WP-D05-001 — Run-level timeline (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Run-level timeline to support deterministic, explainable execution control.
+- Capability target: Run-level timeline
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Run-level timeline behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Run-level timeline.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Run-level timeline regressions.
+- Metrics:
+  - Stability KPI for Run-level timeline meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Run-level timeline.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-002 — Run-level timeline (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Run-level timeline to support deterministic, explainable execution control.
+- Capability target: Run-level timeline
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Run-level timeline behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Run-level timeline.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Run-level timeline regressions.
+- Metrics:
+  - Stability KPI for Run-level timeline meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Run-level timeline.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-003 — Incident trend tracking (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Incident trend tracking to support deterministic, explainable execution control.
+- Capability target: Incident trend tracking
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident trend tracking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident trend tracking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident trend tracking regressions.
+- Metrics:
+  - Stability KPI for Incident trend tracking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident trend tracking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-004 — Incident trend tracking (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Incident trend tracking to support deterministic, explainable execution control.
+- Capability target: Incident trend tracking
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident trend tracking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident trend tracking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident trend tracking regressions.
+- Metrics:
+  - Stability KPI for Incident trend tracking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident trend tracking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-005 — FP/FN drift charts (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen FP/FN drift charts to support deterministic, explainable execution control.
+- Capability target: FP/FN drift charts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for FP/FN drift charts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for FP/FN drift charts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary FP/FN drift charts regressions.
+- Metrics:
+  - Stability KPI for FP/FN drift charts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching FP/FN drift charts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-006 — FP/FN drift charts (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen FP/FN drift charts to support deterministic, explainable execution control.
+- Capability target: FP/FN drift charts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for FP/FN drift charts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for FP/FN drift charts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary FP/FN drift charts regressions.
+- Metrics:
+  - Stability KPI for FP/FN drift charts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching FP/FN drift charts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-007 — Decision latency charts (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Decision latency charts to support deterministic, explainable execution control.
+- Capability target: Decision latency charts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Decision latency charts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Decision latency charts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Decision latency charts regressions.
+- Metrics:
+  - Stability KPI for Decision latency charts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Decision latency charts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-008 — Decision latency charts (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Decision latency charts to support deterministic, explainable execution control.
+- Capability target: Decision latency charts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Decision latency charts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Decision latency charts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Decision latency charts regressions.
+- Metrics:
+  - Stability KPI for Decision latency charts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Decision latency charts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-009 — Confidence decomposition dashboards (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Confidence decomposition dashboards to support deterministic, explainable execution control.
+- Capability target: Confidence decomposition dashboards
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Confidence decomposition dashboards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Confidence decomposition dashboards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Confidence decomposition dashboards regressions.
+- Metrics:
+  - Stability KPI for Confidence decomposition dashboards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Confidence decomposition dashboards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-010 — Confidence decomposition dashboards (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Confidence decomposition dashboards to support deterministic, explainable execution control.
+- Capability target: Confidence decomposition dashboards
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Confidence decomposition dashboards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Confidence decomposition dashboards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Confidence decomposition dashboards regressions.
+- Metrics:
+  - Stability KPI for Confidence decomposition dashboards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Confidence decomposition dashboards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-011 — Performance overhead tracking (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Performance overhead tracking to support deterministic, explainable execution control.
+- Capability target: Performance overhead tracking
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Performance overhead tracking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Performance overhead tracking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Performance overhead tracking regressions.
+- Metrics:
+  - Stability KPI for Performance overhead tracking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Performance overhead tracking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-012 — Performance overhead tracking (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Performance overhead tracking to support deterministic, explainable execution control.
+- Capability target: Performance overhead tracking
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Performance overhead tracking behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Performance overhead tracking.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Performance overhead tracking regressions.
+- Metrics:
+  - Stability KPI for Performance overhead tracking meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Performance overhead tracking.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-013 — Burn-rate SLO alerts (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Burn-rate SLO alerts to support deterministic, explainable execution control.
+- Capability target: Burn-rate SLO alerts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Burn-rate SLO alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Burn-rate SLO alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Burn-rate SLO alerts regressions.
+- Metrics:
+  - Stability KPI for Burn-rate SLO alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Burn-rate SLO alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-014 — Burn-rate SLO alerts (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Burn-rate SLO alerts to support deterministic, explainable execution control.
+- Capability target: Burn-rate SLO alerts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Burn-rate SLO alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Burn-rate SLO alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Burn-rate SLO alerts regressions.
+- Metrics:
+  - Stability KPI for Burn-rate SLO alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Burn-rate SLO alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-015 — Replay simulation visuals (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Replay simulation visuals to support deterministic, explainable execution control.
+- Capability target: Replay simulation visuals
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Replay simulation visuals behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Replay simulation visuals.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Replay simulation visuals regressions.
+- Metrics:
+  - Stability KPI for Replay simulation visuals meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Replay simulation visuals.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-016 — Replay simulation visuals (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Replay simulation visuals to support deterministic, explainable execution control.
+- Capability target: Replay simulation visuals
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Replay simulation visuals behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Replay simulation visuals.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Replay simulation visuals regressions.
+- Metrics:
+  - Stability KPI for Replay simulation visuals meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Replay simulation visuals.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-017 — Reliability scorecards (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Reliability scorecards to support deterministic, explainable execution control.
+- Capability target: Reliability scorecards
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Reliability scorecards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Reliability scorecards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Reliability scorecards regressions.
+- Metrics:
+  - Stability KPI for Reliability scorecards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Reliability scorecards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-018 — Reliability scorecards (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Reliability scorecards to support deterministic, explainable execution control.
+- Capability target: Reliability scorecards
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Reliability scorecards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Reliability scorecards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Reliability scorecards regressions.
+- Metrics:
+  - Stability KPI for Reliability scorecards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Reliability scorecards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-019 — Operational review dashboards (Foundation)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Operational review dashboards to support deterministic, explainable execution control.
+- Capability target: Operational review dashboards
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Operational review dashboards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Operational review dashboards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Operational review dashboards regressions.
+- Metrics:
+  - Stability KPI for Operational review dashboards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Operational review dashboards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D05-020 — Operational review dashboards (Hardening)
+- Domain: Observability Plane
+- Strategic intent: Strengthen Operational review dashboards to support deterministic, explainable execution control.
+- Capability target: Operational review dashboards
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Operational review dashboards behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Operational review dashboards.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Operational review dashboards regressions.
+- Metrics:
+  - Stability KPI for Operational review dashboards meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Operational review dashboards.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 6 — AI Cost and Model Intelligence
+
+#### WP-D06-001 — Token tracking per run (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Token tracking per run to support deterministic, explainable execution control.
+- Capability target: Token tracking per run
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Token tracking per run behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Token tracking per run.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Token tracking per run regressions.
+- Metrics:
+  - Stability KPI for Token tracking per run meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Token tracking per run.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-002 — Token tracking per run (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Token tracking per run to support deterministic, explainable execution control.
+- Capability target: Token tracking per run
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Token tracking per run behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Token tracking per run.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Token tracking per run regressions.
+- Metrics:
+  - Stability KPI for Token tracking per run meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Token tracking per run.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-003 — Model cost breakdown (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Model cost breakdown to support deterministic, explainable execution control.
+- Capability target: Model cost breakdown
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Model cost breakdown behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Model cost breakdown.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Model cost breakdown regressions.
+- Metrics:
+  - Stability KPI for Model cost breakdown meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Model cost breakdown.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-004 — Model cost breakdown (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Model cost breakdown to support deterministic, explainable execution control.
+- Capability target: Model cost breakdown
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Model cost breakdown behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Model cost breakdown.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Model cost breakdown regressions.
+- Metrics:
+  - Stability KPI for Model cost breakdown meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Model cost breakdown.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-005 — Embedding cache detection (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Embedding cache detection to support deterministic, explainable execution control.
+- Capability target: Embedding cache detection
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Embedding cache detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Embedding cache detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Embedding cache detection regressions.
+- Metrics:
+  - Stability KPI for Embedding cache detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Embedding cache detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-006 — Embedding cache detection (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Embedding cache detection to support deterministic, explainable execution control.
+- Capability target: Embedding cache detection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Embedding cache detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Embedding cache detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Embedding cache detection regressions.
+- Metrics:
+  - Stability KPI for Embedding cache detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Embedding cache detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-007 — Redundant prompt detection (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Redundant prompt detection to support deterministic, explainable execution control.
+- Capability target: Redundant prompt detection
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Redundant prompt detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Redundant prompt detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Redundant prompt detection regressions.
+- Metrics:
+  - Stability KPI for Redundant prompt detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Redundant prompt detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-008 — Redundant prompt detection (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Redundant prompt detection to support deterministic, explainable execution control.
+- Capability target: Redundant prompt detection
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Redundant prompt detection behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Redundant prompt detection.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Redundant prompt detection regressions.
+- Metrics:
+  - Stability KPI for Redundant prompt detection meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Redundant prompt detection.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-009 — Model routing suggestions (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Model routing suggestions to support deterministic, explainable execution control.
+- Capability target: Model routing suggestions
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Model routing suggestions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Model routing suggestions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Model routing suggestions regressions.
+- Metrics:
+  - Stability KPI for Model routing suggestions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Model routing suggestions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-010 — Model routing suggestions (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Model routing suggestions to support deterministic, explainable execution control.
+- Capability target: Model routing suggestions
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Model routing suggestions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Model routing suggestions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Model routing suggestions regressions.
+- Metrics:
+  - Stability KPI for Model routing suggestions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Model routing suggestions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-011 — Cost heatmaps (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Cost heatmaps to support deterministic, explainable execution control.
+- Capability target: Cost heatmaps
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Cost heatmaps behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Cost heatmaps.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Cost heatmaps regressions.
+- Metrics:
+  - Stability KPI for Cost heatmaps meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Cost heatmaps.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-012 — Cost heatmaps (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Cost heatmaps to support deterministic, explainable execution control.
+- Capability target: Cost heatmaps
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Cost heatmaps behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Cost heatmaps.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Cost heatmaps regressions.
+- Metrics:
+  - Stability KPI for Cost heatmaps meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Cost heatmaps.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-013 — Savings opportunity reports (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Savings opportunity reports to support deterministic, explainable execution control.
+- Capability target: Savings opportunity reports
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Savings opportunity reports behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Savings opportunity reports.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Savings opportunity reports regressions.
+- Metrics:
+  - Stability KPI for Savings opportunity reports meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Savings opportunity reports.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-014 — Savings opportunity reports (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Savings opportunity reports to support deterministic, explainable execution control.
+- Capability target: Savings opportunity reports
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Savings opportunity reports behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Savings opportunity reports.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Savings opportunity reports regressions.
+- Metrics:
+  - Stability KPI for Savings opportunity reports meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Savings opportunity reports.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-015 — Team cost governance (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Team cost governance to support deterministic, explainable execution control.
+- Capability target: Team cost governance
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Team cost governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Team cost governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Team cost governance regressions.
+- Metrics:
+  - Stability KPI for Team cost governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Team cost governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-016 — Team cost governance (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Team cost governance to support deterministic, explainable execution control.
+- Capability target: Team cost governance
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Team cost governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Team cost governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Team cost governance regressions.
+- Metrics:
+  - Stability KPI for Team cost governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Team cost governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-017 — Budget threshold alerts (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Budget threshold alerts to support deterministic, explainable execution control.
+- Capability target: Budget threshold alerts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Budget threshold alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Budget threshold alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Budget threshold alerts regressions.
+- Metrics:
+  - Stability KPI for Budget threshold alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Budget threshold alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-018 — Budget threshold alerts (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Budget threshold alerts to support deterministic, explainable execution control.
+- Capability target: Budget threshold alerts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Budget threshold alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Budget threshold alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Budget threshold alerts regressions.
+- Metrics:
+  - Stability KPI for Budget threshold alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Budget threshold alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-019 — Optional cost policy enforcement (Foundation)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Optional cost policy enforcement to support deterministic, explainable execution control.
+- Capability target: Optional cost policy enforcement
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Optional cost policy enforcement behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Optional cost policy enforcement.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Optional cost policy enforcement regressions.
+- Metrics:
+  - Stability KPI for Optional cost policy enforcement meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Optional cost policy enforcement.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D06-020 — Optional cost policy enforcement (Hardening)
+- Domain: AI Cost and Model Intelligence
+- Strategic intent: Strengthen Optional cost policy enforcement to support deterministic, explainable execution control.
+- Capability target: Optional cost policy enforcement
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Optional cost policy enforcement behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Optional cost policy enforcement.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Optional cost policy enforcement regressions.
+- Metrics:
+  - Stability KPI for Optional cost policy enforcement meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Optional cost policy enforcement.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 7 — Agent Runtime Platform
+
+#### WP-D07-001 — Deterministic agent execution (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Deterministic agent execution to support deterministic, explainable execution control.
+- Capability target: Deterministic agent execution
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Deterministic agent execution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic agent execution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic agent execution regressions.
+- Metrics:
+  - Stability KPI for Deterministic agent execution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic agent execution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-002 — Deterministic agent execution (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Deterministic agent execution to support deterministic, explainable execution control.
+- Capability target: Deterministic agent execution
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Deterministic agent execution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Deterministic agent execution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Deterministic agent execution regressions.
+- Metrics:
+  - Stability KPI for Deterministic agent execution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Deterministic agent execution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-003 — Tool sandboxing (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Tool sandboxing to support deterministic, explainable execution control.
+- Capability target: Tool sandboxing
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Tool sandboxing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Tool sandboxing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Tool sandboxing regressions.
+- Metrics:
+  - Stability KPI for Tool sandboxing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Tool sandboxing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-004 — Tool sandboxing (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Tool sandboxing to support deterministic, explainable execution control.
+- Capability target: Tool sandboxing
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Tool sandboxing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Tool sandboxing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Tool sandboxing regressions.
+- Metrics:
+  - Stability KPI for Tool sandboxing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Tool sandboxing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-005 — State versioning (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen State versioning to support deterministic, explainable execution control.
+- Capability target: State versioning
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for State versioning behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for State versioning.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary State versioning regressions.
+- Metrics:
+  - Stability KPI for State versioning meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching State versioning.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-006 — State versioning (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen State versioning to support deterministic, explainable execution control.
+- Capability target: State versioning
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for State versioning behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for State versioning.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary State versioning regressions.
+- Metrics:
+  - Stability KPI for State versioning meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching State versioning.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-007 — Execution graph visualization (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Execution graph visualization to support deterministic, explainable execution control.
+- Capability target: Execution graph visualization
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Execution graph visualization behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Execution graph visualization.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Execution graph visualization regressions.
+- Metrics:
+  - Stability KPI for Execution graph visualization meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Execution graph visualization.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-008 — Execution graph visualization (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Execution graph visualization to support deterministic, explainable execution control.
+- Capability target: Execution graph visualization
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Execution graph visualization behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Execution graph visualization.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Execution graph visualization regressions.
+- Metrics:
+  - Stability KPI for Execution graph visualization meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Execution graph visualization.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-009 — Exact run replay (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Exact run replay to support deterministic, explainable execution control.
+- Capability target: Exact run replay
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Exact run replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Exact run replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Exact run replay regressions.
+- Metrics:
+  - Stability KPI for Exact run replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Exact run replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-010 — Exact run replay (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Exact run replay to support deterministic, explainable execution control.
+- Capability target: Exact run replay
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Exact run replay behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Exact run replay.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Exact run replay regressions.
+- Metrics:
+  - Stability KPI for Exact run replay meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Exact run replay.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-011 — State rollback (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen State rollback to support deterministic, explainable execution control.
+- Capability target: State rollback
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for State rollback behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for State rollback.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary State rollback regressions.
+- Metrics:
+  - Stability KPI for State rollback meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching State rollback.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-012 — State rollback (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen State rollback to support deterministic, explainable execution control.
+- Capability target: State rollback
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for State rollback behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for State rollback.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary State rollback regressions.
+- Metrics:
+  - Stability KPI for State rollback meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching State rollback.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-013 — Policy-bound execution (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Policy-bound execution to support deterministic, explainable execution control.
+- Capability target: Policy-bound execution
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy-bound execution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy-bound execution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy-bound execution regressions.
+- Metrics:
+  - Stability KPI for Policy-bound execution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy-bound execution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-014 — Policy-bound execution (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Policy-bound execution to support deterministic, explainable execution control.
+- Capability target: Policy-bound execution
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Policy-bound execution behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Policy-bound execution.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Policy-bound execution regressions.
+- Metrics:
+  - Stability KPI for Policy-bound execution meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Policy-bound execution.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-015 — Versioned prompts (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Versioned prompts to support deterministic, explainable execution control.
+- Capability target: Versioned prompts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Versioned prompts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Versioned prompts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Versioned prompts regressions.
+- Metrics:
+  - Stability KPI for Versioned prompts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Versioned prompts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-016 — Versioned prompts (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Versioned prompts to support deterministic, explainable execution control.
+- Capability target: Versioned prompts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Versioned prompts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Versioned prompts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Versioned prompts regressions.
+- Metrics:
+  - Stability KPI for Versioned prompts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Versioned prompts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-017 — Signed run artifacts (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Signed run artifacts to support deterministic, explainable execution control.
+- Capability target: Signed run artifacts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed run artifacts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed run artifacts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed run artifacts regressions.
+- Metrics:
+  - Stability KPI for Signed run artifacts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed run artifacts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-018 — Signed run artifacts (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Signed run artifacts to support deterministic, explainable execution control.
+- Capability target: Signed run artifacts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed run artifacts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed run artifacts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed run artifacts regressions.
+- Metrics:
+  - Stability KPI for Signed run artifacts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed run artifacts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-019 — Execution provenance bundles (Foundation)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Execution provenance bundles to support deterministic, explainable execution control.
+- Capability target: Execution provenance bundles
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Execution provenance bundles behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Execution provenance bundles.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Execution provenance bundles regressions.
+- Metrics:
+  - Stability KPI for Execution provenance bundles meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Execution provenance bundles.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D07-020 — Execution provenance bundles (Hardening)
+- Domain: Agent Runtime Platform
+- Strategic intent: Strengthen Execution provenance bundles to support deterministic, explainable execution control.
+- Capability target: Execution provenance bundles
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Execution provenance bundles behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Execution provenance bundles.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Execution provenance bundles regressions.
+- Metrics:
+  - Stability KPI for Execution provenance bundles meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Execution provenance bundles.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 8 — Security and Trust Infrastructure
+
+#### WP-D08-001 — SBOM generation (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen SBOM generation to support deterministic, explainable execution control.
+- Capability target: SBOM generation
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for SBOM generation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SBOM generation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SBOM generation regressions.
+- Metrics:
+  - Stability KPI for SBOM generation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SBOM generation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-002 — SBOM generation (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen SBOM generation to support deterministic, explainable execution control.
+- Capability target: SBOM generation
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SBOM generation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SBOM generation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SBOM generation regressions.
+- Metrics:
+  - Stability KPI for SBOM generation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SBOM generation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-003 — Signed binaries (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Signed binaries to support deterministic, explainable execution control.
+- Capability target: Signed binaries
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed binaries behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed binaries.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed binaries regressions.
+- Metrics:
+  - Stability KPI for Signed binaries meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed binaries.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-004 — Signed binaries (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Signed binaries to support deterministic, explainable execution control.
+- Capability target: Signed binaries
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Signed binaries behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Signed binaries.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Signed binaries regressions.
+- Metrics:
+  - Stability KPI for Signed binaries meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Signed binaries.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-005 — Supply-chain security gates (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Supply-chain security gates to support deterministic, explainable execution control.
+- Capability target: Supply-chain security gates
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Supply-chain security gates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Supply-chain security gates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Supply-chain security gates regressions.
+- Metrics:
+  - Stability KPI for Supply-chain security gates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Supply-chain security gates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-006 — Supply-chain security gates (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Supply-chain security gates to support deterministic, explainable execution control.
+- Capability target: Supply-chain security gates
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Supply-chain security gates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Supply-chain security gates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Supply-chain security gates regressions.
+- Metrics:
+  - Stability KPI for Supply-chain security gates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Supply-chain security gates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-007 — Threat-model lifecycle (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Threat-model lifecycle to support deterministic, explainable execution control.
+- Capability target: Threat-model lifecycle
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Threat-model lifecycle behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Threat-model lifecycle.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Threat-model lifecycle regressions.
+- Metrics:
+  - Stability KPI for Threat-model lifecycle meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Threat-model lifecycle.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-008 — Threat-model lifecycle (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Threat-model lifecycle to support deterministic, explainable execution control.
+- Capability target: Threat-model lifecycle
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Threat-model lifecycle behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Threat-model lifecycle.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Threat-model lifecycle regressions.
+- Metrics:
+  - Stability KPI for Threat-model lifecycle meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Threat-model lifecycle.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-009 — Security response SLA (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Security response SLA to support deterministic, explainable execution control.
+- Capability target: Security response SLA
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Security response SLA behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Security response SLA.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Security response SLA regressions.
+- Metrics:
+  - Stability KPI for Security response SLA meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Security response SLA.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-010 — Security response SLA (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Security response SLA to support deterministic, explainable execution control.
+- Capability target: Security response SLA
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Security response SLA behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Security response SLA.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Security response SLA regressions.
+- Metrics:
+  - Stability KPI for Security response SLA meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Security response SLA.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-011 — Vulnerability scanning pipeline (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Vulnerability scanning pipeline to support deterministic, explainable execution control.
+- Capability target: Vulnerability scanning pipeline
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Vulnerability scanning pipeline behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Vulnerability scanning pipeline.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Vulnerability scanning pipeline regressions.
+- Metrics:
+  - Stability KPI for Vulnerability scanning pipeline meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Vulnerability scanning pipeline.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-012 — Vulnerability scanning pipeline (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Vulnerability scanning pipeline to support deterministic, explainable execution control.
+- Capability target: Vulnerability scanning pipeline
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Vulnerability scanning pipeline behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Vulnerability scanning pipeline.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Vulnerability scanning pipeline regressions.
+- Metrics:
+  - Stability KPI for Vulnerability scanning pipeline meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Vulnerability scanning pipeline.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-013 — Optional mTLS runtime mode (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Optional mTLS runtime mode to support deterministic, explainable execution control.
+- Capability target: Optional mTLS runtime mode
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Optional mTLS runtime mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Optional mTLS runtime mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Optional mTLS runtime mode regressions.
+- Metrics:
+  - Stability KPI for Optional mTLS runtime mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Optional mTLS runtime mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-014 — Optional mTLS runtime mode (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Optional mTLS runtime mode to support deterministic, explainable execution control.
+- Capability target: Optional mTLS runtime mode
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Optional mTLS runtime mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Optional mTLS runtime mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Optional mTLS runtime mode regressions.
+- Metrics:
+  - Stability KPI for Optional mTLS runtime mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Optional mTLS runtime mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-015 — Secret redaction layer (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Secret redaction layer to support deterministic, explainable execution control.
+- Capability target: Secret redaction layer
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Secret redaction layer behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Secret redaction layer.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Secret redaction layer regressions.
+- Metrics:
+  - Stability KPI for Secret redaction layer meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Secret redaction layer.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-016 — Secret redaction layer (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Secret redaction layer to support deterministic, explainable execution control.
+- Capability target: Secret redaction layer
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Secret redaction layer behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Secret redaction layer.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Secret redaction layer regressions.
+- Metrics:
+  - Stability KPI for Secret redaction layer meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Secret redaction layer.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-017 — Access review workflows (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Access review workflows to support deterministic, explainable execution control.
+- Capability target: Access review workflows
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Access review workflows behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Access review workflows.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Access review workflows regressions.
+- Metrics:
+  - Stability KPI for Access review workflows meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Access review workflows.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-018 — Access review workflows (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Access review workflows to support deterministic, explainable execution control.
+- Capability target: Access review workflows
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Access review workflows behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Access review workflows.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Access review workflows regressions.
+- Metrics:
+  - Stability KPI for Access review workflows meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Access review workflows.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-019 — Incident disclosure policy (Foundation)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Incident disclosure policy to support deterministic, explainable execution control.
+- Capability target: Incident disclosure policy
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident disclosure policy behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident disclosure policy.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident disclosure policy regressions.
+- Metrics:
+  - Stability KPI for Incident disclosure policy meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident disclosure policy.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D08-020 — Incident disclosure policy (Hardening)
+- Domain: Security and Trust Infrastructure
+- Strategic intent: Strengthen Incident disclosure policy to support deterministic, explainable execution control.
+- Capability target: Incident disclosure policy
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Incident disclosure policy behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Incident disclosure policy.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Incident disclosure policy regressions.
+- Metrics:
+  - Stability KPI for Incident disclosure policy meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Incident disclosure policy.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 9 — Reliability Engineering System
+
+#### WP-D09-001 — SLO governance (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen SLO governance to support deterministic, explainable execution control.
+- Capability target: SLO governance
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SLO governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SLO governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SLO governance regressions.
+- Metrics:
+  - Stability KPI for SLO governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SLO governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-002 — SLO governance (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen SLO governance to support deterministic, explainable execution control.
+- Capability target: SLO governance
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SLO governance behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SLO governance.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SLO governance regressions.
+- Metrics:
+  - Stability KPI for SLO governance meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SLO governance.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-003 — Error budget policy (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Error budget policy to support deterministic, explainable execution control.
+- Capability target: Error budget policy
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Error budget policy behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Error budget policy.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Error budget policy regressions.
+- Metrics:
+  - Stability KPI for Error budget policy meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Error budget policy.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-004 — Error budget policy (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Error budget policy to support deterministic, explainable execution control.
+- Capability target: Error budget policy
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Error budget policy behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Error budget policy.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Error budget policy regressions.
+- Metrics:
+  - Stability KPI for Error budget policy meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Error budget policy.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-005 — Chaos drills (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Chaos drills to support deterministic, explainable execution control.
+- Capability target: Chaos drills
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Chaos drills behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Chaos drills.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Chaos drills regressions.
+- Metrics:
+  - Stability KPI for Chaos drills meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Chaos drills.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-006 — Chaos drills (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Chaos drills to support deterministic, explainable execution control.
+- Capability target: Chaos drills
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Chaos drills behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Chaos drills.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Chaos drills regressions.
+- Metrics:
+  - Stability KPI for Chaos drills meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Chaos drills.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-007 — Recovery drills (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Recovery drills to support deterministic, explainable execution control.
+- Capability target: Recovery drills
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Recovery drills behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Recovery drills.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Recovery drills regressions.
+- Metrics:
+  - Stability KPI for Recovery drills meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Recovery drills.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-008 — Recovery drills (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Recovery drills to support deterministic, explainable execution control.
+- Capability target: Recovery drills
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Recovery drills behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Recovery drills.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Recovery drills regressions.
+- Metrics:
+  - Stability KPI for Recovery drills meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Recovery drills.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-009 — Canary releases (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Canary releases to support deterministic, explainable execution control.
+- Capability target: Canary releases
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Canary releases behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Canary releases.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Canary releases regressions.
+- Metrics:
+  - Stability KPI for Canary releases meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Canary releases.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-010 — Canary releases (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Canary releases to support deterministic, explainable execution control.
+- Capability target: Canary releases
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Canary releases behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Canary releases.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Canary releases regressions.
+- Metrics:
+  - Stability KPI for Canary releases meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Canary releases.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-011 — Blue-green deployment (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Blue-green deployment to support deterministic, explainable execution control.
+- Capability target: Blue-green deployment
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Blue-green deployment behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Blue-green deployment.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Blue-green deployment regressions.
+- Metrics:
+  - Stability KPI for Blue-green deployment meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Blue-green deployment.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-012 — Blue-green deployment (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Blue-green deployment to support deterministic, explainable execution control.
+- Capability target: Blue-green deployment
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Blue-green deployment behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Blue-green deployment.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Blue-green deployment regressions.
+- Metrics:
+  - Stability KPI for Blue-green deployment meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Blue-green deployment.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-013 — Release checkpoints (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Release checkpoints to support deterministic, explainable execution control.
+- Capability target: Release checkpoints
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Release checkpoints behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Release checkpoints.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Release checkpoints regressions.
+- Metrics:
+  - Stability KPI for Release checkpoints meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Release checkpoints.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-014 — Release checkpoints (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Release checkpoints to support deterministic, explainable execution control.
+- Capability target: Release checkpoints
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Release checkpoints behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Release checkpoints.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Release checkpoints regressions.
+- Metrics:
+  - Stability KPI for Release checkpoints meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Release checkpoints.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-015 — Rollback automation (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Rollback automation to support deterministic, explainable execution control.
+- Capability target: Rollback automation
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Rollback automation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Rollback automation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Rollback automation regressions.
+- Metrics:
+  - Stability KPI for Rollback automation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Rollback automation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-016 — Rollback automation (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Rollback automation to support deterministic, explainable execution control.
+- Capability target: Rollback automation
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Rollback automation behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Rollback automation.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Rollback automation regressions.
+- Metrics:
+  - Stability KPI for Rollback automation meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Rollback automation.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-017 — Soak testing (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Soak testing to support deterministic, explainable execution control.
+- Capability target: Soak testing
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for Soak testing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Soak testing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Soak testing regressions.
+- Metrics:
+  - Stability KPI for Soak testing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Soak testing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-018 — Soak testing (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Soak testing to support deterministic, explainable execution control.
+- Capability target: Soak testing
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Soak testing behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Soak testing.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Soak testing regressions.
+- Metrics:
+  - Stability KPI for Soak testing meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Soak testing.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-019 — Performance regression gates (Foundation)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Performance regression gates to support deterministic, explainable execution control.
+- Capability target: Performance regression gates
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Performance regression gates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Performance regression gates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Performance regression gates regressions.
+- Metrics:
+  - Stability KPI for Performance regression gates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Performance regression gates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D09-020 — Performance regression gates (Hardening)
+- Domain: Reliability Engineering System
+- Strategic intent: Strengthen Performance regression gates to support deterministic, explainable execution control.
+- Capability target: Performance regression gates
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Performance regression gates behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Performance regression gates.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Performance regression gates regressions.
+- Metrics:
+  - Stability KPI for Performance regression gates meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Performance regression gates.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+
+### Domain 10 — Ecosystem and Integrations
+
+#### WP-D10-001 — IDE extensions (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen IDE extensions to support deterministic, explainable execution control.
+- Capability target: IDE extensions
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for IDE extensions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for IDE extensions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary IDE extensions regressions.
+- Metrics:
+  - Stability KPI for IDE extensions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching IDE extensions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-002 — IDE extensions (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen IDE extensions to support deterministic, explainable execution control.
+- Capability target: IDE extensions
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for IDE extensions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for IDE extensions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary IDE extensions regressions.
+- Metrics:
+  - Stability KPI for IDE extensions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching IDE extensions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-003 — CLI hooks (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen CLI hooks to support deterministic, explainable execution control.
+- Capability target: CLI hooks
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for CLI hooks behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for CLI hooks.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary CLI hooks regressions.
+- Metrics:
+  - Stability KPI for CLI hooks meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching CLI hooks.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-004 — CLI hooks (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen CLI hooks to support deterministic, explainable execution control.
+- Capability target: CLI hooks
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for CLI hooks behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for CLI hooks.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary CLI hooks regressions.
+- Metrics:
+  - Stability KPI for CLI hooks meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching CLI hooks.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-005 — CI/CD gate mode (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen CI/CD gate mode to support deterministic, explainable execution control.
+- Capability target: CI/CD gate mode
+- Phase: Foundation (P0-P1)
+- Delivery status: implemented-baseline
+- Build scope:
+  1. Define contract/spec for CI/CD gate mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for CI/CD gate mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary CI/CD gate mode regressions.
+- Metrics:
+  - Stability KPI for CI/CD gate mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching CI/CD gate mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-006 — CI/CD gate mode (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen CI/CD gate mode to support deterministic, explainable execution control.
+- Capability target: CI/CD gate mode
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for CI/CD gate mode behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for CI/CD gate mode.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary CI/CD gate mode regressions.
+- Metrics:
+  - Stability KPI for CI/CD gate mode meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching CI/CD gate mode.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-007 — ChatOps alerts (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen ChatOps alerts to support deterministic, explainable execution control.
+- Capability target: ChatOps alerts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for ChatOps alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for ChatOps alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary ChatOps alerts regressions.
+- Metrics:
+  - Stability KPI for ChatOps alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching ChatOps alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-008 — ChatOps alerts (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen ChatOps alerts to support deterministic, explainable execution control.
+- Capability target: ChatOps alerts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for ChatOps alerts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for ChatOps alerts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary ChatOps alerts regressions.
+- Metrics:
+  - Stability KPI for ChatOps alerts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching ChatOps alerts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-009 — Issue tracker export (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Issue tracker export to support deterministic, explainable execution control.
+- Capability target: Issue tracker export
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Issue tracker export behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Issue tracker export.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Issue tracker export regressions.
+- Metrics:
+  - Stability KPI for Issue tracker export meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Issue tracker export.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-010 — Issue tracker export (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Issue tracker export to support deterministic, explainable execution control.
+- Capability target: Issue tracker export
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Issue tracker export behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Issue tracker export.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Issue tracker export regressions.
+- Metrics:
+  - Stability KPI for Issue tracker export meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Issue tracker export.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-011 — SIEM streaming (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen SIEM streaming to support deterministic, explainable execution control.
+- Capability target: SIEM streaming
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SIEM streaming behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SIEM streaming.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SIEM streaming regressions.
+- Metrics:
+  - Stability KPI for SIEM streaming meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SIEM streaming.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-012 — SIEM streaming (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen SIEM streaming to support deterministic, explainable execution control.
+- Capability target: SIEM streaming
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SIEM streaming behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SIEM streaming.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SIEM streaming regressions.
+- Metrics:
+  - Stability KPI for SIEM streaming meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SIEM streaming.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-013 — Webhook subscriptions (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Webhook subscriptions to support deterministic, explainable execution control.
+- Capability target: Webhook subscriptions
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Webhook subscriptions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Webhook subscriptions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Webhook subscriptions regressions.
+- Metrics:
+  - Stability KPI for Webhook subscriptions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Webhook subscriptions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-014 — Webhook subscriptions (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Webhook subscriptions to support deterministic, explainable execution control.
+- Capability target: Webhook subscriptions
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Webhook subscriptions behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Webhook subscriptions.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Webhook subscriptions regressions.
+- Metrics:
+  - Stability KPI for Webhook subscriptions meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Webhook subscriptions.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-015 — SDK surface (Python/Go/JS) (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen SDK surface (Python/Go/JS) to support deterministic, explainable execution control.
+- Capability target: SDK surface (Python/Go/JS)
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SDK surface (Python/Go/JS) behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SDK surface (Python/Go/JS).
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SDK surface (Python/Go/JS) regressions.
+- Metrics:
+  - Stability KPI for SDK surface (Python/Go/JS) meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SDK surface (Python/Go/JS).
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-016 — SDK surface (Python/Go/JS) (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen SDK surface (Python/Go/JS) to support deterministic, explainable execution control.
+- Capability target: SDK surface (Python/Go/JS)
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for SDK surface (Python/Go/JS) behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for SDK surface (Python/Go/JS).
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary SDK surface (Python/Go/JS) regressions.
+- Metrics:
+  - Stability KPI for SDK surface (Python/Go/JS) meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching SDK surface (Python/Go/JS).
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-017 — OpenAPI contracts (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen OpenAPI contracts to support deterministic, explainable execution control.
+- Capability target: OpenAPI contracts
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for OpenAPI contracts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for OpenAPI contracts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary OpenAPI contracts regressions.
+- Metrics:
+  - Stability KPI for OpenAPI contracts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching OpenAPI contracts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-018 — OpenAPI contracts (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen OpenAPI contracts to support deterministic, explainable execution control.
+- Capability target: OpenAPI contracts
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for OpenAPI contracts behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for OpenAPI contracts.
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary OpenAPI contracts regressions.
+- Metrics:
+  - Stability KPI for OpenAPI contracts meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching OpenAPI contracts.
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-019 — Terraform provider (long-term) (Foundation)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Terraform provider (long-term) to support deterministic, explainable execution control.
+- Capability target: Terraform provider (long-term)
+- Phase: Foundation (P0-P1)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Terraform provider (long-term) behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Terraform provider (long-term).
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Terraform provider (long-term) regressions.
+- Metrics:
+  - Stability KPI for Terraform provider (long-term) meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Terraform provider (long-term).
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
+#### WP-D10-020 — Terraform provider (long-term) (Hardening)
+- Domain: Ecosystem and Integrations
+- Strategic intent: Strengthen Terraform provider (long-term) to support deterministic, explainable execution control.
+- Capability target: Terraform provider (long-term)
+- Phase: Hardening (P1-P2)
+- Delivery status: planned
+- Build scope:
+  1. Define contract/spec for Terraform provider (long-term) behavior and failure modes.
+  2. Implement baseline instrumentation and evidence linkage for Terraform provider (long-term).
+  3. Add guardrails, fallback logic, and operator-safe controls.
+- Acceptance criteria:
+  - Behavior is deterministic for documented scenarios.
+  - Evidence records include reason, actor, confidence, and timestamp.
+  - Release gate includes test coverage for primary Terraform provider (long-term) regressions.
+- Metrics:
+  - Stability KPI for Terraform provider (long-term) meets target for two consecutive cycles.
+  - Explainability completeness remains at 100% for interventions touching Terraform provider (long-term).
+- Dependencies: event schema contract, CI quality gates, release checkpoint discipline.
+- Risks: regression from hidden coupling, operator confusion if reason text drifts.
+- Decision gate: proceed only if reliability review stays green and rollback drill remains passing.
+
 
 ---
 
-## D) Customer Journey Workflow (End-to-End)
+## 23) Detailed Release Train Blueprint
 
-```mermaid
-flowchart LR
-  A["Discover FlowForge"] --> B["Run Start-in-60s Path"]
-  B --> C["See Runaway Detection + Recovery"]
-  C --> D["Protect First Real Workload"]
-  D --> E["Review Incident Timeline"]
-  E --> F["Enable IDE Integration"]
-  F --> G["Adopt Daily No-Command Protection"]
-  G --> H["Tune Policies + Reliability Targets"]
-  H --> I["Operate with Release + Rollback Discipline"]
-```
+### 23.1 Cadence
 
-Journey success metrics:
-1. first-run success rate
-2. activation to first protected workload
-3. % workloads running with protection enabled
-4. intervention trust score
+- Weekly integration window.
+- Bi-weekly release candidate window.
+- Monthly reliability checkpoint review.
+- Quarterly strategic scope review.
 
----
+### 23.2 Release Stages
 
-## E) Documentation System Blueprint (Cloudflare-Grade Clarity)
+1. Design freeze and scope lock.
+2. Integration test gate.
+3. Security/vulnerability gate.
+4. Soak/canary window.
+5. Release candidate approval.
+6. Production promotion.
+7. Post-release validation.
+8. Retro and corrective actions.
 
-### E.1 Documentation Tree
+### 23.3 Release Exit Criteria
 
-1. Getting Started
-- 60-second install
-- first protected workload
-- first incident interpretation
-
-2. Core Concepts
-- supervisor
-- decision
-- action
-- evidence
-
-3. Operator Guides
-- daily operations
-- triage
-- policy tuning
-- release and rollback
-
-4. API Reference
-- endpoint behavior
-- auth requirements
-- response schemas
-
-5. Integrations
-- cursor
-- antigravity
-- CLI automation hooks
-
-6. Reliability Handbook
-- SLOs
-- error budgets
-- incident taxonomy
-
-7. Security Handbook
-- threat model
-- hardening defaults
-- vuln process
-
-### E.2 Docs Quality Gates
-
-1. behavior changes require docs update in same PR
-2. docs examples are executable and tested
-3. versioned docs track release tags
-4. troubleshooting entries map to real incident classes
+- all required CI checks passing
+- rollback checklist validated
+- release notes complete
+- known risks documented
+- no unresolved P0 defects
 
 ---
 
-## F) Operational Trust Pages (Public-Facing Style)
+## 24) Incident Command System (Detailed)
 
-These pages make reliability and security visible and credible.
+### 24.1 Severity Matrix
 
-1. Reliability page
-- release process
-- SLO posture
-- rollback philosophy
-- last 10 release checkpoint outcomes
+P0:
+- broad outage, security breach, data integrity risk
 
-2. Security page
-- secure defaults
-- auth model
-- disclosure policy
-- patch cadence
+P1:
+- major workflow disruption, repeated false destructive actions
 
-3. Status page
-- current component status
-- incident timeline format
-- resolution summaries and corrective actions
+P2:
+- limited impact defect
 
-4. Changelog page
-- user-visible changes only
-- migration notes
-- risk notes
+P3:
+- minor issue
 
----
+### 24.2 Command Protocol
 
-## G) Final Master Goal (Single Sentence)
+1. Declare incident.
+2. Assign commander and roles.
+3. Stabilize service first.
+4. Preserve evidence.
+5. Communicate status updates.
+6. Execute recovery.
+7. Publish postmortem.
 
-FlowForge must become the default reliability guardrail for long-running developer workloads by delivering zero-friction activation, explainable autonomous recovery, and production-grade operational trust with consistent low-regression releases.
+### 24.3 Postmortem Quality Bar
 
----
-
-## H) Final Delivery Milestones and Exit Criteria
-
-### Milestone M1: Product Clarity Complete
-
-Exit criteria:
-1. website IA and docs IA finalized
-2. onboarding <= 5 minutes validated by new developers
-3. terminology consistency across CLI/API/UI/docs
-
-### Milestone M2: Engine Trustworthy
-
-Exit criteria:
-1. benchmarked fp/fn baselines
-2. stable lifecycle and shutdown matrix pass
-3. explainability completeness at 100% for interventions
-
-### Milestone M3: Zero-Command Daily Use
-
-Exit criteria:
-1. local daemon stable
-2. cursor and antigravity MVP integrations usable
-3. workspace attach flow one-click operational
-
-### Milestone M4: Production Reliability Discipline
-
-Exit criteria:
-1. canary + rollback workflow repeatable
-2. release checkpoint + soak evidence attached to releases
-3. weekly SLO and error-budget review ongoing
-
-### Milestone M5: Platform-Grade Consistency
-
-Exit criteria:
-1. predictable operations under sustained workload
-2. security and reliability pages backed by measurable evidence
-3. roadmap execution predictable across quarters
+- no blame language
+- complete timeline
+- verified root cause
+- concrete preventive actions
+- owner and due date for every corrective item
 
 ---
 
-## I) What “Include All Things” Means Operationally
+## 25) Metrics Framework (Company Dashboard)
 
-To avoid future ambiguity, this plan now explicitly covers:
-1. product strategy
-2. architecture planes
-3. full feature universe
-4. release and rollback workflow
-5. reliability metrics and SLO governance
-6. security program and SLA policy
-7. integration strategy (cursor/antigravity)
-8. website structure and UX
-9. documentation system
-10. operational trust communication
-11. timeline and milestone exits
-12. ownership model and execution cadence
+### 25.1 Product Metrics
 
-No major category needed for execution should remain unstated after this section.
+- time to first value
+- intervention precision
+- intervention recall
+- explainability completeness
 
----
+### 25.2 Reliability Metrics
 
-## J) Deep Technical Implementation Directives (Requested)
+- crash-free sessions
+- clean shutdown success
+- rollback success rate
+- release checkpoint pass rate
 
-These directives are now part of the plan baseline. They are P0/P1 execution items, not optional research notes.
+### 25.3 Security Metrics
 
-### J.1 Solving the Zombie Process Problem (Plane A: Runtime)
+- unresolved critical vulns
+- mean time to patch
+- secret leakage incidents
+- dependency freshness
 
-Objective:
-- build a supervisor execution/teardown module that guarantees full cleanup of deep process trees.
+### 25.4 Operational Metrics
 
-Implementation directive:
-1. Spawn child commands into a dedicated process group (PGID) on Unix/Linux.
-2. Implement `Stop()` with two-phase teardown:
-- phase 1: send `SIGTERM` to the entire process group.
-- phase 2: wait a configurable graceful window (default 5 seconds).
-- phase 3: if any group member remains, send `SIGKILL` to the entire process group.
-3. Trap supervisor exit signals (`SIGINT`, `SIGTERM`) and trigger the same teardown path before process exit.
-4. Ensure no orphaned subprocesses remain when parent exits unexpectedly.
-5. Use standard library only (`os`, `os/exec`, `os/signal`, `syscall`, `context`, `time`).
-
-Design constraints:
-1. must handle scripts/binaries that spawn children or grandchildren
-2. idempotent `Stop()` behavior (safe if called multiple times)
-3. bounded wait times (no indefinite blocking on shutdown)
-
-Test acceptance:
-1. fixture with nested child spawns is fully terminated on stop
-2. forced parent signal path leaves no residual child processes
-3. graceful stop path and force-kill path both exercised in tests
-
-### J.2 Building the Benchmark Corpus (Track B: Reliability)
-
-Objective:
-- create a deterministic fixture suite that validates detection while preventing false positives.
-
-Required fixture scripts:
-1. Infinite Looper
-- tight `while True` CPU saturation
-- repetitive stdout/stderr lines
-- expected detection: runaway intervention
-
-2. Memory Leaker
-- sustained memory growth without release
-- expected detection: memory-risk intervention (or alert based on policy)
-
-3. Healthy Spike (False Positive Guard)
-- legitimate high CPU burst (~10s) with diverse progress logs
-- clean completion
-- expected detection: no destructive intervention
-
-4. Zombie Spawner
-- parent spawns child and crashes/exits without cleanup
-- expected detection: runtime lifecycle cleanup catches orphan risk
-
-Common fixture requirement:
-1. each script must accept `--timeout` and self-terminate if supervisor fails
-2. fixtures must run in CI and local benchmark harness
-3. expected outcome per fixture must be encoded in test assertions
-
-Test acceptance:
-1. benchmark report tracks fp/fn by fixture and threshold profile
-2. healthy spike remains below false-positive threshold target
-3. runaway/leak fixtures are detected within defined latency budget
-
-### J.3 Append-Only Evidence Schema (Plane D: Data)
-
-Objective:
-- enforce explainability with a unified append-only events model in SQLite.
-
-Schema directive:
-1. create unified `events` table for lifecycle, detection, and action evidence
-2. use strict typing where SQLite supports it
-3. no ORM; raw SQLite SQL only
-4. append-only semantics (no event mutation in normal flow)
-
-Required columns:
-1. `event_id`
-2. `run_id`
-3. `incident_id` (nullable, for correlated timelines)
-4. `event_type` (examples: `cpu_spike`, `process_killed`, `policy_dry_run`)
-5. `actor` (`system` or `manual`)
-6. `reason_text`
-7. `confidence_score`
-8. `created_at`
-
-Query directive:
-1. provide canonical SQL to fetch full incident timeline by `incident_id`
-2. results must be chronologically ordered and stable
-3. query must be index-backed for local performance targets
-
-Test acceptance:
-1. migration creates schema idempotently
-2. inserts are append-only in normal operation paths
-3. timeline query returns complete correlated event chain
-
-### J.4 Shadow Mode / Dry-Run Evaluator (Domain 3: Policy)
-
-Objective:
-- evaluate destructive policy behavior safely before enforcement.
-
-Implementation directive:
-1. define `Decider` interface:
-- input: telemetry (CPU, memory, log repetition/entropy) + Policy
-- output: Action (`Continue`, `Alert`, `Kill`, `Restart`)
-
-2. add `ShadowMode` flag to Policy:
-- when true: decider computes real decision but returns `ActionLogOnly` for non-continue actions
-- reason output must state exactly which thresholds/rules were triggered
-
-3. reason string format requirement:
-- must be deterministic and explicit, for example:
-  `CPU exceeded 90% for 30s AND log entropy dropped below 0.2`
-
-4. unit testing requirements:
-1. enforce mode: destructive actions return as expected
-2. shadow mode: same conditions return `ActionLogOnly`
-3. reason strings are asserted exactly for key cases
-4. mixed-signal and boundary cases are covered
-
-Release gate for policy engine:
-1. no policy change can merge without passing enforce + shadow-mode tests
-2. dry-run evidence must be visible in timeline/events as `policy_dry_run`
+- incident mean time to detect
+- incident mean time to recover
+- postmortem completion SLA
+- corrective action closure rate
 
 ---
 
-## K) Immediate Build Sequence For J.1-J.4
+## 26) Business Narrative and Funding Readiness
 
-Execution order:
-1. J.1 runtime teardown correctness first
-2. J.2 fixture corpus second (to validate runtime and detector behavior)
-3. J.4 shadow-mode decider third (safe policy rollout)
-4. J.3 append-only evidence schema fourth (or in parallel with J.4 if schema owner bandwidth allows)
+A defensible infrastructure company narrative requires:
+1. unique execution-control boundary ownership
+2. reproducible deterministic behavior
+3. strong trust and evidence posture
+4. measurable reliability outcomes
+5. integration-led distribution model
+6. clear cost/value angle
 
-Rationale:
-1. Runtime correctness is safety-critical and blocks trust.
-2. Corpus is needed to measure fp/fn and prevent regressions.
-3. Shadow mode de-risks policy enforcement.
-4. Evidence schema must capture all of the above with auditability.
+Funding narrative focus:
+- execution control as mission-critical reliability layer for AI operations
 
-### K.1) Implementation Status (Living Checklist)
+---
 
-Last updated: 2026-02-19
+## 27) Competitive Discipline
 
-- [x] J.1 runtime teardown correctness.
-  Implemented process-group supervision with SIGTERM->SIGKILL escalation and signal trapping, with tests.
-- [x] J.2 benchmark corpus.
-  Implemented fixture scripts + corpus harness + CI execution path.
-- [x] J.4 shadow-mode decider.
-  Implemented `ActionLogOnly`, reason strings, and enforce/shadow unit tests.
-- [x] J.3 append-only evidence schema baseline.
-  Implemented unified `events` table, append-only triggers, incident timeline query, and tests.
+Rules:
+1. do not copy breadth without matching operational quality.
+2. out-compete on determinism + explainability + trust ritual.
+3. preserve product clarity under growth pressure.
+
+---
+
+## 28) Decision Rubric for New Features
+
+A feature is accepted only when all are true:
+1. maps to one of the 10 domains
+2. has measurable success criteria
+3. has rollback path
+4. does not degrade explainability
+5. passes reliability risk review
+
+---
+
+## 29) Deletion and Simplification Policy
+
+If a component fails to prove value for two cycles:
+1. de-scope to experimental status
+2. stop expansion
+3. simplify or remove after explicit review
+
+---
+
+## 30) Leadership Operating Checklist
+
+Daily:
+- risk review
+- blocker review
+
+Weekly:
+- reliability review
+- customer signal review
+- roadmap update
+
+Bi-weekly:
+- release readiness review
+
+Monthly:
+- architecture debt review
+- security and threat model review
+
+Quarterly:
+- strategic scope reset
+- kill underperforming bets
+
+---
+
+## 31) Roadmap Integrity Rules
+
+1. Never promote roadmap items without owners.
+2. Never call features “done” without acceptance evidence.
+3. Never claim enterprise readiness without incident/release ritual proof.
+4. Never inflate roadmap with unlabeled risk.
+
+---
+
+## 32) Final Master Goal
+
+Build FlowForge into the trusted deterministic execution-control infrastructure standard for AI and automation workloads, with evidence-backed reliability and disciplined operations as the primary moat.
+
+---
+
+## 33) Immediate Execution Queue (Next 30 Days)
+
+1. Unified event schema design doc and migration plan.
+2. Policy canary and shadow governance controls.
+3. SLO dashboard and error-budget operating doc.
+4. First chaos drill with published findings.
+
+---
+
+## 34) Status Tracking (Live)
+
+- [x] branch protection with required checks enabled
+- [x] PR body gate operational
+- [x] issue intake and incident postmortem templates added
+- [ ] unified event schema design and migration plan fully implemented in code
+- [ ] policy canary workflow implemented
+- [ ] formal SLO dashboard operations in weekly ritual
+- [ ] chaos drill evidence published
+- [ ] external first-time usability validation completed
+
+---
+
+## 35) Appendix — Build Discipline Contract
+
+Every merged change must include:
+1. problem statement
+2. scope and anti-goals
+3. tests and verification evidence
+4. rollback note
+5. docs update when behavior changes
+
+This contract is mandatory.
+
