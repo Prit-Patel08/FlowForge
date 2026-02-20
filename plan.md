@@ -4941,6 +4941,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] branch protection with required checks enabled
 - [x] PR body gate operational
 - [x] issue intake and incident postmortem templates added
+- [x] supervisor deep process-tree teardown reliability gate implemented (test + CI)
 - [ ] unified event schema design and migration plan fully implemented in code
 - [ ] policy canary workflow implemented
 - [ ] formal SLO dashboard operations in weekly ritual
@@ -4959,4 +4960,3 @@ Every merged change must include:
 5. docs update when behavior changes
 
 This contract is mandatory.
-

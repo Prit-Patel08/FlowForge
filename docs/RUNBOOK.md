@@ -85,6 +85,12 @@ The drill must confirm:
 - parent SIGTERM leaves no child orphan
 - API kill removes active process
 
+Teardown guarantee and limit:
+- FlowForge sends `SIGTERM` to the entire supervised process group first.
+- After grace timeout, FlowForge escalates to `SIGKILL` for the same process group.
+- This guarantees cleanup for descendants that remain inside the supervised process group.
+- Detached descendants that explicitly break away (`setsid`/new PGID) are outside this guarantee and must be handled with host/container controls.
+
 ## 7. Detection Tuning
 
 Run pilot and threshold tuning:

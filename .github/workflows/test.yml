@@ -51,6 +51,9 @@ jobs:
       - name: Race Detector
         run: go test ./... -race -v
 
+      - name: Supervisor Teardown Reliability Gate
+        run: go test ./internal/supervisor -run TestStopTerminatesDeepProcessTree -count=3 -v
+
       - name: Benchmark Corpus Gate
         run: ./scripts/benchmark_corpus.sh ci_artifacts/corpus
 
