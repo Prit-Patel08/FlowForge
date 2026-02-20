@@ -28,6 +28,7 @@ jobs:
             ];
 
             const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const normalizePlaceholder = (s) => s.toLowerCase().replace(/[*_`]/g, "").trim();
 
             const missing = [];
             for (const heading of required) {
@@ -41,7 +42,9 @@ jobs:
               }
 
               const content = match[1].trim();
-              if (!content || /^(_?n\\/a_?|_?none_?)$/i.test(content)) {
+              const normalized = normalizePlaceholder(content);
+              const isPlaceholder = normalized === "n/a" || normalized === "na" || normalized === "none";
+              if (!content || isPlaceholder) {
                 missing.push(`${heading} (empty section)`);
               }
             }
