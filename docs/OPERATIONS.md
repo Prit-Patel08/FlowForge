@@ -81,6 +81,17 @@ Before tagging, complete:
 - release checklist
 - release checkpoint (`./scripts/release_checkpoint.sh`)
 
+## Issue Intake and Postmortem Templates
+
+Use GitHub issue forms:
+
+- Issue intake: `.github/ISSUE_TEMPLATE/issue_intake.yml`
+- Incident postmortem: `.github/ISSUE_TEMPLATE/incident_postmortem.yml`
+
+Guideline:
+- file normal bugs/reliability/security problems with the issue intake form
+- file all P0/P1 incidents and any production-impacting event with the postmortem form
+
 ## Week 2 Real-Workload Pilot
 
 1. Copy and edit command list:

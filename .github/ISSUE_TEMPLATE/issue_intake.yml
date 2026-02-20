@@ -1,0 +1,103 @@
+name: Issue Intake
+description: Report a reliability, security, or UX problem with enough context to reproduce and triage.
+title: "[Issue] <short summary>"
+labels:
+  - needs-triage
+body:
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Issue Type
+      description: Select the category that best matches this issue.
+      options:
+        - Reliability
+        - Security
+        - Detection Quality
+        - API/Backend
+        - Dashboard/UI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How bad is this issue right now?
+      options:
+        - P0 - Production blocking / data loss risk
+        - P1 - Major user impact
+        - P2 - Normal bug
+        - P3 - Minor issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One clear sentence describing the problem.
+      placeholder: FlowForge terminated a healthy workload during startup compilation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What was affected (runtime, workflow, trust, time/cost)?
+      placeholder: The command was killed 3 times, blocking deploy automation for 15 minutes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Provide exact commands and order.
+      placeholder: |
+        1. ./flowforge run --max-cpu 60 -- python3 script.py
+        2. Wait 20 seconds
+        3. Observe intervention
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: Process should continue without kill/restart.
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed Behavior
+      placeholder: Process was terminated with LOOP_DETECTED after startup burst.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / Artifacts
+      description: Provide local file paths for logs, report, DB snapshot, or CI run URL.
+      placeholder: |
+        pilot_artifacts/week2-real-20260220-103000/summary.md
+        pilot_artifacts/week2-real-20260220-103000/results.csv
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Reporter Checklist
+      options:
+        - label: I included reproducible steps.
+          required: true
+        - label: I attached evidence paths or logs.
+          required: true
+        - label: I confirmed this is not a duplicate issue.
+          required: true

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Operations Runbook
+    url: https://github.com/Prit-Patel08/FlowForge/blob/main/docs/RUNBOOK.md
+    about: Check operator recovery and incident triage procedures before filing.
+  - name: Security Policy
+    url: https://github.com/Prit-Patel08/FlowForge/blob/main/SECURITY.md
+    about: Use this path for responsible security disclosure.

@@ -1,0 +1,118 @@
+name: Incident Postmortem
+description: Capture a complete incident review with timeline, root cause, and corrective actions.
+title: "[Postmortem] <incident/date>"
+labels:
+  - incident
+  - postmortem
+body:
+  - type: input
+    id: incident_id
+    attributes:
+      label: Incident ID
+      description: Timeline incident_id or internal identifier.
+      placeholder: inc-2026-02-20-001
+    validations:
+      required: true
+
+  - type: input
+    id: date_window
+    attributes:
+      label: Incident Window (UTC)
+      placeholder: 2026-02-20 10:01 to 2026-02-20 10:17
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What Happened
+      description: Short factual summary of the incident.
+      placeholder: Runaway detection loop killed a healthy process after config regression.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: User/Business Impact
+      description: Who was impacted and for how long?
+      placeholder: CI pipeline blocked for 24 minutes on 3 repositories.
+    validations:
+      required: true
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline (UTC)
+      description: Include key timestamps (detect, action, mitigation, recovery).
+      placeholder: |
+        10:01 - First alert
+        10:03 - Process killed
+        10:08 - Manual restart
+        10:17 - Stable
+    validations:
+      required: true
+
+  - type: textarea
+    id: root_cause
+    attributes:
+      label: Root Cause
+      description: Technical cause and why safeguards did not prevent it.
+      placeholder: Threshold policy loaded stale values due to missing migration fallback.
+    validations:
+      required: true
+
+  - type: textarea
+    id: detection
+    attributes:
+      label: Detection and Response Evaluation
+      description: What worked and what failed in detection/response?
+      placeholder: Detection latency was acceptable; restart loop guard failed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: corrective_actions
+    attributes:
+      label: Corrective Actions (with owners + dates)
+      placeholder: |
+        - Add regression test for policy fallback (owner: @user, due: 2026-02-22)
+        - Add release gate check for threshold schema (owner: @user, due: 2026-02-23)
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / Artifacts
+      description: Add links or local paths for incident timeline, logs, and reports.
+      placeholder: |
+        /timeline?incident_id=...
+        pilot_artifacts/.../summary.md
+        pilot_artifacts/.../results.csv
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: closure
+    attributes:
+      label: Closure Checklist
+      options:
+        - label: Root cause is identified and validated.
+          required: true
+        - label: Corrective actions have owners and due dates.
+          required: true
+        - label: Regression test coverage is added or planned.
+          required: true

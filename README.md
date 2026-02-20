@@ -218,6 +218,7 @@ Report output:
 - branch protection: `docs/BRANCH_PROTECTION.md`
 - local daemon RFC (P1): `docs/DAEMON_RFC.md`
 - integration API contract (P1): `docs/INTEGRATION_API_CONTRACT.md`
+- issue templates: `.github/ISSUE_TEMPLATE/`
 - threat model: `docs/THREAT_MODEL.md`
 - runbook: `docs/RUNBOOK.md`
 - onboarding usability test: `docs/ONBOARDING_USABILITY_TEST.md`
