@@ -215,6 +215,7 @@ Report output:
 ## Docs
 
 - master company plan: `plan.md`
+- company execution playbook: `docs/COMPANY_EXECUTION.md`
 - blueprint alignment audit: `docs/ALIGNMENT_AUDIT.md`
 - CLI reference: `docs/reference/cli/flowforge.md`
 - operations: `docs/OPERATIONS.md`
