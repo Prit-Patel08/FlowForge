@@ -216,6 +216,7 @@ Report output:
 
 - master company plan: `plan.md`
 - blueprint alignment audit: `docs/ALIGNMENT_AUDIT.md`
+- CLI reference: `docs/reference/cli/flowforge.md`
 - operations: `docs/OPERATIONS.md`
 - branch protection: `docs/BRANCH_PROTECTION.md`
 - local daemon RFC (P1): `docs/DAEMON_RFC.md`

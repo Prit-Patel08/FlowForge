@@ -11,9 +11,9 @@ import (
 var docsCmd = &cobra.Command{
 	Use:   "docs",
 	Short: "Generate Markdown documentation for the CLI",
-	Long:  `Generates standard Markdown documentation for all flowforge commands in the ./docs directory.`,
+	Long:  `Generates standard Markdown documentation for all flowforge commands in the ./docs/reference/cli directory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		outputDir := "./docs"
+		outputDir := "./docs/reference/cli"
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
 			fmt.Printf("Error creating docs directory: %v\n", err)
 			os.Exit(1)
