@@ -64,6 +64,8 @@ Main gaps are in:
 2. `trigger.txt` was added to `.gitignore` to avoid accidental reintroduction.
 3. `FLOWFORGE_DOCS.md` was removed (redundant/unreferenced top-level doc dump).
 4. `demo/stuck.py` was removed (unused duplicate of root `stuck.py` demo script).
+5. `pilot_commands.txt` was removed from tracking (local user file; `scripts/pilot_commands.example.txt` remains canonical).
+6. Root `Dockerfile` was aligned with `internal/deploy/Dockerfile` to remove runtime spec drift.
 
 ## What We Intentionally Did Not Remove
 

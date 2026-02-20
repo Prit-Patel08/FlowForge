@@ -21,6 +21,7 @@ logs/
 pilot_artifacts/
 ci_artifacts/
 trigger.txt
+pilot_commands.txt
 
 # Go
 vendor/
