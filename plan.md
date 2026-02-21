@@ -4947,6 +4947,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] worker lifecycle visibility implemented (API snapshot endpoint + dashboard panel + contract tests)
 - [x] lifecycle transition evidence emitted to timeline (control-plane events + dashboard rendering)
 - [x] lifecycle latency SLO telemetry implemented (Prometheus metrics + dashboard SLO widget)
+- [x] cloud-capable local dependency stack bootstrap implemented (Postgres + Redis + NATS + MinIO)
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed

@@ -12,6 +12,7 @@ flowforge.key
 # Live State
 .flowforge_live
 .flowforge.env
+infra/local-cloud/.env
 
 # Logs and Temp
 *.log

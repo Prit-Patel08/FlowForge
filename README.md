@@ -189,6 +189,13 @@ npm ci
 npm run build
 ```
 
+Cloud-capable local dependency stack (Postgres + Redis + NATS + MinIO):
+
+```bash
+./scripts/cloud_dev_stack.sh up
+./scripts/cloud_dev_stack.sh status
+```
+
 ## Troubleshooting
 
 1. Dashboard cannot connect
@@ -240,6 +247,7 @@ Report output:
 - issue templates: `.github/ISSUE_TEMPLATE/`
 - threat model: `docs/THREAT_MODEL.md`
 - runbook: `docs/RUNBOOK.md`
+- cloud-dev dependency stack: `infra/local-cloud/README.md`
 - onboarding usability test: `docs/ONBOARDING_USABILITY_TEST.md`
 - week 1 checklist: `docs/WEEK1_PILOT.md`
 - week 2 baseline: `docs/WEEK2_BASELINE.md`
