@@ -109,11 +109,11 @@ drill_api_kill() {
     echo "WARN: process listing unavailable; orphan check skipped" | tee -a "$log_file"
     return 0
   fi
-  if [[ "$code" != "200" ]]; then
+  if [[ "$code" != "202" ]]; then
     if [[ -f "$curl_stderr" ]]; then
       echo "curl stderr: $(cat "$curl_stderr")" | tee -a "$log_file"
     fi
-    echo "FAIL: expected /process/kill HTTP 200, got ${code}" | tee -a "$log_file"
+    echo "FAIL: expected /process/kill HTTP 202, got ${code}" | tee -a "$log_file"
     return 1
   fi
   echo "PASS: API kill removed active worker" | tee -a "$log_file"

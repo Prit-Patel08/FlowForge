@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -379,36 +378,29 @@ func HandleProcessKill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats := state.GetState()
-	if stats.Status == "STOPPED" || stats.PID == 0 {
-		http.Error(w, `{"error":"No active process to kill"}`, http.StatusBadRequest)
+	workerControl.registerSpecFromStateIfMissing()
+	decision, err := requestLifecycleKill()
+	if err != nil {
+		writeJSONError(w, lifecycleHTTPCode(err, http.StatusInternalServerError), lifecycleErrorMessage(err, "failed to request kill"))
 		return
 	}
 
-	state.UpdateState(0, "", "STOPPED", stats.Command, stats.Args, stats.Dir, stats.PID)
-	apiMetrics.IncProcessKill()
+	stats := state.GetState()
 	reason := mutationReason(r)
 	if reason == "" {
 		reason = "manual API kill request"
 	}
-	incidentID := uuid.NewString()
-	_ = database.LogAuditEventWithIncident(actorFromRequest(r), "KILL", reason, "api", stats.PID, stats.Command, incidentID)
-
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"kill_requested","pid":%d}`, stats.PID)
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
+	if decision.AcceptedNew {
+		apiMetrics.IncProcessKill()
+		incidentID := uuid.NewString()
+		_ = database.LogAuditEventWithIncident(actorFromRequest(r), "KILL", reason, "api", decision.PID, stats.Command, incidentID)
 	}
 
-	pid := stats.PID
-	go func() {
-		// Send response first; kill immediately after to avoid response races
-		// where supervisor shutdown closes the socket before ack is delivered.
-		time.Sleep(75 * time.Millisecond)
-		if err := killProcessTree(pid); err != nil {
-			log.Printf("[API] Failed to kill process tree for pid %d: %v", pid, err)
-		}
-	}()
+	writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"status":    decision.Status,
+		"pid":       decision.PID,
+		"lifecycle": decision.Lifecycle,
+	})
 }
 
 // HandleProcessRestart is exported for testing.
@@ -427,42 +419,30 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	workerControl.registerSpecFromStateIfMissing()
+	decision, err := requestLifecycleRestart()
+	if err != nil {
+		writeJSONError(w, lifecycleHTTPCode(err, http.StatusInternalServerError), lifecycleErrorMessage(err, "failed to request restart"))
+		return
+	}
+
 	stats := state.GetState()
-	if stats.Command == "" || len(stats.Args) == 0 {
-		http.Error(w, `{"error":"No command available to restart"}`, http.StatusBadRequest)
-		return
-	}
-
-	if stats.PID > 0 && processLikelyAlive(stats.PID) {
-		http.Error(w, `{"error":"Process is still running; stop/kill it and wait for exit before restart."}`, http.StatusConflict)
-		return
-	}
-
-	cmd := exec.Command(stats.Args[0], stats.Args[1:]...)
-	if stats.Dir != "" {
-		cmd.Dir = stats.Dir
-	}
-	// Place restarted processes in their own group so kill actions can
-	// target the full subtree deterministically.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	fmt.Printf("[API] Secure restart: %v\n", stats.Args)
-	if err := cmd.Start(); err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"Failed to restart command: %v"}`, err), http.StatusInternalServerError)
-		return
-	}
-	newPID := cmd.Process.Pid
-	fmt.Printf("[API] Restarted process with PID: %d\n", newPID)
-	state.UpdateState(0, "", "RUNNING", stats.Command, stats.Args, stats.Dir, newPID)
-
-	apiMetrics.IncProcessRestart()
 	reason := mutationReason(r)
 	if reason == "" {
 		reason = "manual API restart request"
 	}
-	incidentID := uuid.NewString()
-	_ = database.LogAuditEventWithIncident(actorFromRequest(r), "RESTART", reason, "api", newPID, stats.Command, incidentID)
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"restarting","command":"%s","pid":%d}`, stats.Command, newPID)
+	if decision.AcceptedNew {
+		apiMetrics.IncProcessRestart()
+		incidentID := uuid.NewString()
+		_ = database.LogAuditEventWithIncident(actorFromRequest(r), "RESTART", reason, "api", decision.PID, stats.Command, incidentID)
+	}
+
+	writeJSON(w, http.StatusAccepted, map[string]interface{}{
+		"status":    decision.Status,
+		"pid":       decision.PID,
+		"lifecycle": decision.Lifecycle,
+		"command":   stats.Command,
+	})
 }
 
 func killProcessTree(pid int) error {
@@ -481,17 +461,6 @@ func killProcessTree(pid int) error {
 	return fmt.Errorf("group kill failed: %v; pid kill failed: %w", groupErr, pidErr)
 }
 
-func processLikelyAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	err := syscall.Kill(pid, 0)
-	if err == nil {
-		return true
-	}
-	return !errors.Is(err, syscall.ESRCH)
-}
-
 func actorFromRequest(r *http.Request) string {
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	if strings.HasPrefix(authHeader, "Bearer ") {
@@ -499,6 +468,18 @@ func actorFromRequest(r *http.Request) string {
 		return "api-key"
 	}
 	return "anonymous"
+}
+
+func writeJSON(w http.ResponseWriter, statusCode int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("[API] encode response failed: %v", err)
+	}
+}
+
+func writeJSONError(w http.ResponseWriter, statusCode int, msg string) {
+	writeJSON(w, statusCode, map[string]string{"error": msg})
 }
 
 func mutationReason(r *http.Request) string {

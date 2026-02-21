@@ -66,7 +66,7 @@ curl -X POST \
 ```
 
 Expected response shape:
-`{"status":"restarting","command":"<command>","pid":12345}`
+`{"status":"restart_requested","lifecycle":"STARTING","command":"<command>","pid":0}`
 
 Guardrail:
 - Restart only proceeds when no active worker PID is alive.
@@ -81,7 +81,7 @@ curl -X POST \
 ```
 
 Expected response shape:
-`{"status":"kill_requested","pid":12345}`
+`{"status":"stop_requested","lifecycle":"STOPPING","pid":12345}`
 
 ## 6. Recovery Checks
 

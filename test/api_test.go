@@ -207,10 +207,11 @@ func TestKillEndpointNoKeySetIsBlocked(t *testing.T) {
 }
 
 func TestKillEndpointAcknowledgesAndTerminatesWorker(t *testing.T) {
+	api.ResetWorkerControlForTests()
 	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
 	defer os.Unsetenv("FLOWFORGE_API_KEY")
 
-	cmd := exec.Command("/bin/sh", "-c", "sleep 30")
+	cmd := exec.Command("/bin/sh", "-c", "trap '' TERM; sleep 30")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start worker process: %v", err)
@@ -231,24 +232,27 @@ func TestKillEndpointAcknowledgesAndTerminatesWorker(t *testing.T) {
 	api.HandleProcessKill(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status 202, got %d", resp.StatusCode)
 	}
 
 	var body map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if stringValue(body["status"]) != "kill_requested" {
-		t.Fatalf("expected status kill_requested, got %#v", body["status"])
+	if stringValue(body["status"]) != "stop_requested" {
+		t.Fatalf("expected status stop_requested, got %#v", body["status"])
 	}
 	if intValue(body["pid"]) != pid {
 		t.Fatalf("expected response pid %d, got %d", pid, intValue(body["pid"]))
 	}
+	if stringValue(body["lifecycle"]) != "STOPPING" {
+		t.Fatalf("expected lifecycle STOPPING, got %#v", body["lifecycle"])
+	}
 
 	st := state.GetState()
-	if st.Status != "STOPPED" {
-		t.Fatalf("expected state STOPPED, got %q", st.Status)
+	if st.Status != "STOPPING" && st.Status != "STOPPED" {
+		t.Fatalf("expected state STOPPING/STOPPED, got %q", st.Status)
 	}
 
 	waitCh := make(chan error, 1)
@@ -261,9 +265,21 @@ func TestKillEndpointAcknowledgesAndTerminatesWorker(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatalf("worker pid %d did not exit after kill request", pid)
 	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		st := state.GetState()
+		if st.Status == "STOPPED" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("expected state STOPPED after process exit, got %q", st.Status)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
 }
 
 func TestRestartEndpointUpdatesRuntimeState(t *testing.T) {
+	api.ResetWorkerControlForTests()
 	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
 	defer os.Unsetenv("FLOWFORGE_API_KEY")
 
@@ -276,27 +292,41 @@ func TestRestartEndpointUpdatesRuntimeState(t *testing.T) {
 	api.HandleProcessRestart(w, req)
 
 	resp := w.Result()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected 202, got %d", resp.StatusCode)
 	}
 
 	var body map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	pid := intValue(body["pid"])
-	if pid <= 0 {
-		t.Fatalf("expected response pid > 0, got %d", pid)
+	if stringValue(body["status"]) != "restart_requested" {
+		t.Fatalf("expected status restart_requested, got %#v", body["status"])
 	}
+	if stringValue(body["lifecycle"]) != "STARTING" {
+		t.Fatalf("expected lifecycle STARTING, got %#v", body["lifecycle"])
+	}
+
+	var pid int
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		st := state.GetState()
+		if st.Status == "RUNNING" && st.PID > 0 {
+			pid = st.PID
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("restart did not reach RUNNING state in time, state=%+v", st)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
 	t.Cleanup(func() {
 		_ = syscall.Kill(-pid, syscall.SIGKILL)
 		_ = syscall.Kill(pid, syscall.SIGKILL)
 	})
 
 	st := state.GetState()
-	if st.Status != "RUNNING" {
-		t.Fatalf("expected state status RUNNING, got %q", st.Status)
-	}
 	if st.PID != pid {
 		t.Fatalf("expected state pid %d, got %d", pid, st.PID)
 	}
@@ -309,6 +339,7 @@ func TestRestartEndpointUpdatesRuntimeState(t *testing.T) {
 }
 
 func TestRestartEndpointRejectsWhileProcessRunning(t *testing.T) {
+	api.ResetWorkerControlForTests()
 	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
 	defer os.Unsetenv("FLOWFORGE_API_KEY")
 
@@ -339,6 +370,80 @@ func TestRestartEndpointRejectsWhileProcessRunning(t *testing.T) {
 
 	if err := syscall.Kill(pid, 0); err != nil {
 		t.Fatalf("expected original process to remain alive, got kill(0) error: %v", err)
+	}
+}
+
+func TestKillAndRestartConflictDuringStop(t *testing.T) {
+	api.ResetWorkerControlForTests()
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	cmd := exec.Command("/bin/sh", "-c", "sleep 30")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start worker process: %v", err)
+	}
+	pid := cmd.Process.Pid
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		_, _ = cmd.Process.Wait()
+	})
+
+	args := []string{"/bin/sh", "-c", "trap '' TERM; sleep 30"}
+	state.UpdateState(0, "", "RUNNING", "/bin/sh -c trap '' TERM; sleep 30", args, "", pid)
+
+	killReq := httptest.NewRequest("POST", "/process/kill", nil)
+	killReq.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	killW := httptest.NewRecorder()
+	api.HandleProcessKill(killW, killReq)
+	if killW.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
+	}
+
+	restartReq := httptest.NewRequest("POST", "/process/restart", nil)
+	restartReq.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	restartW := httptest.NewRecorder()
+	api.HandleProcessRestart(restartW, restartReq)
+	if restartW.Result().StatusCode != http.StatusConflict {
+		t.Fatalf("expected restart status 409 during STOPPING, got %d", restartW.Result().StatusCode)
+	}
+}
+
+func TestRepeatedKillRequestsAreIdempotent(t *testing.T) {
+	api.ResetWorkerControlForTests()
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	cmd := exec.Command("/bin/sh", "-c", "sleep 30")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start worker process: %v", err)
+	}
+	pid := cmd.Process.Pid
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+		_, _ = cmd.Process.Wait()
+	})
+
+	args := []string{"/bin/sh", "-c", "sleep 30"}
+	state.UpdateState(0, "", "RUNNING", "/bin/sh -c sleep 30", args, "", pid)
+
+	req1 := httptest.NewRequest("POST", "/process/kill", nil)
+	req1.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	w1 := httptest.NewRecorder()
+	api.HandleProcessKill(w1, req1)
+	if w1.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected first kill status 202, got %d", w1.Result().StatusCode)
+	}
+
+	req2 := httptest.NewRequest("POST", "/process/kill", nil)
+	req2.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	w2 := httptest.NewRecorder()
+	api.HandleProcessKill(w2, req2)
+	if w2.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected second kill status 202 idempotent, got %d", w2.Result().StatusCode)
 	}
 }
 

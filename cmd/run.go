@@ -438,6 +438,10 @@ func runProcess(args []string) {
 	pid := procSupervisor.PID()
 	fmt.Printf("Process started with PID: %d\n", pid)
 	database.SetRunID(agentID)
+	startWD, _ := os.Getwd()
+	api.RegisterExternalWorker(fullCommand, args, startWD, procSupervisor)
+	api.SetWorkerSpec(fullCommand, args, startWD)
+	state.UpdateLifecycle("RUNNING", "RUNNING", pid)
 
 	var maxObservedCpu float64 = 0.0
 	var lastWatchdogAlert time.Time
