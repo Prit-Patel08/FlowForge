@@ -4946,7 +4946,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] policy canary workflow implemented
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
-- [ ] external first-time usability validation completed
+- [x] external first-time usability validation completed
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

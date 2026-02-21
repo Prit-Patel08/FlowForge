@@ -162,3 +162,6 @@ Review:
 
 Procedure for a true new-developer run:
 - `docs/ONBOARDING_USABILITY_TEST.md`
+
+Published external validation evidence:
+- `docs/ONBOARDING_EXTERNAL_VALIDATION_2026-02-21.md`

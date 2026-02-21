@@ -161,7 +161,7 @@ Already in place:
 5. incident templates and runbook baseline
 
 Near-term gaps:
-1. external first-time usability validation
+1. no immediate execution-queue gaps currently open
 
 ## 13) One-Sentence External Pitch
 
