@@ -79,26 +79,39 @@ echo "Strict mode: $STRICT_MODE"
 
 cd "$ROOT_DIR"
 
-echo "[1/7] go build ./..."
-go build ./...
+GO_BUILD_PKGS=(
+  .
+  ./cmd/...
+  ./internal/...
+)
 
-echo "[2/7] go test ./... -v"
-go test ./... -v
+GO_TEST_PKGS=(
+  .
+  ./cmd/...
+  ./internal/...
+  ./test
+)
 
-echo "[3/7] go test ./... -race -v"
-go test ./... -race -v
+echo "[1/7] go build explicit Go package set"
+go build "${GO_BUILD_PKGS[@]}"
 
-echo "[4/7] go vet ./..."
-go vet ./...
+echo "[2/7] go test explicit Go package set -v"
+go test "${GO_TEST_PKGS[@]}" -v
 
-echo "[5/7] staticcheck ./..."
-if ! run_optional_tool "staticcheck" "honnef.co/go/tools/cmd/staticcheck" ./...; then
+echo "[3/7] go test explicit Go package set -race -v"
+go test "${GO_TEST_PKGS[@]}" -race -v
+
+echo "[4/7] go vet explicit Go package set"
+go vet "${GO_TEST_PKGS[@]}"
+
+echo "[5/7] staticcheck explicit Go package set"
+if ! run_optional_tool "staticcheck" "honnef.co/go/tools/cmd/staticcheck" "${GO_TEST_PKGS[@]}"; then
   echo "ERROR: staticcheck failed." >&2
   exit 1
 fi
 
-echo "[6/7] govulncheck ./..."
-if ! run_optional_tool "govulncheck" "golang.org/x/vuln/cmd/govulncheck" ./...; then
+echo "[6/7] govulncheck explicit Go package set"
+if ! run_optional_tool "govulncheck" "golang.org/x/vuln/cmd/govulncheck" "${GO_TEST_PKGS[@]}"; then
   echo "ERROR: govulncheck failed." >&2
   echo "If this is a Go standard library advisory, upgrade your local Go patch toolchain (e.g. 1.25.7+)." >&2
   exit 1

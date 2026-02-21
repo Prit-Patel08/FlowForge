@@ -158,6 +158,8 @@ Release-grade local gate (fails if `staticcheck`/`govulncheck` are missing):
 ./scripts/verify_local.sh --strict
 ```
 
+`verify_local.sh` uses explicit Go package targets (`.`, `./cmd/...`, `./internal/...`, `./test`) to avoid scanning non-Go trees (for example `dashboard/node_modules`).
+
 Release smoke gate:
 
 ```bash
