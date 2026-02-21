@@ -118,6 +118,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `POST /process/restart`
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
+/readyz returns structured readiness checks and can enforce cloud dependency health when `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`.
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`
@@ -189,11 +190,31 @@ npm ci
 npm run build
 ```
 
+Repo-root equivalent (avoids `cd` mistakes):
+
+```bash
+npm --prefix dashboard ci
+npm --prefix dashboard run build
+NEXT_PUBLIC_FLOWFORGE_API_BASE=http://127.0.0.1:8080 npm --prefix dashboard run start -- -p 3001
+```
+
 Cloud-capable local dependency stack (Postgres + Redis + NATS + MinIO):
 
 ```bash
 ./scripts/cloud_dev_stack.sh up
 ./scripts/cloud_dev_stack.sh status
+```
+
+Enable strict cloud dependency readiness checks in API:
+
+```bash
+export FLOWFORGE_CLOUD_DEPS_REQUIRED=1
+export FLOWFORGE_CLOUD_POSTGRES_ADDR=127.0.0.1:15432
+export FLOWFORGE_CLOUD_REDIS_ADDR=127.0.0.1:16379
+export FLOWFORGE_CLOUD_NATS_HEALTH_URL=http://127.0.0.1:18222/healthz
+export FLOWFORGE_CLOUD_MINIO_HEALTH_URL=http://127.0.0.1:19000/minio/health/live
+export FLOWFORGE_CLOUD_PROBE_TIMEOUT_MS=800
+curl -s http://127.0.0.1:8080/readyz
 ```
 
 ## Troubleshooting

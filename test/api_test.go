@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -121,6 +122,38 @@ func setupTempDBForAPI(t *testing.T) {
 			_ = os.Unsetenv("FLOWFORGE_DB_PATH")
 		}
 	})
+}
+
+func setEnvForTest(t *testing.T, key, value string) {
+	t.Helper()
+	oldValue, hadValue := os.LookupEnv(key)
+	if err := os.Setenv(key, value); err != nil {
+		t.Fatalf("set env %s: %v", key, err)
+	}
+	t.Cleanup(func() {
+		if hadValue {
+			_ = os.Setenv(key, oldValue)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
+}
+
+func checkHealthy(t *testing.T, checks map[string]interface{}, key string) bool {
+	t.Helper()
+	raw, ok := checks[key]
+	if !ok {
+		t.Fatalf("missing check %q", key)
+	}
+	checkMap, ok := raw.(map[string]interface{})
+	if !ok {
+		t.Fatalf("invalid check payload type for %q: %T", key, raw)
+	}
+	healthy, ok := checkMap["healthy"].(bool)
+	if !ok {
+		t.Fatalf("missing healthy bool for %q", key)
+	}
+	return healthy
 }
 
 // TestCORSHeaders ensures that the /incidents endpoint returns proper CORS headers.
@@ -702,6 +735,132 @@ func TestHealthEndpoint(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestReadyEndpointCloudDepsRequiredFailsWhenUnavailable(t *testing.T) {
+	setupTempDBForAPI(t)
+	setEnvForTest(t, "FLOWFORGE_CLOUD_DEPS_REQUIRED", "1")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_POSTGRES_ADDR", "127.0.0.1:1")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_REDIS_ADDR", "127.0.0.1:2")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_NATS_HEALTH_URL", "http://127.0.0.1:3/healthz")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_MINIO_HEALTH_URL", "http://127.0.0.1:4/minio/health/live")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_PROBE_TIMEOUT_MS", "100")
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	w := httptest.NewRecorder()
+	api.HandleReady(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected status 503 when required cloud deps are unavailable, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload["status"] != "not-ready" {
+		t.Fatalf("expected status not-ready, got %#v", payload["status"])
+	}
+	if payload["cloud_dependencies_required"] != true {
+		t.Fatalf("expected cloud_dependencies_required=true, got %#v", payload["cloud_dependencies_required"])
+	}
+
+	checks, ok := payload["checks"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("checks is not an object: %T", payload["checks"])
+	}
+
+	if !checkHealthy(t, checks, "database") {
+		t.Fatalf("expected database check healthy=true")
+	}
+	if checkHealthy(t, checks, "cloud_postgres") {
+		t.Fatalf("expected cloud_postgres healthy=false")
+	}
+	if checkHealthy(t, checks, "cloud_redis") {
+		t.Fatalf("expected cloud_redis healthy=false")
+	}
+	if checkHealthy(t, checks, "cloud_nats") {
+		t.Fatalf("expected cloud_nats healthy=false")
+	}
+	if checkHealthy(t, checks, "cloud_minio") {
+		t.Fatalf("expected cloud_minio healthy=false")
+	}
+}
+
+func TestReadyEndpointCloudDepsRequiredPasses(t *testing.T) {
+	setupTempDBForAPI(t)
+	setEnvForTest(t, "FLOWFORGE_CLOUD_DEPS_REQUIRED", "1")
+	setEnvForTest(t, "FLOWFORGE_CLOUD_PROBE_TIMEOUT_MS", "200")
+
+	pgListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen postgres probe: %v", err)
+	}
+	defer pgListener.Close()
+
+	redisListener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen redis probe: %v", err)
+	}
+	defer redisListener.Close()
+
+	natsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer natsServer.Close()
+
+	minioServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer minioServer.Close()
+
+	setEnvForTest(t, "FLOWFORGE_CLOUD_POSTGRES_ADDR", pgListener.Addr().String())
+	setEnvForTest(t, "FLOWFORGE_CLOUD_REDIS_ADDR", redisListener.Addr().String())
+	setEnvForTest(t, "FLOWFORGE_CLOUD_NATS_HEALTH_URL", natsServer.URL)
+	setEnvForTest(t, "FLOWFORGE_CLOUD_MINIO_HEALTH_URL", minioServer.URL)
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	w := httptest.NewRecorder()
+	api.HandleReady(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 when all required cloud deps are healthy, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if payload["status"] != "ready" {
+		t.Fatalf("expected status ready, got %#v", payload["status"])
+	}
+
+	checks, ok := payload["checks"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("checks is not an object: %T", payload["checks"])
+	}
+
+	if !checkHealthy(t, checks, "database") {
+		t.Fatalf("expected database check healthy=true")
+	}
+	if !checkHealthy(t, checks, "cloud_postgres") {
+		t.Fatalf("expected cloud_postgres healthy=true")
+	}
+	if !checkHealthy(t, checks, "cloud_redis") {
+		t.Fatalf("expected cloud_redis healthy=true")
+	}
+	if !checkHealthy(t, checks, "cloud_nats") {
+		t.Fatalf("expected cloud_nats healthy=true")
+	}
+	if !checkHealthy(t, checks, "cloud_minio") {
+		t.Fatalf("expected cloud_minio healthy=true")
 	}
 }
 

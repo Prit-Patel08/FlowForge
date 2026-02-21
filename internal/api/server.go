@@ -6,6 +6,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"flowforge/internal/clouddeps"
 	"flowforge/internal/database"
 	"flowforge/internal/metrics"
 	"flowforge/internal/state"
@@ -267,14 +268,46 @@ func HandleReady(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	ready := true
+	checks := make(map[string]interface{}, 5)
+
+	dbCheck := map[string]interface{}{
+		"name":    "database",
+		"healthy": true,
+		"target":  "sqlite",
+	}
 	if database.GetDB() == nil {
 		if err := database.InitDB(); err != nil {
-			http.Error(w, `{"status":"not-ready"}`, http.StatusServiceUnavailable)
-			return
+			dbCheck["healthy"] = false
+			dbCheck["error"] = err.Error()
+			ready = false
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+	checks["database"] = dbCheck
+
+	cloudCfg := clouddeps.LoadFromEnv()
+	if cloudCfg.Required {
+		cloudResults, cloudHealthy := clouddeps.Probe(cloudCfg)
+		for _, res := range cloudResults {
+			checks[res.Name] = res
+		}
+		if !cloudHealthy {
+			ready = false
+		}
+	}
+
+	payload := map[string]interface{}{
+		"status":                      "ready",
+		"cloud_dependencies_required": cloudCfg.Required,
+		"checks":                      checks,
+	}
+	if !ready {
+		payload["status"] = "not-ready"
+		writeJSON(w, http.StatusServiceUnavailable, payload)
+		return
+	}
+	writeJSON(w, http.StatusOK, payload)
 }
 
 // HandleMetrics emits Prometheus-style metrics.
