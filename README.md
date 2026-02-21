@@ -165,6 +165,7 @@ Release smoke gate:
 ```
 
 Release checkpoint (`./scripts/release_checkpoint.sh`) runs `verify_local.sh --strict`.
+If `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`, it also enforces `/readyz` health (HTTP 200 + `status=ready` + `cloud_dependencies_required=true`).
 If `govulncheck` reports Go standard library advisories, upgrade your local Go patch version (CI uses Go `1.25.7`).
 
 Expected smoke output:

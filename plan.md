@@ -4949,6 +4949,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] lifecycle latency SLO telemetry implemented (Prometheus metrics + dashboard SLO widget)
 - [x] cloud-capable local dependency stack bootstrap implemented (Postgres + Redis + NATS + MinIO)
 - [x] control-plane readiness probes wired for required cloud dependencies (Postgres + Redis + NATS + MinIO)
+- [x] release checkpoint enforces strict cloud readiness (`FLOWFORGE_CLOUD_DEPS_REQUIRED=1` => `/readyz` must be ready)
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed

@@ -7,6 +7,7 @@ Use this checklist before tagging any release.
 - [ ] `./scripts/verify_local.sh --strict` passes.
 - [ ] `./scripts/smoke_local.sh` passes.
 - [ ] `./scripts/release_checkpoint.sh` passes.
+- [ ] If `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`, API `/readyz` is healthy and reports `cloud_dependencies_required=true`.
 - [ ] CI checks on `main` are green (`backend`, `dashboard`, `smoke`, `docker`, `sbom`).
 - [ ] No tracked secret/runtime artifacts in git index.
 - [ ] No unresolved high-severity security findings.
