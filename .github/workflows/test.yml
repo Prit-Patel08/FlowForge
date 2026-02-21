@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload benchmark corpus artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-corpus
           path: ci_artifacts/corpus
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: smoke-gate
           path: ci_artifacts/smoke
@@ -209,7 +209,7 @@ jobs:
           output-file: sbom.spdx.json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom
           path: sbom.spdx.json
