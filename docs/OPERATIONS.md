@@ -59,6 +59,13 @@ Run strict local verification before release actions:
 ./scripts/verify_local.sh --strict
 ```
 
+Optional local commit gate:
+
+```bash
+./scripts/precommit_checks.sh
+./scripts/install_git_hook.sh
+```
+
 Notes:
 - strict mode fails if `staticcheck`/`govulncheck` are missing
 - if `govulncheck` reports Go stdlib advisories, upgrade local Go patch version to match CI (`1.25.7`)
