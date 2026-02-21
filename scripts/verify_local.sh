@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export GOCACHE="${GOCACHE:-/tmp/agent-gocache}"
 STRICT_MODE="${VERIFY_STRICT:-0}"
 SKIP_DASHBOARD=0
+SKIP_NPM_INSTALL=0
 
 usage() {
   cat <<EOF
@@ -14,6 +15,7 @@ Usage: ./scripts/verify_local.sh [options]
 Options:
   --strict          Require all checks (including staticcheck/govulncheck) to be present.
   --skip-dashboard  Skip dashboard npm install/build step.
+  --skip-npm-install  Skip dashboard 'npm ci' and run only 'npm run build' (requires dashboard/node_modules).
   -h, --help        Show this help text.
 EOF
 }
@@ -22,6 +24,7 @@ for arg in "$@"; do
   case "$arg" in
     --strict) STRICT_MODE=1 ;;
     --skip-dashboard) SKIP_DASHBOARD=1 ;;
+    --skip-npm-install) SKIP_NPM_INSTALL=1 ;;
     -h|--help)
       usage
       exit 0
@@ -76,6 +79,7 @@ echo "== FlowForge local verification =="
 echo "Root: $ROOT_DIR"
 echo "GOCACHE: $GOCACHE"
 echo "Strict mode: $STRICT_MODE"
+echo "Skip npm install: $SKIP_NPM_INSTALL"
 
 cd "$ROOT_DIR"
 
@@ -123,7 +127,16 @@ if [[ "$SKIP_DASHBOARD" == "1" ]]; then
 else
   (
     cd dashboard
-    npm ci
+    if [[ "$SKIP_NPM_INSTALL" == "1" ]]; then
+      if [[ ! -d node_modules ]]; then
+        echo "ERROR: --skip-npm-install requested, but dashboard/node_modules is missing." >&2
+        echo "Run without --skip-npm-install once to install dependencies." >&2
+        exit 1
+      fi
+      echo "Skipping dashboard npm install (--skip-npm-install)."
+    else
+      npm ci
+    fi
     npm run build
   )
 fi

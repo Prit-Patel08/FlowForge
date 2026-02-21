@@ -159,6 +159,7 @@ Release-grade local gate (fails if `staticcheck`/`govulncheck` are missing):
 ```
 
 `verify_local.sh` uses explicit Go package targets (`.`, `./cmd/...`, `./internal/...`, `./test`) to avoid scanning non-Go trees (for example `dashboard/node_modules`).
+For faster local reruns, use `./scripts/verify_local.sh --skip-npm-install` to skip dashboard `npm ci` and run only dashboard build (requires `dashboard/node_modules` to exist).
 
 Release smoke gate:
 

@@ -4951,6 +4951,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] control-plane readiness probes wired for required cloud dependencies (Postgres + Redis + NATS + MinIO)
 - [x] release checkpoint enforces strict cloud readiness (`FLOWFORGE_CLOUD_DEPS_REQUIRED=1` => `/readyz` must be ready)
 - [x] verification pipeline hardened to use explicit Go package targets (prevents `./...` scans from stalling on non-Go trees)
+- [x] local verify fast-path added (`--skip-npm-install`) to accelerate iteration without changing strict release behavior
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed
