@@ -120,7 +120,27 @@ Examples:
 ./flowforge run --policy-rollout enforce -- python3 your_worker.py
 ```
 
-## 9. What FlowForge Does Not Do
+## 9. Weekly SLO Review
+
+Run weekly SLO dashboard operations:
+
+```bash
+./scripts/slo_weekly_review.sh --days 7
+```
+
+Review:
+- `pilot_artifacts/slo-weekly-<timestamp>/slo_weekly_report.md`
+- `pilot_artifacts/slo-weekly-<timestamp>/summary.tsv`
+
+Decision rule:
+- `GREEN`: continue roadmap execution.
+- `YELLOW`: reliability-first week, defer non-critical expansion.
+- `RED`: feature freeze and reliability sprint.
+
+Detailed policy and ritual ownership:
+- `docs/SLO_OPERATIONS.md`
+
+## 10. What FlowForge Does Not Do
 
 - It does not sandbox untrusted code.
 - It does not replace OS/container isolation.

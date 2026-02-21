@@ -72,6 +72,21 @@ Notes:
 ./scripts/release_checkpoint.sh
 ```
 
+## Weekly SLO Dashboard Ritual
+
+Generate the weekly SLO report and error-budget decision artifact:
+
+```bash
+./scripts/slo_weekly_review.sh --days 7
+```
+
+Artifact output:
+- `pilot_artifacts/slo-weekly-<timestamp>/slo_weekly_report.md`
+- `pilot_artifacts/slo-weekly-<timestamp>/summary.tsv`
+
+Canonical process and policy:
+- `docs/SLO_OPERATIONS.md`
+
 ## Release and Rollback Checklists
 
 - Release procedure: `docs/RELEASE_CHECKLIST.md`

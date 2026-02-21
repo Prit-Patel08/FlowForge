@@ -4944,7 +4944,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] supervisor deep process-tree teardown reliability gate implemented (test + CI)
 - [x] unified event schema design and migration plan fully implemented in code
 - [x] policy canary workflow implemented
-- [ ] formal SLO dashboard operations in weekly ritual
+- [x] formal SLO dashboard operations in weekly ritual
 - [ ] chaos drill evidence published
 - [ ] external first-time usability validation completed
 
