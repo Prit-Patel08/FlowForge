@@ -4956,6 +4956,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] shell script quality gate added to CI (`shellcheck` on `scripts/*.sh`)
 - [x] shellcheck policy pinned via repo-level `.shellcheckrc` (stable script lint behavior across environments)
 - [x] local pre-commit automation added (fast script + one-command git hook installer)
+- [x] git hook installer hardened (`--strict`, custom `core.hooksPath` support) + contract tests in CI
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed

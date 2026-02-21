@@ -64,6 +64,7 @@ Optional local commit gate:
 ```bash
 ./scripts/precommit_checks.sh
 ./scripts/install_git_hook.sh
+./scripts/install_git_hook.sh --strict
 ```
 
 Notes:

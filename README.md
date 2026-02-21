@@ -175,6 +175,8 @@ CI also enforces `shellcheck` for `scripts/*.sh`.
 ShellCheck policy is pinned in repo at `.shellcheckrc`.
 Fast local pre-commit checks: `./scripts/precommit_checks.sh`.
 Install a managed git pre-commit hook: `./scripts/install_git_hook.sh`.
+Install strict hook mode: `./scripts/install_git_hook.sh --strict`.
+Git hook installer contract tests: `./scripts/install_git_hook_contract_test.sh`.
 
 Expected smoke output:
 - `Runaway detected in ...`
