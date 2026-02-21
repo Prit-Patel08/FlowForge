@@ -67,7 +67,7 @@ Main gaps are in:
 ## Alignment Plan (Short-Term)
 
 1. Formalize SLO and error-budget operating ritual.
-2. Run first chaos drill and publish findings.
+2. Run first chaos drill and publish findings (`docs/CHAOS_DRILL_2026-02-21.md`).
 
 ## Alignment Rule Going Forward
 

@@ -161,9 +161,7 @@ Already in place:
 5. incident templates and runbook baseline
 
 Near-term gaps:
-1. formal weekly SLO dashboard ritual
-2. published chaos drill evidence
-3. external first-time usability validation
+1. external first-time usability validation
 
 ## 13) One-Sentence External Pitch
 

@@ -4945,7 +4945,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] unified event schema design and migration plan fully implemented in code
 - [x] policy canary workflow implemented
 - [x] formal SLO dashboard operations in weekly ritual
-- [ ] chaos drill evidence published
+- [x] chaos drill evidence published
 - [ ] external first-time usability validation completed
 
 ---

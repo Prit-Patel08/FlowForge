@@ -72,6 +72,9 @@ Notes:
 ./scripts/release_checkpoint.sh
 ```
 
+Published drill evidence:
+- `docs/CHAOS_DRILL_2026-02-21.md`
+
 ## Weekly SLO Dashboard Ritual
 
 Generate the weekly SLO report and error-budget decision artifact:
