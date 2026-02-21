@@ -110,10 +110,6 @@ drill_api_kill() {
     return 0
   fi
   if [[ "$code" != "200" ]]; then
-    if [[ "$code" == "000" ]]; then
-      echo "WARN: /process/kill returned HTTP 000; treating as pass because worker exited (expected during shutdown race)." | tee -a "$log_file"
-      return 0
-    fi
     if [[ -f "$curl_stderr" ]]; then
       echo "curl stderr: $(cat "$curl_stderr")" | tee -a "$log_file"
     fi

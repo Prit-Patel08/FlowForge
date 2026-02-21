@@ -52,6 +52,10 @@ Interpretation:
 2. Medium-term: make `/process/kill` response deterministic (send acknowledgment before shutdown path completes).
 3. Medium-term: remove startup warning `Failed to initialize database: no such column: created_at` by hardening legacy DB migration compatibility.
 
+Update (2026-02-21):
+- Follow-up action 2 is now implemented in API handler logic and covered by regression test `TestKillEndpointAcknowledgesAndTerminatesWorker`.
+- Recovery drill gate now treats non-`200` `/process/kill` responses as failures.
+
 ## Conclusion
 
 First chaos drill is completed and evidence is published.  

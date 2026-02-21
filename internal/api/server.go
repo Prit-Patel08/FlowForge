@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"flowforge/internal/database"
 	"flowforge/internal/metrics"
 	"flowforge/internal/state"
@@ -384,13 +385,6 @@ func HandleProcessKill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := syscall.Kill(-stats.PID, syscall.SIGKILL); err != nil {
-		if err2 := syscall.Kill(stats.PID, syscall.SIGKILL); err2 != nil {
-			http.Error(w, fmt.Sprintf(`{"error":"Failed to kill process: %v"}`, err2), http.StatusInternalServerError)
-			return
-		}
-	}
-
 	state.UpdateState(0, "", "STOPPED", stats.Command, stats.Args, stats.Dir, stats.PID)
 	apiMetrics.IncProcessKill()
 	reason := mutationReason(r)
@@ -401,7 +395,20 @@ func HandleProcessKill(w http.ResponseWriter, r *http.Request) {
 	_ = database.LogAuditEventWithIncident(actorFromRequest(r), "KILL", reason, "api", stats.PID, stats.Command, incidentID)
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintf(w, `{"status":"killed","pid":%d}`, stats.PID)
+	fmt.Fprintf(w, `{"status":"kill_requested","pid":%d}`, stats.PID)
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	pid := stats.PID
+	go func() {
+		// Send response first; kill immediately after to avoid response races
+		// where supervisor shutdown closes the socket before ack is delivered.
+		time.Sleep(75 * time.Millisecond)
+		if err := killProcessTree(pid); err != nil {
+			log.Printf("[API] Failed to kill process tree for pid %d: %v", pid, err)
+		}
+	}()
 }
 
 // HandleProcessRestart is exported for testing.
@@ -427,8 +434,9 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if stats.Status != "STOPPED" && stats.PID > 0 {
-		if err := syscall.Kill(-stats.PID, syscall.SIGKILL); err != nil {
-			_ = syscall.Kill(stats.PID, syscall.SIGKILL)
+		if err := killProcessTree(stats.PID); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":"Failed to stop existing process: %v"}`, err), http.StatusInternalServerError)
+			return
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -458,6 +466,22 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 	_ = database.LogAuditEventWithIncident(actorFromRequest(r), "RESTART", reason, "api", newPID, stats.Command, incidentID)
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprintf(w, `{"status":"restarting","command":"%s","pid":%d}`, stats.Command, newPID)
+}
+
+func killProcessTree(pid int) error {
+	if pid <= 0 {
+		return fmt.Errorf("invalid pid %d", pid)
+	}
+	groupErr := syscall.Kill(-pid, syscall.SIGKILL)
+	if groupErr == nil {
+		return nil
+	}
+
+	pidErr := syscall.Kill(pid, syscall.SIGKILL)
+	if pidErr == nil || errors.Is(pidErr, syscall.ESRCH) {
+		return nil
+	}
+	return fmt.Errorf("group kill failed: %v; pid kill failed: %w", groupErr, pidErr)
 }
 
 func actorFromRequest(r *http.Request) string {

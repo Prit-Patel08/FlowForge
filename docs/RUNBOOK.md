@@ -76,6 +76,9 @@ curl -X POST \
   http://127.0.0.1:8080/process/kill
 ```
 
+Expected response shape:
+`{"status":"kill_requested","pid":12345}`
+
 ## 6. Recovery Checks
 
 Run reliability drills:

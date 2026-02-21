@@ -5,10 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"flowforge/internal/api"
 	"flowforge/internal/database"
@@ -200,6 +203,63 @@ func TestKillEndpointNoKeySetIsBlocked(t *testing.T) {
 	// Should be 403 Forbidden when no key is set (Mutations blocked for security)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Expected 403 Forbidden when FLOWFORGE_API_KEY is not set, but got %d", resp.StatusCode)
+	}
+}
+
+func TestKillEndpointAcknowledgesAndTerminatesWorker(t *testing.T) {
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	cmd := exec.Command("/bin/sh", "-c", "sleep 30")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start worker process: %v", err)
+	}
+	pid := cmd.Process.Pid
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	})
+
+	args := []string{"/bin/sh", "-c", "sleep 30"}
+	state.UpdateState(0, "", "RUNNING", "/bin/sh -c sleep 30", args, "", pid)
+
+	req := httptest.NewRequest("POST", "/process/kill", strings.NewReader(`{"reason":"test api kill"}`))
+	req.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.HandleProcessKill(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if stringValue(body["status"]) != "kill_requested" {
+		t.Fatalf("expected status kill_requested, got %#v", body["status"])
+	}
+	if intValue(body["pid"]) != pid {
+		t.Fatalf("expected response pid %d, got %d", pid, intValue(body["pid"]))
+	}
+
+	st := state.GetState()
+	if st.Status != "STOPPED" {
+		t.Fatalf("expected state STOPPED, got %q", st.Status)
+	}
+
+	waitCh := make(chan error, 1)
+	go func() {
+		waitCh <- cmd.Wait()
+	}()
+	select {
+	case <-waitCh:
+		// Process exited (expected after kill).
+	case <-time.After(3 * time.Second):
+		t.Fatalf("worker pid %d did not exit after kill request", pid)
 	}
 }
 
