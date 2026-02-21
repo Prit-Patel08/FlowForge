@@ -55,7 +55,12 @@ func corsMiddleware(w http.ResponseWriter, r *http.Request) {
 		allowed[envOrigin] = struct{}{}
 	}
 
-	if _, ok := allowed[origin]; !ok {
+	if origin != "" {
+		if _, ok := allowed[origin]; !ok && !isLocalOrigin(origin) {
+			origin = ""
+		}
+	}
+	if origin == "" {
 		origin = "http://localhost:3000"
 	}
 

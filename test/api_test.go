@@ -125,6 +125,19 @@ func TestCORSHeaders(t *testing.T) {
 	}
 }
 
+func TestCORSHeadersAllowLoopbackOrigin(t *testing.T) {
+	req := httptest.NewRequest("OPTIONS", "/incidents", nil)
+	req.Header.Set("Origin", "http://127.0.0.1:3001")
+	w := httptest.NewRecorder()
+
+	api.HandleIncidents(w, req)
+
+	resp := w.Result()
+	if origin := resp.Header.Get("Access-Control-Allow-Origin"); origin != "http://127.0.0.1:3001" {
+		t.Errorf("Expected CORS header %q, got %q", "http://127.0.0.1:3001", origin)
+	}
+}
+
 // TestIncidentsEndpointHealth verifies that /incidents returns 200 + valid JSON.
 func TestIncidentsEndpointHealth(t *testing.T) {
 	// Initialize the database first
