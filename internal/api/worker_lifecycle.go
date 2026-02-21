@@ -80,6 +80,9 @@ type workerLifecycle struct {
 	lastAction    string
 	lastActionAt  time.Time
 	lastActionPID int
+
+	stopRequestedAt    time.Time
+	restartRequestedAt time.Time
 }
 
 func newWorkerLifecycle() *workerLifecycle {
@@ -197,6 +200,7 @@ func (w *workerLifecycle) requestKill() (lifecycleAction, error) {
 	w.lastAction = opKill
 	w.lastActionAt = time.Now()
 	w.lastActionPID = pid
+	w.stopRequestedAt = w.lastActionAt
 	state.UpdateLifecycle(lifecycleStopping, "STOPPING", pid)
 	emitLifecycleTransition(lifecycleStopping, opKill, pid, w.managed, "", "kill_requested")
 
@@ -253,6 +257,7 @@ func (w *workerLifecycle) requestRestart() (lifecycleAction, error) {
 	w.lastAction = opRestart
 	w.lastActionAt = time.Now()
 	w.lastActionPID = 0
+	w.restartRequestedAt = w.lastActionAt
 	state.UpdateLifecycle(lifecycleStarting, "STARTING", 0)
 	emitLifecycleTransition(lifecycleStarting, opRestart, 0, w.managed, "", "restart_requested")
 
@@ -267,6 +272,13 @@ func (w *workerLifecycle) requestRestart() (lifecycleAction, error) {
 }
 
 func (w *workerLifecycle) stopAsync(controller WorkerController, pid int, fromWatcher bool) {
+	startedAt := time.Now()
+	w.mu.Lock()
+	if !w.stopRequestedAt.IsZero() {
+		startedAt = w.stopRequestedAt
+	}
+	w.mu.Unlock()
+
 	var err error
 	if controller != nil {
 		err = controller.Stop(2 * time.Second)
@@ -291,6 +303,7 @@ func (w *workerLifecycle) stopAsync(controller WorkerController, pid int, fromWa
 		w.lastErr = err.Error()
 		state.UpdateLifecycle(lifecycleFailed, "FAILED", w.pid)
 		emitLifecycleTransition(lifecycleFailed, opNone, w.pid, w.managed, w.lastErr, "stop_failed")
+		apiMetrics.ObserveStopLatency(time.Since(startedAt).Seconds(), false)
 		return
 	}
 
@@ -301,11 +314,20 @@ func (w *workerLifecycle) stopAsync(controller WorkerController, pid int, fromWa
 	w.phase = lifecycleStopped
 	w.operation = opNone
 	w.lastErr = ""
+	w.stopRequestedAt = time.Time{}
 	state.UpdateLifecycle(lifecycleStopped, "STOPPED", 0)
 	emitLifecycleTransition(lifecycleStopped, opNone, 0, false, "", "stop_completed")
+	apiMetrics.ObserveStopLatency(time.Since(startedAt).Seconds(), true)
 }
 
 func (w *workerLifecycle) startAsync(spec workerSpec) {
+	startedAt := time.Now()
+	w.mu.Lock()
+	if !w.restartRequestedAt.IsZero() {
+		startedAt = w.restartRequestedAt
+	}
+	w.mu.Unlock()
+
 	cmd := exec.Command(spec.Args[0], spec.Args[1:]...)
 	if spec.Dir != "" {
 		cmd.Dir = spec.Dir
@@ -323,6 +345,7 @@ func (w *workerLifecycle) startAsync(spec workerSpec) {
 		w.mu.Unlock()
 		state.UpdateLifecycle(lifecycleFailed, "FAILED", 0)
 		emitLifecycleTransition(lifecycleFailed, opNone, 0, false, err.Error(), "restart_failed")
+		apiMetrics.ObserveRestartLatency(time.Since(startedAt).Seconds(), false)
 		return
 	}
 
@@ -334,6 +357,7 @@ func (w *workerLifecycle) startAsync(spec workerSpec) {
 	w.phase = lifecycleRunning
 	w.operation = opNone
 	w.lastErr = ""
+	w.restartRequestedAt = time.Time{}
 	w.spec = spec
 	w.startWatcherLocked(sup, true)
 	w.mu.Unlock()
@@ -341,6 +365,7 @@ func (w *workerLifecycle) startAsync(spec workerSpec) {
 	state.UpdateState(0, "", "RUNNING", spec.Command, spec.Args, spec.Dir, pid)
 	state.UpdateLifecycle(lifecycleRunning, "RUNNING", pid)
 	emitLifecycleTransition(lifecycleRunning, opNone, pid, true, "", "restart_completed")
+	apiMetrics.ObserveRestartLatency(time.Since(startedAt).Seconds(), true)
 }
 
 func (w *workerLifecycle) startWatcherLocked(controller WorkerController, managed bool) uint64 {

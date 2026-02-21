@@ -119,6 +119,12 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
 
+`/metrics` now includes lifecycle SLO/latency metrics:
+- `flowforge_stop_slo_compliance_ratio`
+- `flowforge_restart_slo_compliance_ratio`
+- `flowforge_stop_latency_last_seconds`
+- `flowforge_restart_latency_last_seconds`
+
 ## Detection Benchmark Baseline
 
 Run the fixture baseline + benchmarks:

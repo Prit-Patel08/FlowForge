@@ -34,6 +34,31 @@ const fetchJSON = async (url: string): Promise<unknown> => {
   return res.json();
 };
 
+const fetchText = async (url: string): Promise<string> => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Request failed (${res.status})`);
+  }
+  return res.text();
+};
+
+const parsePrometheusMetrics = (raw: string): Record<string, number> => {
+  const out: Record<string, number> = {};
+  const lines = raw.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) continue;
+    const metricToken = parts[0];
+    const metricName = metricToken.includes('{') ? metricToken.slice(0, metricToken.indexOf('{')) : metricToken;
+    const value = Number(parts[parts.length - 1]);
+    if (!Number.isFinite(value)) continue;
+    out[metricName] = value;
+  }
+  return out;
+};
+
 const fetchIncidents = async (url: string): Promise<Incident[]> => parseIncidentsPayload(await fetchJSON(url));
 const fetchTimeline = async (url: string): Promise<TimelineEvent[]> => parseTimelinePayload(await fetchJSON(url));
 const fetchIncidentChain = async (url: string): Promise<IncidentChainEvent[]> => parseIncidentChainPayload(await fetchJSON(url));
@@ -57,6 +82,15 @@ interface WorkerLifecycle {
   lifecycle: string;
   command: string;
   timestamp: number;
+}
+
+interface LifecycleSLO {
+  stopTargetSeconds: number;
+  restartTargetSeconds: number;
+  stopComplianceRatio: number;
+  restartComplianceRatio: number;
+  stopLastSeconds: number;
+  restartLastSeconds: number;
 }
 
 export default function Dashboard() {
@@ -86,6 +120,32 @@ export default function Dashboard() {
         lifecycle: 'STOPPED',
         command: '',
         timestamp: 0
+      }
+    }
+  );
+  const { data: lifecycleSLO } = useSWR<LifecycleSLO>(
+    `${API_BASE}/metrics`,
+    async (url: string): Promise<LifecycleSLO> => {
+      const raw = await fetchText(url);
+      const metrics = parsePrometheusMetrics(raw);
+      return {
+        stopTargetSeconds: metrics.flowforge_stop_slo_target_seconds ?? 3,
+        restartTargetSeconds: metrics.flowforge_restart_slo_target_seconds ?? 5,
+        stopComplianceRatio: metrics.flowforge_stop_slo_compliance_ratio ?? 0,
+        restartComplianceRatio: metrics.flowforge_restart_slo_compliance_ratio ?? 0,
+        stopLastSeconds: metrics.flowforge_stop_latency_last_seconds ?? 0,
+        restartLastSeconds: metrics.flowforge_restart_latency_last_seconds ?? 0
+      };
+    },
+    {
+      refreshInterval: 3000,
+      fallbackData: {
+        stopTargetSeconds: 3,
+        restartTargetSeconds: 5,
+        stopComplianceRatio: 0,
+        restartComplianceRatio: 0,
+        stopLastSeconds: 0,
+        restartLastSeconds: 0
       }
     }
   );
@@ -474,6 +534,38 @@ export default function Dashboard() {
                     Last error: {lifecycle.last_error}
                   </div>
                 )}
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold tracking-wide text-gray-200">Lifecycle SLO</h3>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    (lifecycleSLO?.stopComplianceRatio ?? 0) >= 0.95 && (lifecycleSLO?.restartComplianceRatio ?? 0) >= 0.95
+                      ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {(lifecycleSLO?.stopComplianceRatio ?? 0) >= 0.95 && (lifecycleSLO?.restartComplianceRatio ?? 0) >= 0.95 ? 'ON TRACK' : 'AT RISK'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-md bg-black/20 p-2">
+                    <p className="text-gray-500">Stop SLO</p>
+                    <p className="font-mono text-gray-200">{((lifecycleSLO?.stopComplianceRatio ?? 0) * 100).toFixed(1)}%</p>
+                    <p className="text-[11px] text-gray-500">target 95% at ≤{(lifecycleSLO?.stopTargetSeconds ?? 3).toFixed(1)}s</p>
+                  </div>
+                  <div className="rounded-md bg-black/20 p-2">
+                    <p className="text-gray-500">Restart SLO</p>
+                    <p className="font-mono text-gray-200">{((lifecycleSLO?.restartComplianceRatio ?? 0) * 100).toFixed(1)}%</p>
+                    <p className="text-[11px] text-gray-500">target 95% at ≤{(lifecycleSLO?.restartTargetSeconds ?? 5).toFixed(1)}s</p>
+                  </div>
+                  <div className="rounded-md bg-black/20 p-2">
+                    <p className="text-gray-500">Last Stop Latency</p>
+                    <p className="font-mono text-gray-200">{(lifecycleSLO?.stopLastSeconds ?? 0).toFixed(3)}s</p>
+                  </div>
+                  <div className="rounded-md bg-black/20 p-2">
+                    <p className="text-gray-500">Last Restart Latency</p>
+                    <p className="font-mono text-gray-200">{(lifecycleSLO?.restartLastSeconds ?? 0).toFixed(3)}s</p>
+                  </div>
+                </div>
               </div>
               <TimelinePanel
                 events={timeline || []}

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -42,6 +43,23 @@ func intValue(v interface{}) int {
 		return 0
 	}
 	return int(f)
+}
+
+func metricValue(prometheus, metric string) (float64, bool) {
+	prefix := metric + " "
+	for _, line := range strings.Split(prometheus, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		raw := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil {
+			return 0, false
+		}
+		return v, true
+	}
+	return 0, false
 }
 
 func snapshotTimelineEvent(raw map[string]interface{}) map[string]interface{} {
@@ -596,6 +614,82 @@ func TestTimelineIncludesLifecycleTransitionEvidence(t *testing.T) {
 	}
 	if stringValue(evidence["phase"]) == "" {
 		t.Fatalf("expected non-empty lifecycle phase evidence, got %#v", evidence["phase"])
+	}
+}
+
+func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
+	setupTempDBForAPI(t)
+	api.ResetWorkerControlForTests()
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	restartArgs := []string{"/bin/sh", "-c", "sleep 20"}
+	state.UpdateState(0, "", "STOPPED", "/bin/sh -c sleep 20", restartArgs, "", 0)
+
+	restartReq := httptest.NewRequest("POST", "/process/restart", nil)
+	restartReq.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	restartW := httptest.NewRecorder()
+	api.HandleProcessRestart(restartW, restartReq)
+	if restartW.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected restart status 202, got %d", restartW.Result().StatusCode)
+	}
+
+	var pid int
+	restartDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(restartDeadline) {
+		st := state.GetState()
+		if st.Status == "RUNNING" && st.PID > 0 {
+			pid = st.PID
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if pid == 0 {
+		t.Fatal("expected restarted process pid > 0")
+	}
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	})
+
+	killReq := httptest.NewRequest("POST", "/process/kill", nil)
+	killReq.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	killW := httptest.NewRecorder()
+	api.HandleProcessKill(killW, killReq)
+	if killW.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
+	}
+
+	stopDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(stopDeadline) {
+		st := state.GetState()
+		if st.Status == "STOPPED" {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	metricsReq := httptest.NewRequest("GET", "/metrics", nil)
+	metricsW := httptest.NewRecorder()
+	api.HandleMetrics(metricsW, metricsReq)
+	if metricsW.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected metrics status 200, got %d", metricsW.Result().StatusCode)
+	}
+	body := metricsW.Body.String()
+
+	restartCount, ok := metricValue(body, "flowforge_restart_latency_count")
+	if !ok || restartCount < 1 {
+		t.Fatalf("expected flowforge_restart_latency_count >= 1, got %v (ok=%v)", restartCount, ok)
+	}
+	stopCount, ok := metricValue(body, "flowforge_stop_latency_count")
+	if !ok || stopCount < 1 {
+		t.Fatalf("expected flowforge_stop_latency_count >= 1, got %v (ok=%v)", stopCount, ok)
+	}
+	if _, ok := metricValue(body, "flowforge_restart_slo_compliance_ratio"); !ok {
+		t.Fatalf("expected flowforge_restart_slo_compliance_ratio metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_stop_slo_compliance_ratio"); !ok {
+		t.Fatalf("expected flowforge_stop_slo_compliance_ratio metric in output")
 	}
 }
 
