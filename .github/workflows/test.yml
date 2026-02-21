@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run shellcheck on scripts
         uses: ludeeus/action-shellcheck@2.0.0
@@ -36,7 +36,7 @@ jobs:
     needs: [shellcheck]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Make scripts executable
         run: chmod +x scripts/*.sh
@@ -55,7 +55,7 @@ jobs:
       GO_TEST_PKGS: ". ./cmd/... ./internal/... ./test"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -113,7 +113,7 @@ jobs:
         working-directory: dashboard
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -133,7 +133,7 @@ jobs:
     needs: [backend, dashboard]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -162,7 +162,7 @@ jobs:
     needs: [backend]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build runtime image
         run: docker build -t flowforge-ci -f Dockerfile .
@@ -201,7 +201,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
