@@ -49,8 +49,8 @@ done
   done
   echo
   echo "Target:"
-  echo '- Runaway should be detected (`loop_detected=yes`) at chosen threshold.'
-  echo '- Bursty should not be detected (`loop_detected=no`) at chosen threshold.'
+  echo "- Runaway should be detected (\`loop_detected=yes\`) at chosen threshold."
+  echo "- Bursty should not be detected (\`loop_detected=no\`) at chosen threshold."
 } > "$ARTIFACT_DIR/summary.md"
 
 echo "Tuning complete: $ARTIFACT_DIR/summary.md"

@@ -67,12 +67,10 @@ if [[ -z "$OUT_DIR" ]]; then
 fi
 mkdir -p "$OUT_DIR"
 
-for cmd in sqlite3; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Missing required command: $cmd" >&2
-    exit 1
-  fi
-done
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  echo "Missing required command: sqlite3" >&2
+  exit 1
+fi
 
 if [[ ! -f "$DB_PATH" ]]; then
   echo "Database file not found: $DB_PATH" >&2

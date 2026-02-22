@@ -30,7 +30,7 @@ false_positive_count=0
 false_negative_count=0
 total_cases=0
 
-while IFS=, read -r name threshold exit_code detected expected _exit_reason _duration_s _decision_reason; do
+while IFS=, read -r name _ _ detected expected _ _ _; do
   [[ "$name" == "name" ]] && continue
   total_cases=$((total_cases + 1))
 

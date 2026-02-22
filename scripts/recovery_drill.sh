@@ -10,6 +10,7 @@ mkdir -p "$ARTIFACT_DIR"
 
 if [[ -f ".flowforge.env" ]]; then
   set -a
+  # shellcheck disable=SC1091
   source ".flowforge.env"
   set +a
 fi

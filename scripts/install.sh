@@ -108,6 +108,7 @@ else
 fi
 
 set -a
+# shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
 
@@ -160,6 +161,7 @@ if [[ -n "$GENERATED_API_KEY" ]]; then
 fi
 
 set -a
+# shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
 

@@ -56,12 +56,10 @@ mkdir -p "$OUT_DIR"
 LOG_DIR="$OUT_DIR/logs"
 mkdir -p "$LOG_DIR"
 
-for cmd in go; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Missing required command: $cmd" >&2
-    exit 1
-  fi
-done
+if ! command -v go >/dev/null 2>&1; then
+  echo "Missing required command: go" >&2
+  exit 1
+fi
 
 if [[ "$RUN_DASHBOARD_BUILD" -eq 1 ]]; then
   if ! command -v npm >/dev/null 2>&1; then
