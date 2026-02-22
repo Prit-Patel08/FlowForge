@@ -13,7 +13,7 @@ import TimelinePanel from '../components/TimelinePanel';
 import IncidentDrilldownPanel from '../components/IncidentDrilldownPanel';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { ShieldAlert, Zap, Activity, ServerCrash, Terminal, Cpu, Skull } from 'lucide-react';
+import { ShieldAlert, Zap, Activity, ServerCrash, Terminal, Cpu, Skull, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_FLOWFORGE_API_BASE || 'http://localhost:8080';
@@ -91,6 +91,7 @@ interface LifecycleSLO {
   restartComplianceRatio: number;
   stopLastSeconds: number;
   restartLastSeconds: number;
+  restartBudgetBlocks: number;
 }
 
 export default function Dashboard() {
@@ -134,7 +135,8 @@ export default function Dashboard() {
         stopComplianceRatio: metrics.flowforge_stop_slo_compliance_ratio ?? 0,
         restartComplianceRatio: metrics.flowforge_restart_slo_compliance_ratio ?? 0,
         stopLastSeconds: metrics.flowforge_stop_latency_last_seconds ?? 0,
-        restartLastSeconds: metrics.flowforge_restart_latency_last_seconds ?? 0
+        restartLastSeconds: metrics.flowforge_restart_latency_last_seconds ?? 0,
+        restartBudgetBlocks: metrics.flowforge_restart_budget_block_total ?? 0
       };
     },
     {
@@ -145,7 +147,8 @@ export default function Dashboard() {
         stopComplianceRatio: 0,
         restartComplianceRatio: 0,
         stopLastSeconds: 0,
-        restartLastSeconds: 0
+        restartLastSeconds: 0,
+        restartBudgetBlocks: 0
       }
     }
   );
@@ -168,6 +171,8 @@ export default function Dashboard() {
   const [killConfirm, setKillConfirm] = useState(false);
   const [killStatus, setKillStatus] = useState<string | null>(null);
   const [killStatusIsError, setKillStatusIsError] = useState(false);
+  const [restartStatus, setRestartStatus] = useState<string | null>(null);
+  const [restartStatusIsError, setRestartStatusIsError] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -534,6 +539,50 @@ export default function Dashboard() {
                     Last error: {lifecycle.last_error}
                   </div>
                 )}
+                {(lifecycle?.phase === 'STOPPED' || lifecycle?.phase === 'FAILED') && lifecycle?.command && (
+                  <div className="mt-3 border-t border-gray-700/60 pt-3">
+                    {restartStatus && (
+                      <div className={`mb-3 rounded-md border px-2 py-1 text-xs font-mono ${restartStatusIsError ? 'border-red-500/20 bg-red-900/20 text-red-300' : 'border-green-500/20 bg-green-900/20 text-green-300'}`}>
+                        {restartStatus}
+                      </div>
+                    )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                          if (apiKey) {
+                            headers['Authorization'] = `Bearer ${apiKey}`;
+                          }
+                          const res = await fetch(`${API_BASE}/process/restart`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify({ reason: 'dashboard manual restart' })
+                          });
+                          const data = await res.json().catch(() => ({} as { error?: string; retry_after_seconds?: number; lifecycle?: string }));
+                          if (!res.ok) {
+                            const retryHint = typeof data.retry_after_seconds === 'number' && data.retry_after_seconds > 0
+                              ? ` Retry in ${Math.round(data.retry_after_seconds)}s.`
+                              : '';
+                            throw new Error((data.error || `Request failed (${res.status})`) + retryHint);
+                          }
+                          setRestartStatusIsError(false);
+                          setRestartStatus(`Restart requested${data.lifecycle ? ` (${data.lifecycle})` : ''}`);
+                          mutate(`${API_BASE}/worker/lifecycle`);
+                          mutate(`${API_BASE}/timeline`);
+                          setTimeout(() => setRestartStatus(null), 5000);
+                        } catch (e) {
+                          const msg = e instanceof Error ? e.message : 'Failed to restart process';
+                          setRestartStatusIsError(true);
+                          setRestartStatus(`Restart blocked: ${msg}`);
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 rounded-lg border border-accent-500/30 bg-accent-500/10 px-3 py-1.5 text-xs font-medium text-accent-300 hover:bg-accent-500/20 hover:border-accent-500/50 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw size={14} />
+                      Restart Last Command
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -565,6 +614,10 @@ export default function Dashboard() {
                     <p className="text-gray-500">Last Restart Latency</p>
                     <p className="font-mono text-gray-200">{(lifecycleSLO?.restartLastSeconds ?? 0).toFixed(3)}s</p>
                   </div>
+                </div>
+                <div className="mt-3 rounded-md bg-black/20 p-2 text-xs">
+                  <p className="text-gray-500">Restart Budget Blocks (process lifetime)</p>
+                  <p className="font-mono text-gray-200">{Math.round(lifecycleSLO?.restartBudgetBlocks ?? 0)}</p>
                 </div>
               </div>
               <TimelinePanel
