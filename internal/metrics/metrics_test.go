@@ -10,6 +10,7 @@ func TestPrometheusIncludesLifecycleLatencyMetrics(t *testing.T) {
 	store.ObserveStopLatency(0.8, true)
 	store.ObserveStopLatency(3.6, false)
 	store.ObserveRestartLatency(1.2, true)
+	store.IncRestartBudgetBlocked()
 
 	out := store.Prometheus(false)
 
@@ -24,6 +25,7 @@ func TestPrometheusIncludesLifecycleLatencyMetrics(t *testing.T) {
 		"flowforge_restart_slo_compliance_ratio 1.000000",
 		"flowforge_stop_slo_target_seconds 3.0",
 		"flowforge_restart_slo_target_seconds 5.0",
+		"flowforge_restart_budget_block_total 1",
 	}
 	for _, token := range required {
 		if !strings.Contains(out, token) {

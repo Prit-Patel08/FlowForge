@@ -44,6 +44,13 @@ Recommended starting thresholds:
 - `--max-cpu 85` for general workers
 - `--max-cpu 70` for stricter runaway control
 
+Optional restart budget guard (for manual/API restart storm prevention):
+
+```bash
+export FLOWFORGE_RESTART_BUDGET_MAX=3
+export FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS=300
+```
+
 ## 4. Incident Triage
 
 1. Open dashboard timeline (`/timeline`) and select an incident group.
@@ -71,6 +78,7 @@ Expected response shape:
 Guardrail:
 - Restart only proceeds when no active worker PID is alive.
 - If a worker is still running, API returns `409` and you should run `/process/kill` first.
+- If restart budget is exhausted, API returns `429` until the budget window expires.
 
 ```bash
 curl -X POST \

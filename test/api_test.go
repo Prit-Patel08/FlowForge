@@ -437,6 +437,89 @@ func TestRestartEndpointRejectsWhileProcessRunning(t *testing.T) {
 	}
 }
 
+func TestRestartEndpointEnforcesRestartBudget(t *testing.T) {
+	setupTempDBForAPI(t)
+	api.ResetWorkerControlForTests()
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+	setEnvForTest(t, "FLOWFORGE_RESTART_BUDGET_MAX", "1")
+	setEnvForTest(t, "FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS", "300")
+
+	restartArgs := []string{"/bin/sh", "-c", "sleep 20"}
+	state.UpdateState(0, "", "STOPPED", "/bin/sh -c sleep 20", restartArgs, "", 0)
+
+	restartReq1 := httptest.NewRequest("POST", "/process/restart", nil)
+	restartReq1.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	restartW1 := httptest.NewRecorder()
+	api.HandleProcessRestart(restartW1, restartReq1)
+	if restartW1.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected first restart status 202, got %d", restartW1.Result().StatusCode)
+	}
+
+	var pid int
+	restartDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(restartDeadline) {
+		st := state.GetState()
+		if st.Status == "RUNNING" && st.PID > 0 {
+			pid = st.PID
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if pid == 0 {
+		t.Fatal("expected restarted process pid > 0")
+	}
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	})
+
+	killReq := httptest.NewRequest("POST", "/process/kill", nil)
+	killReq.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	killW := httptest.NewRecorder()
+	api.HandleProcessKill(killW, killReq)
+	if killW.Result().StatusCode != http.StatusAccepted {
+		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
+	}
+
+	stopDeadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(stopDeadline) {
+		st := state.GetState()
+		if st.Status == "STOPPED" {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	restartReq2 := httptest.NewRequest("POST", "/process/restart", nil)
+	restartReq2.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	restartW2 := httptest.NewRecorder()
+	api.HandleProcessRestart(restartW2, restartReq2)
+	if restartW2.Result().StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected restart status 429 when budget is exhausted, got %d", restartW2.Result().StatusCode)
+	}
+
+	var errPayload map[string]interface{}
+	if err := json.NewDecoder(restartW2.Body).Decode(&errPayload); err != nil {
+		t.Fatalf("decode restart budget error payload: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(stringValue(errPayload["error"])), "restart budget exceeded") {
+		t.Fatalf("expected restart budget error message, got %#v", errPayload["error"])
+	}
+
+	metricsReq := httptest.NewRequest("GET", "/metrics", nil)
+	metricsW := httptest.NewRecorder()
+	api.HandleMetrics(metricsW, metricsReq)
+	if metricsW.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected metrics status 200, got %d", metricsW.Result().StatusCode)
+	}
+	body := metricsW.Body.String()
+	blocked, ok := metricValue(body, "flowforge_restart_budget_block_total")
+	if !ok || blocked < 1 {
+		t.Fatalf("expected flowforge_restart_budget_block_total >= 1, got %v (ok=%v)", blocked, ok)
+	}
+}
+
 func TestKillAndRestartConflictDuringStop(t *testing.T) {
 	api.ResetWorkerControlForTests()
 	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")

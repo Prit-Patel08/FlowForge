@@ -45,6 +45,10 @@ Output directory default:
 - target: `0`
 - definition: any run with `AUTO_RESTART > 3` in the same 10-minute bucket
 
+2. Restart budget blocks (manual/API):
+- target: `<= 2` per week
+- source: `/metrics` counter `flowforge_restart_budget_block_total` (weekly delta)
+
 ### Group C: API and Dashboard Operations
 
 1. API probe failures (`/healthz`, `/readyz`, `/metrics`, `/timeline`):

@@ -4963,6 +4963,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] tooling diagnostics operationalized (summary artifact output + CI artifact upload + make shortcut)
 - [x] tooling doctor behavior contract-tested and enforced in CI contract suite
 - [x] operator workflows consolidated (pinned go-tool installer, cloud-ready smoke, ops snapshot artifacts, command map)
+- [x] restart storm prevention guard enforced for manual/API restarts (budget window + 429 contract + metrics signal)
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed

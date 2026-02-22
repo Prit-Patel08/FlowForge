@@ -6,7 +6,9 @@ import (
 	"flowforge/internal/state"
 	"flowforge/internal/supervisor"
 	"fmt"
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +28,18 @@ const (
 	opKill    = "kill"
 	opRestart = "restart"
 )
+
+const (
+	restartBudgetDefaultMax           = 3
+	restartBudgetDefaultWindowSeconds = 300
+	envRestartBudgetMax               = "FLOWFORGE_RESTART_BUDGET_MAX"
+	envRestartBudgetWindowSeconds     = "FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS"
+)
+
+type restartBudgetConfig struct {
+	Max    int
+	Window time.Duration
+}
 
 type WorkerController interface {
 	PID() int
@@ -83,6 +97,7 @@ type workerLifecycle struct {
 
 	stopRequestedAt    time.Time
 	restartRequestedAt time.Time
+	restartHistory     []time.Time
 }
 
 func newWorkerLifecycle() *workerLifecycle {
@@ -250,12 +265,27 @@ func (w *workerLifecycle) requestRestart() (lifecycleAction, error) {
 		return lifecycleAction{}, newLifecycleError(400, "no command available to restart")
 	}
 
+	budget := loadRestartBudgetConfig()
+	now := time.Now()
+	if w.restartBudgetExceededLocked(budget, now) {
+		windowSeconds := int(budget.Window.Seconds())
+		if windowSeconds <= 0 {
+			windowSeconds = restartBudgetDefaultWindowSeconds
+		}
+		msg := fmt.Sprintf("restart budget exceeded: allowed %d restart requests per %ds", budget.Max, windowSeconds)
+		w.lastErr = msg
+		apiMetrics.IncRestartBudgetBlocked()
+		emitLifecycleTransition(w.phase, w.operation, w.pid, w.managed, msg, "restart_budget_blocked")
+		return lifecycleAction{}, newLifecycleError(429, msg)
+	}
+	w.recordRestartAttemptLocked(now)
+
 	w.phase = lifecycleStarting
 	w.operation = opRestart
 	w.pid = 0
 	w.lastErr = ""
 	w.lastAction = opRestart
-	w.lastActionAt = time.Now()
+	w.lastActionAt = now
 	w.lastActionPID = 0
 	w.restartRequestedAt = w.lastActionAt
 	state.UpdateLifecycle(lifecycleStarting, "STARTING", 0)
@@ -493,6 +523,56 @@ func (w *workerLifecycle) isRecentActionLocked(action string, window time.Durati
 		return false
 	}
 	return time.Since(w.lastActionAt) <= window
+}
+
+func loadRestartBudgetConfig() restartBudgetConfig {
+	max := restartBudgetDefaultMax
+	if raw := strings.TrimSpace(os.Getenv(envRestartBudgetMax)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			if parsed < 0 {
+				parsed = 0
+			}
+			max = parsed
+		}
+	}
+
+	windowSeconds := restartBudgetDefaultWindowSeconds
+	if raw := strings.TrimSpace(os.Getenv(envRestartBudgetWindowSeconds)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			windowSeconds = parsed
+		}
+	}
+
+	return restartBudgetConfig{
+		Max:    max,
+		Window: time.Duration(windowSeconds) * time.Second,
+	}
+}
+
+func (w *workerLifecycle) restartBudgetExceededLocked(cfg restartBudgetConfig, now time.Time) bool {
+	if cfg.Max <= 0 || cfg.Window <= 0 {
+		return false
+	}
+	w.pruneRestartHistoryLocked(cfg.Window, now)
+	return len(w.restartHistory) >= cfg.Max
+}
+
+func (w *workerLifecycle) recordRestartAttemptLocked(ts time.Time) {
+	w.restartHistory = append(w.restartHistory, ts)
+}
+
+func (w *workerLifecycle) pruneRestartHistoryLocked(window time.Duration, now time.Time) {
+	if window <= 0 || len(w.restartHistory) == 0 {
+		return
+	}
+	cutoff := now.Add(-window)
+	keep := w.restartHistory[:0]
+	for _, t := range w.restartHistory {
+		if t.After(cutoff) {
+			keep = append(keep, t)
+		}
+	}
+	w.restartHistory = keep
 }
 
 func processLikelyAlive(pid int) bool {

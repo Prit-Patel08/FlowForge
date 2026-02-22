@@ -125,6 +125,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `flowforge_restart_slo_compliance_ratio`
 - `flowforge_stop_latency_last_seconds`
 - `flowforge_restart_latency_last_seconds`
+- `flowforge_restart_budget_block_total`
 
 ## Detection Benchmark Baseline
 
@@ -263,6 +264,13 @@ export FLOWFORGE_CLOUD_PROBE_TIMEOUT_MS=800
 curl -s http://127.0.0.1:8080/readyz
 ```
 
+Optional restart storm guard for manual/API restarts:
+
+```bash
+export FLOWFORGE_RESTART_BUDGET_MAX=3
+export FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS=300
+```
+
 ## Troubleshooting
 
 1. Dashboard cannot connect
@@ -272,7 +280,10 @@ curl -s http://127.0.0.1:8080/readyz
 2. Kill/Restart returns unauthorized
 - set `FLOWFORGE_API_KEY` and provide `Authorization: Bearer <key>`
 
-3. Demo doesn’t trigger quickly
+3. Restart returns `429 restart budget exceeded`
+- either wait for the configured budget window, or raise `FLOWFORGE_RESTART_BUDGET_MAX` for your environment
+
+4. Demo doesn’t trigger quickly
 - run `./flowforge demo --max-cpu 30`
 
 ## Week 1 Ops

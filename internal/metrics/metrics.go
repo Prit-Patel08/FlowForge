@@ -9,12 +9,13 @@ import (
 )
 
 type Store struct {
-	mu              sync.Mutex
-	startedAt       time.Time
-	authFailures    uint64
-	processKills    uint64
-	processRestarts uint64
-	httpRequests    map[string]uint64
+	mu                   sync.Mutex
+	startedAt            time.Time
+	authFailures         uint64
+	processKills         uint64
+	processRestarts      uint64
+	restartBudgetBlocked uint64
+	httpRequests         map[string]uint64
 
 	stopLatencyCount       uint64
 	stopLatencySuccess     uint64
@@ -66,6 +67,12 @@ func (s *Store) IncProcessRestart() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.processRestarts++
+}
+
+func (s *Store) IncRestartBudgetBlocked() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restartBudgetBlocked++
 }
 
 func (s *Store) ObserveStopLatency(seconds float64, success bool) {
@@ -141,6 +148,10 @@ func (s *Store) Prometheus(activeProcess bool) string {
 	b.WriteString("# HELP flowforge_process_restart_total Process restart actions.\n")
 	b.WriteString("# TYPE flowforge_process_restart_total counter\n")
 	fmt.Fprintf(&b, "flowforge_process_restart_total %d\n", s.processRestarts)
+
+	b.WriteString("# HELP flowforge_restart_budget_block_total Restart requests blocked by restart budget.\n")
+	b.WriteString("# TYPE flowforge_restart_budget_block_total counter\n")
+	fmt.Fprintf(&b, "flowforge_restart_budget_block_total %d\n", s.restartBudgetBlocked)
 
 	b.WriteString("# HELP flowforge_uptime_seconds API uptime in seconds.\n")
 	b.WriteString("# TYPE flowforge_uptime_seconds gauge\n")
