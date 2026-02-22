@@ -223,7 +223,7 @@ run_case_no_cloud_required() {
     cd "$tmp_dir"
     ./scripts/release_checkpoint.sh "$tmp_dir/out-case-1" >/dev/null
   )
-  rg -q "Cloud dependency readiness gate: SKIPPED" "$tmp_dir/out-case-1/checkpoint.md"
+  grep -q "Cloud dependency readiness gate: SKIPPED" "$tmp_dir/out-case-1/checkpoint.md"
 }
 
 run_case_replay_required_missing_key_fails() {
@@ -238,7 +238,7 @@ run_case_replay_required_missing_key_fails() {
     echo "replay-missing-key case expected failure but passed" >&2
     exit 1
   fi
-  rg -q "replay drill gate requires FLOWFORGE_API_KEY" "$tmp_dir/case_replay_missing_key.stderr.log"
+  grep -q "replay drill gate requires FLOWFORGE_API_KEY" "$tmp_dir/case_replay_missing_key.stderr.log"
 }
 
 run_case_mvp_phase1_gate_missing_script_fails() {
@@ -253,7 +253,7 @@ run_case_mvp_phase1_gate_missing_script_fails() {
     echo "mvp-missing-script case expected failure but passed" >&2
     exit 1
   fi
-  rg -q "MVP Phase-1 exit gate script missing or not executable" "$tmp_dir/case_mvp_missing.stderr.log"
+  grep -q "MVP Phase-1 exit gate script missing or not executable" "$tmp_dir/case_mvp_missing.stderr.log"
 }
 
 run_case_mvp_phase1_gate_passes() {
@@ -261,7 +261,7 @@ run_case_mvp_phase1_gate_passes() {
     cd "$tmp_dir"
     FLOWFORGE_REQUIRE_MVP_PHASE1_EXIT_GATE=1 ./scripts/release_checkpoint.sh "$tmp_dir/out-case-mvp-pass" >/dev/null
   )
-  rg -q "MVP Phase-1 exit gate: PASS" "$tmp_dir/out-case-mvp-pass/checkpoint.md"
+  grep -q "MVP Phase-1 exit gate: PASS" "$tmp_dir/out-case-mvp-pass/checkpoint.md"
   test -f "$tmp_dir/out-case-mvp-pass/mvp-phase1-exit-gate/summary.tsv"
 }
 
@@ -278,7 +278,7 @@ run_case_mvp_phase1_gate_summary_fail_fails() {
     echo "mvp-summary-fail case expected failure but passed" >&2
     exit 1
   fi
-  rg -q "MVP Phase-1 exit gate did not report PASS summary status" "$tmp_dir/case_mvp_summary_fail.stderr.log"
+  grep -q "MVP Phase-1 exit gate did not report PASS summary status" "$tmp_dir/case_mvp_summary_fail.stderr.log"
 }
 
 run_case_daemon_smoke_gate_missing_script_fails() {
@@ -293,7 +293,7 @@ run_case_daemon_smoke_gate_missing_script_fails() {
     echo "daemon-smoke-missing-script case expected failure but passed" >&2
     exit 1
   fi
-  rg -q "daemon smoke script missing or not executable" "$tmp_dir/case_daemon_missing.stderr.log"
+  grep -q "daemon smoke script missing or not executable" "$tmp_dir/case_daemon_missing.stderr.log"
 }
 
 run_case_daemon_smoke_gate_passes() {
@@ -301,7 +301,7 @@ run_case_daemon_smoke_gate_passes() {
     cd "$tmp_dir"
     FLOWFORGE_REQUIRE_DAEMON_SMOKE=1 ./scripts/release_checkpoint.sh "$tmp_dir/out-case-daemon-pass" >/dev/null
   )
-  rg -q "Daemon smoke gate: PASS" "$tmp_dir/out-case-daemon-pass/checkpoint.md"
+  grep -q "Daemon smoke gate: PASS" "$tmp_dir/out-case-daemon-pass/checkpoint.md"
   test -f "$tmp_dir/out-case-daemon-pass/daemon-smoke/summary.tsv"
 }
 
@@ -318,7 +318,7 @@ run_case_daemon_smoke_gate_summary_fail_fails() {
     echo "daemon-smoke-summary-fail case expected failure but passed" >&2
     exit 1
   fi
-  rg -q "daemon smoke gate did not report PASS summary status" "$tmp_dir/case_daemon_summary_fail.stderr.log"
+  grep -q "daemon smoke gate did not report PASS summary status" "$tmp_dir/case_daemon_summary_fail.stderr.log"
 }
 
 run_case_replay_required_passes() {
@@ -327,7 +327,7 @@ run_case_replay_required_passes() {
     FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1 FLOWFORGE_API_KEY="test-key" \
       ./scripts/release_checkpoint.sh "$tmp_dir/out-case-replay-pass" >/dev/null
   )
-  rg -q "Control-plane replay drill gate: PASS" "$tmp_dir/out-case-replay-pass/checkpoint.md"
+  grep -q "Control-plane replay drill gate: PASS" "$tmp_dir/out-case-replay-pass/checkpoint.md"
   test -f "$tmp_dir/out-case-replay-pass/controlplane-replay-drill/summary.tsv"
 }
 
@@ -337,7 +337,7 @@ run_case_replay_retention_enabled_passes() {
     FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1 \
       ./scripts/release_checkpoint.sh "$tmp_dir/out-case-retention-pass" >/dev/null
   )
-  rg -q "Control-plane replay retention prune: PASS" "$tmp_dir/out-case-retention-pass/checkpoint.md"
+  grep -q "Control-plane replay retention prune: PASS" "$tmp_dir/out-case-retention-pass/checkpoint.md"
   test -f "$tmp_dir/out-case-retention-pass/controlplane-replay-retention/summary.tsv"
 }
 
@@ -347,8 +347,8 @@ run_case_weekly_slo_green_gate_passes() {
     FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1 FLOWFORGE_TEST_SLO_ERROR_BUDGET_STATUS=GREEN \
       ./scripts/release_checkpoint.sh "$tmp_dir/out-case-slo-green-pass" >/dev/null
   )
-  rg -q "Weekly SLO GREEN gate: PASS" "$tmp_dir/out-case-slo-green-pass/checkpoint.md"
-  rg -q "Weekly SLO error budget status: GREEN" "$tmp_dir/out-case-slo-green-pass/checkpoint.md"
+  grep -q "Weekly SLO GREEN gate: PASS" "$tmp_dir/out-case-slo-green-pass/checkpoint.md"
+  grep -q "Weekly SLO error budget status: GREEN" "$tmp_dir/out-case-slo-green-pass/checkpoint.md"
   test -f "$tmp_dir/out-case-slo-green-pass/slo-weekly-review/summary.tsv"
 }
 
@@ -365,7 +365,7 @@ run_case_weekly_slo_green_gate_yellow_fails() {
     echo "slo-yellow case expected failure but passed" >&2
     exit 1
   fi
-  rg -Fq "weekly SLO gate requires error_budget_status=GREEN" "$tmp_dir/case_slo_yellow.stderr.log"
+  grep -Fq "weekly SLO gate requires error_budget_status=GREEN" "$tmp_dir/case_slo_yellow.stderr.log"
 }
 
 run_case_weekly_slo_green_gate_script_failure_fails() {
@@ -381,7 +381,7 @@ run_case_weekly_slo_green_gate_script_failure_fails() {
     echo "slo-script-fail case expected failure but passed" >&2
     exit 1
   fi
-  rg -Fq "weekly SLO review script failed while evaluating release gate" "$tmp_dir/case_slo_script_fail.stderr.log"
+  grep -Fq "weekly SLO review script failed while evaluating release gate" "$tmp_dir/case_slo_script_fail.stderr.log"
 }
 
 run_case_cloud_required_unreachable_fails() {
@@ -407,7 +407,7 @@ PY
     echo "case2 expected failure but passed" >&2
     exit 1
   fi
-  rg -q "Blocked: strict cloud readiness is enabled" "$tmp_dir/case2.stderr.log"
+  grep -q "Blocked: strict cloud readiness is enabled" "$tmp_dir/case2.stderr.log"
 }
 
 start_mock_ready_server() {
@@ -469,8 +469,8 @@ run_case_cloud_required_passes() {
     FLOWFORGE_CLOUD_DEPS_REQUIRED=1 FLOWFORGE_API_BASE="http://127.0.0.1:${server_port}" \
       ./scripts/release_checkpoint.sh "$tmp_dir/out-case-3" >/dev/null
   )
-  rg -q "Cloud dependency readiness gate: PASS" "$tmp_dir/out-case-3/checkpoint.md"
-  rg -q '"status":"ready"' "$tmp_dir/out-case-3/readyz.json"
+  grep -q "Cloud dependency readiness gate: PASS" "$tmp_dir/out-case-3/checkpoint.md"
+  grep -q '"status":"ready"' "$tmp_dir/out-case-3/readyz.json"
 
   stop_mock_ready_server
 }
@@ -490,7 +490,7 @@ run_case_cloud_required_mismatch_fails() {
     echo "case4 expected failure but passed" >&2
     exit 1
   fi
-  rg -q "cloud_dependencies_required=true" "$tmp_dir/case4.stderr.log"
+  grep -q "cloud_dependencies_required=true" "$tmp_dir/case4.stderr.log"
 
   stop_mock_ready_server
 }

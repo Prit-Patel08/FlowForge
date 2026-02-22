@@ -18,12 +18,12 @@ check() {
 
 check "verify-local" ./scripts/verify_local.sh --strict
 
-if git ls-files | rg -q "flowforge\\.key|\\.flowforge_live|flowforge\\.db|sentry\\.key"; then
+if git ls-files | grep -Eq "flowforge\\.key|\\.flowforge_live|flowforge\\.db|sentry\\.key"; then
   echo "Blocked: secret/runtime artifacts still tracked." >&2
   exit 1
 fi
 
-if rg -n -i --hidden "quenvor|agent-sentry " -g '!.git/*' -g '!scripts/release_checkpoint.sh' -g '!README.md' | rg -q .; then
+if git grep -n -i -E "quenvor|agent-sentry " -- . ':(exclude)scripts/release_checkpoint.sh' ':(exclude)README.md' >/dev/null 2>&1; then
   echo "Blocked: legacy brand references found." >&2
   exit 1
 fi
