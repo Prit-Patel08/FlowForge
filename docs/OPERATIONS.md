@@ -63,6 +63,12 @@ Run MVP Phase-1 exit gate artifact (kill/restart correctness + deterministic evi
 ./scripts/mvp_phase1_exit_gate.sh
 ```
 
+Run daemon lifecycle smoke artifact (daemon start/stop/status/logs + dashboard attach/foreground behavior):
+
+```bash
+./scripts/daemon_smoke.sh
+```
+
 Run race detector:
 
 ```bash
@@ -97,6 +103,7 @@ make evidence-bundle
 ```
 
 `make contracts` runs:
+- `scripts/daemon_smoke_contract_test.sh`
 - `scripts/tooling_doctor_contract_test.sh`
 - `scripts/release_checkpoint_contract_test.sh`
 - `scripts/controlplane_replay_retention_contract_test.sh`
@@ -187,6 +194,12 @@ Optional strict replay gate during release checkpoint:
 
 ```bash
 FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1 ./scripts/release_checkpoint.sh
+```
+
+Optional strict daemon smoke gate during release checkpoint:
+
+```bash
+FLOWFORGE_REQUIRE_DAEMON_SMOKE=1 ./scripts/release_checkpoint.sh
 ```
 
 Optional retention prune during release checkpoint:

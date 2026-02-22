@@ -33,6 +33,7 @@ doctor-strict:
 	./scripts/tooling_doctor.sh --strict
 
 contracts:
+	./scripts/daemon_smoke_contract_test.sh
 	./scripts/tooling_doctor_contract_test.sh
 	./scripts/release_checkpoint_contract_test.sh
 	./scripts/controlplane_replay_retention_contract_test.sh

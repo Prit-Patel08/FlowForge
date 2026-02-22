@@ -27,6 +27,7 @@ Use this file as the single command reference for day-to-day operation.
 |---|---|
 | Full local verifier | `./scripts/verify_local.sh` |
 | Strict local verifier | `./scripts/verify_local.sh --strict` |
+| Daemon lifecycle smoke artifact | `./scripts/daemon_smoke.sh` |
 | MVP Phase-1 exit gate artifact | `./scripts/mvp_phase1_exit_gate.sh` |
 | Pre-commit gate | `make precommit` |
 | Contract test suite | `make contracts` |
@@ -62,6 +63,7 @@ Use this file as the single command reference for day-to-day operation.
 | Goal | Command |
 |---|---|
 | Release checkpoint | `./scripts/release_checkpoint.sh` |
+| Release checkpoint (daemon smoke strict) | `FLOWFORGE_REQUIRE_DAEMON_SMOKE=1 ./scripts/release_checkpoint.sh` |
 | Release checkpoint (replay + retention strict) | `FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1 FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1 ./scripts/release_checkpoint.sh` |
 | Release checkpoint (weekly SLO GREEN strict) | `FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1 FLOWFORGE_SLO_REVIEW_DAYS=7 FLOWFORGE_SLO_REPLAY_MAX_ROWS=50000 ./scripts/release_checkpoint.sh` |
 | Weekly SLO report | `./scripts/slo_weekly_review.sh --days 7` |

@@ -77,6 +77,8 @@ weekly_slo_review_dir=""
 weekly_slo_error_budget_status="N/A"
 mvp_phase1_exit_gate_status="SKIPPED (FLOWFORGE_REQUIRE_MVP_PHASE1_EXIT_GATE not enabled)"
 mvp_phase1_exit_gate_dir=""
+daemon_smoke_gate_status="SKIPPED (FLOWFORGE_REQUIRE_DAEMON_SMOKE not enabled)"
+daemon_smoke_gate_dir=""
 
 if is_truthy "${FLOWFORGE_CLOUD_DEPS_REQUIRED:-0}"; then
   readyz_artifact="$REPORT_DIR/readyz.json"
@@ -281,6 +283,38 @@ if is_truthy "${FLOWFORGE_REQUIRE_MVP_PHASE1_EXIT_GATE:-0}"; then
   mvp_phase1_exit_gate_status="PASS"
 fi
 
+if is_truthy "${FLOWFORGE_REQUIRE_DAEMON_SMOKE:-0}"; then
+  if [[ ! -x "./scripts/daemon_smoke.sh" ]]; then
+    echo "Blocked: daemon smoke script missing or not executable (scripts/daemon_smoke.sh)." >&2
+    exit 1
+  fi
+
+  daemon_smoke_gate_dir="$REPORT_DIR/daemon-smoke"
+  daemon_smoke_cmd=(
+    ./scripts/daemon_smoke.sh
+    --out "$daemon_smoke_gate_dir"
+  )
+  if is_truthy "${FLOWFORGE_DAEMON_SMOKE_SKIP_BUILD:-0}"; then
+    daemon_smoke_cmd+=(--skip-build)
+  fi
+  if is_truthy "${FLOWFORGE_DAEMON_SMOKE_SKIP_HTTP_PROBES:-0}"; then
+    daemon_smoke_cmd+=(--skip-http-probes)
+  fi
+
+  if ! "${daemon_smoke_cmd[@]}" >/dev/null; then
+    echo "Blocked: daemon smoke gate failed while evaluating release readiness." >&2
+    exit 1
+  fi
+
+  daemon_summary="$daemon_smoke_gate_dir/summary.tsv"
+  if [[ ! -f "$daemon_summary" ]] || ! grep -q $'^overall_status\tPASS$' "$daemon_summary"; then
+    echo "Blocked: daemon smoke gate did not report PASS summary status." >&2
+    exit 1
+  fi
+
+  daemon_smoke_gate_status="PASS"
+fi
+
 cat > "$REPORT_FILE" <<EOF
 # Release Checkpoint
 
@@ -298,6 +332,7 @@ Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Control-plane replay retention prune: $controlplane_replay_retention_status
 - Weekly SLO GREEN gate: $weekly_slo_green_gate_status
 - MVP Phase-1 exit gate: $mvp_phase1_exit_gate_status
+- Daemon smoke gate: $daemon_smoke_gate_status
 
 ## Readiness Evidence
 
@@ -309,6 +344,7 @@ Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Weekly SLO artifact: ${weekly_slo_review_dir:-N/A}
 - Weekly SLO error budget status: ${weekly_slo_error_budget_status:-N/A}
 - MVP Phase-1 exit gate artifact: ${mvp_phase1_exit_gate_dir:-N/A}
+- Daemon smoke artifact: ${daemon_smoke_gate_dir:-N/A}
 
 ## Ready
 

@@ -34,6 +34,10 @@ type workspaceActionRequest struct {
 	Reason string `json:"reason"`
 }
 
+type unregisterWorkspaceRequest struct {
+	Reason string `json:"reason"`
+}
+
 func HandleIntegrationWorkspaceRegister(w http.ResponseWriter, r *http.Request) {
 	corsMiddleware(w, r)
 	r = ensureRequestContext(w, r)
@@ -131,6 +135,8 @@ func HandleIntegrationWorkspaceScoped(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch {
+	case resource == "" && subresource == "":
+		handleIntegrationWorkspaceUnregister(w, r, workspaceID)
 	case resource == "status" && subresource == "":
 		handleIntegrationWorkspaceStatus(w, r, workspaceID)
 	case resource == "protection" && subresource == "":
@@ -150,19 +156,89 @@ func parseIntegrationWorkspacePath(path string) (workspaceID, resource, subresou
 		return "", "", "", errors.New("integration endpoint not found")
 	}
 	rest := strings.Trim(strings.TrimPrefix(path, prefix), "/")
+	if rest == "" {
+		return "", "", "", errors.New("integration endpoint not found")
+	}
 	parts := strings.Split(rest, "/")
-	if len(parts) < 2 || len(parts) > 3 {
+	if len(parts) < 1 || len(parts) > 3 {
 		return "", "", "", errors.New("integration endpoint not found")
 	}
 	workspaceID = strings.TrimSpace(parts[0])
-	resource = strings.TrimSpace(parts[1])
+	if len(parts) >= 2 {
+		resource = strings.TrimSpace(parts[1])
+	}
 	if len(parts) == 3 {
 		subresource = strings.TrimSpace(parts[2])
 	}
-	if workspaceID == "" || resource == "" {
+	if workspaceID == "" {
+		return "", "", "", errors.New("integration endpoint not found")
+	}
+	if len(parts) >= 2 && resource == "" {
 		return "", "", "", errors.New("integration endpoint not found")
 	}
 	return workspaceID, resource, subresource, nil
+}
+
+func handleIntegrationWorkspaceUnregister(w http.ResponseWriter, r *http.Request, workspaceID string) {
+	if r.Method != http.MethodDelete {
+		writeJSONErrorForRequest(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	if !requireAuth(w, r) {
+		return
+	}
+	idemCtx, handled := beginIdempotentMutation(w, r, fmt.Sprintf("DELETE /v1/integrations/workspaces/%s", workspaceID))
+	if handled {
+		return
+	}
+
+	respond := func(status int, payload map[string]interface{}) {
+		persistIdempotentMutation(idemCtx, status, payload)
+		writeJSON(w, status, payload)
+	}
+	respondErr := func(status int, msg string) {
+		payload := problemPayload(r, status, msg, nil)
+		persistIdempotentMutation(idemCtx, status, payload)
+		writeProblem(w, status, payload)
+	}
+
+	var req unregisterWorkspaceRequest
+	if err := decodeOptionalJSONBody(r, &req); err != nil {
+		respondErr(http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ws, err := database.GetIntegrationWorkspace(workspaceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondErr(http.StatusNotFound, "workspace not found")
+			return
+		}
+		respondErr(http.StatusInternalServerError, fmt.Sprintf("workspace lookup failed: %v", err))
+		return
+	}
+
+	if err := database.DeleteIntegrationWorkspace(workspaceID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondErr(http.StatusNotFound, "workspace not found")
+			return
+		}
+		respondErr(http.StatusInternalServerError, fmt.Sprintf("workspace unregister failed: %v", err))
+		return
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = fmt.Sprintf("workspace unregistered via integration API: %s", workspaceID)
+	}
+	reason = annotateReasonWithRequestID(reason, r)
+	_, _ = database.LogAuditEventWithIncidentAndIDAndRequestID(actorFromRequest(r), "WORKSPACE_UNREGISTER", reason, "integration", state.GetState().PID, ws.WorkspacePath, "", requestIDFromRequest(r))
+
+	respond(http.StatusOK, map[string]interface{}{
+		"ok":           true,
+		"workspace_id": workspaceID,
+		"unregistered": true,
+	})
 }
 
 func handleIntegrationWorkspaceStatus(w http.ResponseWriter, r *http.Request, workspaceID string) {
@@ -417,6 +493,29 @@ func decodeJSONBody(r *http.Request, out interface{}) error {
 	}
 	if len(body) == 0 {
 		return errors.New("request body is required")
+	}
+	dec := json.NewDecoder(strings.NewReader(string(body)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(out); err != nil {
+		return fmt.Errorf("invalid JSON body: %w", err)
+	}
+	var trailing interface{}
+	if err := dec.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return errors.New("invalid JSON body: multiple JSON values are not allowed")
+	}
+	return nil
+}
+
+func decodeOptionalJSONBody(r *http.Request, out interface{}) error {
+	if r.Body == nil {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 32*1024))
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+	if len(strings.TrimSpace(string(body))) == 0 {
+		return nil
 	}
 	dec := json.NewDecoder(strings.NewReader(string(body)))
 	dec.DisallowUnknownFields()

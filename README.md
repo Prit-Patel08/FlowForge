@@ -135,6 +135,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `POST /v1/process/kill`
 - `POST /v1/process/restart`
 - `POST /v1/integrations/workspaces/register`
+- `DELETE /v1/integrations/workspaces/{workspace_id}`
 - `GET /v1/integrations/workspaces/{workspace_id}/status`
 - `POST /v1/integrations/workspaces/{workspace_id}/protection`
 - `GET /v1/integrations/workspaces/{workspace_id}/incidents/latest`
@@ -244,8 +245,10 @@ Release checkpoint (`./scripts/release_checkpoint.sh`) runs `verify_local.sh --s
 If `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`, it also enforces `/readyz` health (HTTP 200 + `status=ready` + `cloud_dependencies_required=true`).
 If `FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1`, it enforces a passing `controlplane_replay_drill.sh` run against the live API.
 If `FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1`, it runs replay-ledger retention prune and records artifact output in release report.
+If `FLOWFORGE_REQUIRE_DAEMON_SMOKE=1`, it enforces a passing `daemon_smoke.sh` artifact (`overall_status=PASS`).
 If `govulncheck` reports Go standard library advisories, upgrade your local Go patch version (CI uses Go `1.25.7`).
 Release checkpoint contract tests: `./scripts/release_checkpoint_contract_test.sh`.
+Daemon smoke contract tests: `./scripts/daemon_smoke_contract_test.sh`.
 Replay retention contract tests: `./scripts/controlplane_replay_retention_contract_test.sh`.
 Tooling doctor contract tests: `./scripts/tooling_doctor_contract_test.sh`.
 CI also enforces `shellcheck` for `scripts/*.sh`.
@@ -263,6 +266,7 @@ Ops status snapshot artifact: `./scripts/ops_status_snapshot.sh`.
 Signed evidence export: `go run . evidence export`.
 Signed evidence verification: `go run . evidence verify --bundle-dir <path>`.
 Control-plane replay retention cleanup: `./scripts/controlplane_replay_retention.sh`.
+Daemon lifecycle smoke artifact: `./scripts/daemon_smoke.sh`.
 
 Expected smoke output:
 - `Runaway detected in ...`
@@ -346,6 +350,7 @@ export FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS=300
 - run threshold tuning: `./scripts/tune_detection.sh`
 - run recovery drill: `./scripts/recovery_drill.sh`
 - run control-plane replay drill: `./scripts/controlplane_replay_drill.sh`
+- run daemon lifecycle smoke: `./scripts/daemon_smoke.sh`
 - run release checkpoint: `./scripts/release_checkpoint.sh`
 
 ## Week 2 Ops

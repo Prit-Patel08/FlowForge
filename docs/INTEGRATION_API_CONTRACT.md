@@ -23,7 +23,7 @@ Optional for safe retries:
 
 - `Idempotency-Key: <client-generated-key>`
 
-When provided on write endpoints (`register`, `protection`, `actions`):
+When provided on write endpoints (`register`, `unregister`, `protection`, `actions`):
 1. same key + same payload replays the original response with `X-Idempotent-Replay: true`
 2. same key + different payload returns `409` with an idempotency conflict error
 
@@ -59,7 +59,29 @@ Response:
 }
 ```
 
-## 2) Workspace Status
+## 2) Unregister Workspace
+
+`DELETE /v1/integrations/workspaces/{workspace_id}`
+
+Request (optional):
+
+```json
+{
+  "reason": "workspace removed from IDE integration"
+}
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "workspace_id": "ws-123",
+  "unregistered": true
+}
+```
+
+## 3) Workspace Status
 
 `GET /v1/integrations/workspaces/{workspace_id}/status`
 
@@ -75,7 +97,7 @@ Response:
 }
 ```
 
-## 3) Enable/Disable Protection
+## 4) Enable/Disable Protection
 
 `POST /v1/integrations/workspaces/{workspace_id}/protection`
 
@@ -98,7 +120,7 @@ Response:
 }
 ```
 
-## 4) Latest Incident
+## 5) Latest Incident
 
 `GET /v1/integrations/workspaces/{workspace_id}/incidents/latest`
 
@@ -114,7 +136,7 @@ Response:
 }
 ```
 
-## 5) Manual Action
+## 6) Manual Action
 
 `POST /v1/integrations/workspaces/{workspace_id}/actions`
 
@@ -172,10 +194,11 @@ Common codes:
 ## Current Implementation Notes
 
 1. All endpoints in this contract are now available under `/v1/integrations/workspaces/...`.
-2. Write endpoints (`register`, `protection`, `actions`) enforce API key auth via `Authorization: Bearer <FLOWFORGE_API_KEY>`.
+2. Write endpoints (`register`, `unregister`, `protection`, `actions`) enforce API key auth via `Authorization: Bearer <FLOWFORGE_API_KEY>`.
 3. Workspace registration validates:
 - `workspace_id` pattern `[A-Za-z0-9._:-]` (max 128 chars)
 - absolute `workspace_path`
 4. `actions` supports `kill` and `restart` and persists integration action records with linked audit events.
 5. `incidents/latest` currently returns the latest supervisor incident in local runtime context.
-6. Idempotent mutation replay state is persisted in `control_plane_replays` for cross-request replay safety.
+6. `DELETE /v1/integrations/workspaces/{workspace_id}` unregisters a workspace and emits `WORKSPACE_UNREGISTER` audit evidence.
+7. Idempotent mutation replay state is persisted in `control_plane_replays` for cross-request replay safety.

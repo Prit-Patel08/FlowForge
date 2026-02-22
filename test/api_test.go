@@ -1801,6 +1801,144 @@ func TestIntegrationWorkspaceProtectionToggle(t *testing.T) {
 	}
 }
 
+func TestIntegrationWorkspaceUnregister(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-delete", "/tmp/ws-delete")
+
+	req := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-delete", strings.NewReader(`{"reason":"remove from integration tests"}`))
+	req.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Request-Id", "req_ws_delete_1")
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ok, _ := payload["ok"].(bool); !ok {
+		t.Fatalf("expected ok=true, got %#v", payload["ok"])
+	}
+	if stringValue(payload["workspace_id"]) != "ws-delete" {
+		t.Fatalf("expected workspace_id ws-delete, got %#v", payload["workspace_id"])
+	}
+	if unregistered, _ := payload["unregistered"].(bool); !unregistered {
+		t.Fatalf("expected unregistered=true, got %#v", payload["unregistered"])
+	}
+
+	statusReq := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-delete/status", nil)
+	statusW := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(statusW, statusReq)
+	if statusW.Result().StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404 after unregister, got %d", statusW.Result().StatusCode)
+	}
+
+	var action, reason string
+	if err := database.GetDB().QueryRow(`SELECT action, reason FROM audit_events ORDER BY id DESC LIMIT 1`).Scan(&action, &reason); err != nil {
+		t.Fatalf("query latest audit event: %v", err)
+	}
+	if action != "WORKSPACE_UNREGISTER" {
+		t.Fatalf("expected audit action WORKSPACE_UNREGISTER, got %q", action)
+	}
+	if !strings.Contains(reason, "request_id=req_ws_delete_1") {
+		t.Fatalf("expected request_id annotation in reason, got %q", reason)
+	}
+}
+
+func TestIntegrationWorkspaceUnregisterRequiresAuth(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-delete-auth", "/tmp/ws-delete-auth")
+
+	req := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-delete-auth", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 for missing auth, got %d", w.Result().StatusCode)
+	}
+}
+
+func TestIntegrationUnregisterIdempotencyReplayAndConflict(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-idem-unregister", "/tmp/ws-idem-unregister")
+
+	key := "idem-integration-unregister-1"
+	firstBody := `{"reason":"idempotent unregister test"}`
+
+	req1 := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-idem-unregister", strings.NewReader(firstBody))
+	req1.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("Idempotency-Key", key)
+	w1 := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w1, req1)
+	if w1.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected first unregister status 200, got %d", w1.Result().StatusCode)
+	}
+
+	var payload1 map[string]interface{}
+	if err := json.NewDecoder(w1.Body).Decode(&payload1); err != nil {
+		t.Fatalf("decode first unregister response: %v", err)
+	}
+
+	req2 := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-idem-unregister", strings.NewReader(firstBody))
+	req2.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Idempotency-Key", key)
+	w2 := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w2, req2)
+	if w2.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected replay unregister status 200, got %d", w2.Result().StatusCode)
+	}
+	if replay := w2.Result().Header.Get("X-Idempotent-Replay"); replay != "true" {
+		t.Fatalf("expected X-Idempotent-Replay=true, got %q", replay)
+	}
+
+	var payload2 map[string]interface{}
+	if err := json.NewDecoder(w2.Body).Decode(&payload2); err != nil {
+		t.Fatalf("decode replay unregister response: %v", err)
+	}
+	if !reflect.DeepEqual(payload1, payload2) {
+		t.Fatalf("expected replay unregister payload to match first payload, first=%v replay=%v", payload1, payload2)
+	}
+
+	req3 := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-idem-unregister", strings.NewReader(`{"reason":"different unregister payload"}`))
+	req3.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("Idempotency-Key", key)
+	w3 := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w3, req3)
+	if w3.Result().StatusCode != http.StatusConflict {
+		t.Fatalf("expected unregister idempotency conflict status 409, got %d", w3.Result().StatusCode)
+	}
+
+	var conflictPayload map[string]interface{}
+	if err := json.NewDecoder(w3.Body).Decode(&conflictPayload); err != nil {
+		t.Fatalf("decode unregister conflict response: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(stringValue(conflictPayload["error"])), "idempotency key reused") {
+		t.Fatalf("expected unregister idempotency conflict error, got %#v", conflictPayload["error"])
+	}
+
+	rec, err := database.GetControlPlaneReplay(key, "DELETE /v1/integrations/workspaces/ws-idem-unregister")
+	if err != nil {
+		t.Fatalf("GetControlPlaneReplay(unregister): %v", err)
+	}
+	if rec.ReplayCount != 1 {
+		t.Fatalf("expected unregister replay_count=1, got %d", rec.ReplayCount)
+	}
+}
+
 func TestIntegrationWorkspaceActionsRestartContract(t *testing.T) {
 	setupTempDBForAPI(t)
 	api.ResetWorkerControlForTests()

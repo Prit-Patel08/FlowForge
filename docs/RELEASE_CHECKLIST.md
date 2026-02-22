@@ -12,6 +12,7 @@ Use this checklist before tagging any release.
 - [ ] If `FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1`, retention artifact status is `PASS` or `SKIPPED`.
 - [ ] If `FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1`, weekly SLO artifact summary shows `error_budget_status=GREEN`.
 - [ ] If `FLOWFORGE_REQUIRE_MVP_PHASE1_EXIT_GATE=1`, MVP exit-gate artifact summary shows `overall_status=PASS`.
+- [ ] If `FLOWFORGE_REQUIRE_DAEMON_SMOKE=1`, daemon smoke artifact summary shows `overall_status=PASS`.
 - [ ] Signed evidence bundle exported: `go run . evidence export --out-dir <release-artifact-dir>/evidence`.
 - [ ] Signed evidence bundle verified: `go run . evidence verify --bundle-dir <release-artifact-dir>/evidence`.
 - [ ] CI checks on `main` are green (`shellcheck`, `release-checkpoint-contract`, `backend` [build/test/race/vet/staticcheck/govulncheck], `dashboard`, `smoke`, `replay-drill`, `docker`, `sbom`).

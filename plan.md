@@ -4984,6 +4984,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] request traceability made first-class in persistence + ops UX (`request_id` stored on audit/unified events, `/v1/ops/requests/{request_id}` endpoint, dashboard copyable request id on mutation errors)
 - [x] MVP Phase-1 exit gate operationalized (`scripts/mvp_phase1_exit_gate.sh` + release checkpoint optional strict gate + contract coverage + dashboard request-trace lookup UX)
 - [x] local daemon lifecycle operationalized (`flowforge daemon start|stop|status|logs` + `flowforge dashboard` daemon auto-attach + script-safe `--foreground` mode)
+- [x] daemon reliability + integration lifecycle hardening (`scripts/daemon_smoke.sh` + daemon smoke contract/release strict gate + workspace unregister API with audit/idempotency contract tests)
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

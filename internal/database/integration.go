@@ -160,6 +160,29 @@ WHERE workspace_id = ?
 	return nil
 }
 
+func DeleteIntegrationWorkspace(workspaceID string) error {
+	if db == nil {
+		return fmt.Errorf("db not initialized")
+	}
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return fmt.Errorf("workspace_id is required")
+	}
+
+	res, err := db.Exec(`
+DELETE FROM integration_workspaces
+WHERE workspace_id = ?
+`, workspaceID)
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 func InsertIntegrationAction(workspaceID, action, reason string, auditEventID int, status string) (int, error) {
 	if db == nil {
 		return 0, fmt.Errorf("db not initialized")
