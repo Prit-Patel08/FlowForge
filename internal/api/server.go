@@ -165,24 +165,9 @@ func Start(port string) func() {
 		fmt.Println("⚠️  No FLOWFORGE_API_KEY set - mutating endpoints are blocked")
 	}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/stream", withSecurity(handleStream))
-	mux.HandleFunc("/incidents", withSecurity(HandleIncidents))
-	mux.HandleFunc("/process/kill", withSecurity(HandleProcessKill))
-	mux.HandleFunc("/process/restart", withSecurity(HandleProcessRestart))
-	mux.HandleFunc("/healthz", withSecurity(HandleHealth))
-	mux.HandleFunc("/readyz", withSecurity(HandleReady))
-	mux.HandleFunc("/metrics", withSecurity(HandleMetrics))
-	mux.HandleFunc("/v1/ops/controlplane/replay/history", withSecurity(HandleControlPlaneReplayHistory))
-	mux.HandleFunc("/worker/lifecycle", withSecurity(HandleWorkerLifecycle))
-	mux.HandleFunc("/timeline", withSecurity(HandleTimeline))
-	mux.HandleFunc("/v1/integrations/workspaces/register", withSecurity(HandleIntegrationWorkspaceRegister))
-	mux.HandleFunc("/v1/integrations/workspaces/", withSecurity(HandleIntegrationWorkspaceScoped))
-
-	addr := resolveBindAddr(port)
 	server := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
+		Addr:              resolveBindAddr(port),
+		Handler:           NewHandler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -190,7 +175,7 @@ func Start(port string) func() {
 	}
 
 	go func() {
-		fmt.Printf("API listening on %s\n", addr)
+		fmt.Printf("API listening on %s\n", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("ListenAndServe warning: %v", err)
 		}
@@ -203,6 +188,46 @@ func Start(port string) func() {
 			log.Printf("Server shutdown failed: %v", err)
 		}
 	}
+}
+
+// NewHandler returns the full API router with legacy and v1-compatible routes.
+func NewHandler() http.Handler {
+	mux := http.NewServeMux()
+	registerRoute(mux, "/stream", handleStream)
+	registerRoute(mux, "/v1/stream", handleStream)
+
+	registerRoute(mux, "/incidents", HandleIncidents)
+	registerRoute(mux, "/v1/incidents", HandleIncidents)
+
+	registerRoute(mux, "/process/kill", HandleProcessKill)
+	registerRoute(mux, "/v1/process/kill", HandleProcessKill)
+
+	registerRoute(mux, "/process/restart", HandleProcessRestart)
+	registerRoute(mux, "/v1/process/restart", HandleProcessRestart)
+
+	registerRoute(mux, "/healthz", HandleHealth)
+	registerRoute(mux, "/v1/healthz", HandleHealth)
+
+	registerRoute(mux, "/readyz", HandleReady)
+	registerRoute(mux, "/v1/readyz", HandleReady)
+
+	registerRoute(mux, "/metrics", HandleMetrics)
+	registerRoute(mux, "/v1/metrics", HandleMetrics)
+
+	registerRoute(mux, "/worker/lifecycle", HandleWorkerLifecycle)
+	registerRoute(mux, "/v1/worker/lifecycle", HandleWorkerLifecycle)
+
+	registerRoute(mux, "/timeline", HandleTimeline)
+	registerRoute(mux, "/v1/timeline", HandleTimeline)
+
+	registerRoute(mux, "/v1/ops/controlplane/replay/history", HandleControlPlaneReplayHistory)
+	registerRoute(mux, "/v1/integrations/workspaces/register", HandleIntegrationWorkspaceRegister)
+	registerRoute(mux, "/v1/integrations/workspaces/", HandleIntegrationWorkspaceScoped)
+	return mux
+}
+
+func registerRoute(mux *http.ServeMux, path string, handler http.HandlerFunc) {
+	mux.HandleFunc(path, withSecurity(handler))
 }
 
 func resolveBindAddr(port string) string {

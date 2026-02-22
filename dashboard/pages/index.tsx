@@ -118,17 +118,17 @@ const REPLAY_ROW_CAP_TARGET = 50000;
 export default function Dashboard() {
   const router = useRouter();
   const { data: incidents, error } = useSWR<Incident[]>(
-    `${API_BASE}/incidents`,
+    `${API_BASE}/v1/incidents`,
     fetchIncidents,
     { refreshInterval: 2000, fallbackData: [] }
   );
   const { data: timeline } = useSWR<TimelineEvent[]>(
-    `${API_BASE}/timeline`,
+    `${API_BASE}/v1/timeline`,
     fetchTimeline,
     { refreshInterval: 3000, fallbackData: [] }
   );
   const { data: lifecycle } = useSWR<WorkerLifecycle>(
-    `${API_BASE}/worker/lifecycle`,
+    `${API_BASE}/v1/worker/lifecycle`,
     async (url: string): Promise<WorkerLifecycle> => (await fetchJSON(url)) as WorkerLifecycle,
     {
       refreshInterval: 1000,
@@ -146,7 +146,7 @@ export default function Dashboard() {
     }
   );
   const { data: lifecycleSLO } = useSWR<LifecycleSLO>(
-    `${API_BASE}/metrics`,
+    `${API_BASE}/v1/metrics`,
     async (url: string): Promise<LifecycleSLO> => {
       const raw = await fetchText(url);
       const metrics = parsePrometheusMetrics(raw);
@@ -205,7 +205,7 @@ export default function Dashboard() {
     isLoading: incidentChainLoading
   } = useSWR<IncidentChainEvent[]>(
     selectedIncidentID
-      ? `${API_BASE}/timeline?incident_id=${encodeURIComponent(selectedIncidentID)}`
+      ? `${API_BASE}/v1/timeline?incident_id=${encodeURIComponent(selectedIncidentID)}`
       : null,
     fetchIncidentChain,
     { refreshInterval: selectedIncidentID ? 3000 : 0, fallbackData: [] }
@@ -227,7 +227,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Connect to SSE stream
-    const eventSource = new EventSource(`${API_BASE}/stream`);
+    const eventSource = new EventSource(`${API_BASE}/v1/stream`);
 
     eventSource.onopen = () => {
       console.log("SSE Connected");
@@ -239,12 +239,12 @@ export default function Dashboard() {
         setLiveStats(stats);
         // If the status changed from RUNNING to something else, refresh the table
         if (stats.status !== 'RUNNING' && stats.status !== 'STOPPED' && stats.command) {
-          mutate(`${API_BASE}/incidents`);
-          mutate(`${API_BASE}/timeline`);
+          mutate(`${API_BASE}/v1/incidents`);
+          mutate(`${API_BASE}/v1/timeline`);
         }
         if (stats.status === 'WATCHDOG_ALERT') {
-          mutate(`${API_BASE}/incidents`);
-          mutate(`${API_BASE}/timeline`);
+          mutate(`${API_BASE}/v1/incidents`);
+          mutate(`${API_BASE}/v1/timeline`);
         }
       } catch (e) {
         console.error("SSE Parse Error", e);
@@ -453,7 +453,7 @@ export default function Dashboard() {
                             if (apiKey) {
                               headers['Authorization'] = `Bearer ${apiKey}`;
                             }
-                            const res = await fetch(`${API_BASE}/process/kill`, { method: 'POST', headers });
+                            const res = await fetch(`${API_BASE}/v1/process/kill`, { method: 'POST', headers });
                             const data = await res.json().catch(() => ({} as { error?: string; pid?: number }));
                             if (!res.ok) {
                               throw new Error(data.error || `Request failed (${res.status})`);
@@ -461,7 +461,7 @@ export default function Dashboard() {
                             setKillStatusIsError(false);
                             setKillStatus(`Stop requested for PID ${data.pid ?? liveStats.pid}`);
                             setKillConfirm(false);
-                            mutate(`${API_BASE}/incidents`);
+                            mutate(`${API_BASE}/v1/incidents`);
                             setTimeout(() => setKillStatus(null), 3000);
                           } catch (e) {
                             const msg = e instanceof Error ? e.message : 'Failed to kill process';
@@ -610,7 +610,7 @@ export default function Dashboard() {
                           if (apiKey) {
                             headers['Authorization'] = `Bearer ${apiKey}`;
                           }
-                          const res = await fetch(`${API_BASE}/process/restart`, {
+                          const res = await fetch(`${API_BASE}/v1/process/restart`, {
                             method: 'POST',
                             headers,
                             body: JSON.stringify({ reason: 'dashboard manual restart' })
@@ -624,8 +624,8 @@ export default function Dashboard() {
                           }
                           setRestartStatusIsError(false);
                           setRestartStatus(`Restart requested${data.lifecycle ? ` (${data.lifecycle})` : ''}`);
-                          mutate(`${API_BASE}/worker/lifecycle`);
-                          mutate(`${API_BASE}/timeline`);
+                          mutate(`${API_BASE}/v1/worker/lifecycle`);
+                          mutate(`${API_BASE}/v1/timeline`);
                           setTimeout(() => setRestartStatus(null), 5000);
                         } catch (e) {
                           const msg = e instanceof Error ? e.message : 'Failed to restart process';

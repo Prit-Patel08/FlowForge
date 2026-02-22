@@ -2,10 +2,10 @@
 
 ## Health and Readiness
 
-- Liveness: `GET /healthz`
-- Readiness: `GET /readyz`
-- Metrics: `GET /metrics` (Prometheus text format)
-- Timeline: `GET /timeline` (incident + audit + decision trace feed)
+- Liveness: `GET /v1/healthz` (legacy alias: `/healthz`)
+- Readiness: `GET /v1/readyz` (legacy alias: `/readyz`)
+- Metrics: `GET /v1/metrics` (Prometheus text format; legacy alias: `/metrics`)
+- Timeline: `GET /v1/timeline` (incident + audit + decision trace feed; legacy alias: `/timeline`)
 - Replay history: `GET /v1/ops/controlplane/replay/history?days=7` (daily replay/conflict trend + ledger stats)
 
 ## Hardened Container Run

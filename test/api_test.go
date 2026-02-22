@@ -1139,6 +1139,51 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 }
 
+func TestV1CoreEndpointAliases(t *testing.T) {
+	setupTempDBForAPI(t)
+
+	handler := api.NewHandler()
+	cases := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{name: "health", path: "/v1/healthz", wantStatus: http.StatusOK},
+		{name: "ready", path: "/v1/readyz", wantStatus: http.StatusOK},
+		{name: "metrics", path: "/v1/metrics", wantStatus: http.StatusOK},
+		{name: "incidents", path: "/v1/incidents", wantStatus: http.StatusOK},
+		{name: "timeline", path: "/v1/timeline", wantStatus: http.StatusOK},
+		{name: "lifecycle", path: "/v1/worker/lifecycle", wantStatus: http.StatusOK},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+			resp := w.Result()
+			if resp.StatusCode != tc.wantStatus {
+				t.Fatalf("%s expected status %d, got %d", tc.path, tc.wantStatus, resp.StatusCode)
+			}
+		})
+	}
+}
+
+func TestV1ProcessKillAliasRequiresAuth(t *testing.T) {
+	setEnvForTest(t, "FLOWFORGE_API_KEY", "test-secret-key-12345")
+	setupTempDBForAPI(t)
+
+	handler := api.NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/v1/process/kill", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 Unauthorized, got %d", resp.StatusCode)
+	}
+}
+
 func TestReadyEndpointCloudDepsRequiredFailsWhenUnavailable(t *testing.T) {
 	setupTempDBForAPI(t)
 	setEnvForTest(t, "FLOWFORGE_CLOUD_DEPS_REQUIRED", "1")

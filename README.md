@@ -106,21 +106,23 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 
 ## API Endpoints
 
-- `GET /healthz`
-- `GET /readyz`
-- `GET /stream`
-- `GET /incidents`
-- `GET /timeline`
-- `GET /timeline?incident_id=<id>`
-- `GET /worker/lifecycle`
-- `GET /metrics`
-- `POST /process/kill`
-- `POST /process/restart`
+- `GET /v1/healthz`
+- `GET /v1/readyz`
+- `GET /v1/stream`
+- `GET /v1/incidents`
+- `GET /v1/timeline`
+- `GET /v1/timeline?incident_id=<id>`
+- `GET /v1/worker/lifecycle`
+- `GET /v1/metrics`
+- `POST /v1/process/kill`
+- `POST /v1/process/restart`
 - `POST /v1/integrations/workspaces/register`
 - `GET /v1/integrations/workspaces/{workspace_id}/status`
 - `POST /v1/integrations/workspaces/{workspace_id}/protection`
 - `GET /v1/integrations/workspaces/{workspace_id}/incidents/latest`
 - `POST /v1/integrations/workspaces/{workspace_id}/actions`
+
+Legacy non-versioned aliases remain available (`/healthz`, `/readyz`, `/incidents`, `/timeline`, `/worker/lifecycle`, `/metrics`, `/stream`, `/process/*`) for backward compatibility.
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
 /readyz returns structured readiness checks and can enforce cloud dependency health when `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`.
