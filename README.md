@@ -116,9 +116,15 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `GET /metrics`
 - `POST /process/kill`
 - `POST /process/restart`
+- `POST /v1/integrations/workspaces/register`
+- `GET /v1/integrations/workspaces/{workspace_id}/status`
+- `POST /v1/integrations/workspaces/{workspace_id}/protection`
+- `GET /v1/integrations/workspaces/{workspace_id}/incidents/latest`
+- `POST /v1/integrations/workspaces/{workspace_id}/actions`
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
 /readyz returns structured readiness checks and can enforce cloud dependency health when `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`.
+Integration write endpoints require `FLOWFORGE_API_KEY`; workspace registration requires absolute `workspace_path`.
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`

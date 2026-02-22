@@ -302,6 +302,39 @@ func InitDB() error {
 		return err
 	}
 
+	createIntegrationWorkspacesTableSQL := `CREATE TABLE IF NOT EXISTS integration_workspaces (
+		workspace_id TEXT PRIMARY KEY,
+		workspace_path TEXT NOT NULL,
+		profile TEXT NOT NULL DEFAULT 'standard',
+		client TEXT NOT NULL DEFAULT 'unknown',
+		protection_enabled INTEGER NOT NULL DEFAULT 1,
+		active_pid INTEGER NOT NULL DEFAULT 0,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := db.Exec(createIntegrationWorkspacesTableSQL); err != nil {
+		return err
+	}
+	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_integration_workspaces_last_updated ON integration_workspaces(last_updated DESC);"); err != nil {
+		return err
+	}
+
+	createIntegrationActionsTableSQL := `CREATE TABLE IF NOT EXISTS integration_actions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		workspace_id TEXT NOT NULL,
+		action TEXT NOT NULL,
+		reason TEXT NOT NULL DEFAULT '',
+		audit_event_id INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT '',
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := db.Exec(createIntegrationActionsTableSQL); err != nil {
+		return err
+	}
+	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_integration_actions_workspace_created ON integration_actions(workspace_id, created_at DESC);"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -490,21 +523,27 @@ func getAllIncidentsLegacy() ([]Incident, error) {
 }
 
 func LogAuditEvent(actor, action, reason, source string, pid int, details string) error {
-	return LogAuditEventWithIncident(actor, action, reason, source, pid, details, "")
+	_, err := LogAuditEventWithIncidentAndID(actor, action, reason, source, pid, details, "")
+	return err
 }
 
 func LogAuditEventWithIncident(actor, action, reason, source string, pid int, details, incidentID string) error {
+	_, err := LogAuditEventWithIncidentAndID(actor, action, reason, source, pid, details, incidentID)
+	return err
+}
+
+func LogAuditEventWithIncidentAndID(actor, action, reason, source string, pid int, details, incidentID string) (int, error) {
 	if db == nil {
-		return fmt.Errorf("db not initialized")
+		return 0, fmt.Errorf("db not initialized")
 	}
 	stmt, err := db.Prepare("INSERT INTO audit_events(actor, action, reason, source, pid, details) VALUES(?, ?, ?, ?, ?, ?)")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer stmt.Close()
 	result, err := stmt.Exec(actor, action, reason, source, pid, details)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	insertedID, _ := result.LastInsertId()
 	payload := auditEventPayload{
@@ -512,7 +551,10 @@ func LogAuditEventWithIncident(actor, action, reason, source string, pid int, de
 		Source:  source,
 		Details: details,
 	}
-	return logUnifiedEventWithPayload("audit", action, fmt.Sprintf("%s by %s", action, actor), reason, actor, incidentID, pid, 0, 0, 0, payload)
+	if err := logUnifiedEventWithPayload("audit", action, fmt.Sprintf("%s by %s", action, actor), reason, actor, incidentID, pid, 0, 0, 0, payload); err != nil {
+		return 0, err
+	}
+	return int(insertedID), nil
 }
 
 func GetAuditEvents(limit int) ([]AuditEvent, error) {

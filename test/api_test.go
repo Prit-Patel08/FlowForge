@@ -156,6 +156,19 @@ func checkHealthy(t *testing.T, checks map[string]interface{}, key string) bool 
 	return healthy
 }
 
+func registerWorkspaceForTest(t *testing.T, workspaceID, workspacePath string) {
+	t.Helper()
+	reqBody := `{"workspace_id":"` + workspaceID + `","workspace_path":"` + workspacePath + `","profile":"standard","client":"cursor"}`
+	req := httptest.NewRequest("POST", "/v1/integrations/workspaces/register", strings.NewReader(reqBody))
+	req.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceRegister(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected workspace register status 200, got %d", w.Result().StatusCode)
+	}
+}
+
 // TestCORSHeaders ensures that the /incidents endpoint returns proper CORS headers.
 func TestCORSHeaders(t *testing.T) {
 	req := httptest.NewRequest("OPTIONS", "/incidents", nil)
@@ -1261,6 +1274,187 @@ func TestTimelineIncidentEndpointSnapshotContract(t *testing.T) {
 		gotJSON, _ := json.MarshalIndent(got, "", "  ")
 		expJSON, _ := json.MarshalIndent(expected, "", "  ")
 		t.Fatalf("incident timeline snapshot mismatch\nexpected:\n%s\ngot:\n%s", expJSON, gotJSON)
+	}
+}
+
+func TestIntegrationWorkspaceRegisterAndStatus(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-123", "/tmp/ws-123")
+
+	req := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-123/status", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if stringValue(payload["workspace_id"]) != "ws-123" {
+		t.Fatalf("expected workspace_id ws-123, got %#v", payload["workspace_id"])
+	}
+	if stringValue(payload["profile"]) != "standard" {
+		t.Fatalf("expected profile standard, got %#v", payload["profile"])
+	}
+	enabled, ok := payload["protection_enabled"].(bool)
+	if !ok || !enabled {
+		t.Fatalf("expected protection_enabled=true, got %#v", payload["protection_enabled"])
+	}
+}
+
+func TestIntegrationWorkspaceProtectionToggle(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-toggle", "/tmp/ws-toggle")
+
+	req := httptest.NewRequest("POST", "/v1/integrations/workspaces/ws-toggle/protection", strings.NewReader(`{"enabled":false,"reason":"disable for maintenance"}`))
+	req.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	statusReq := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-toggle/status", nil)
+	statusW := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(statusW, statusReq)
+	if statusW.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", statusW.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(statusW.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	enabled, ok := payload["protection_enabled"].(bool)
+	if !ok || enabled {
+		t.Fatalf("expected protection_enabled=false, got %#v", payload["protection_enabled"])
+	}
+}
+
+func TestIntegrationWorkspaceActionsRestartContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	api.ResetWorkerControlForTests()
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-actions", "/tmp/ws-actions")
+	restartArgs := []string{"/bin/sh", "-c", "sleep 10"}
+	state.UpdateState(0, "", "STOPPED", "/bin/sh -c sleep 10", restartArgs, "", 0)
+
+	req := httptest.NewRequest("POST", "/v1/integrations/workspaces/ws-actions/actions", strings.NewReader(`{"action":"restart","reason":"restart via integration test"}`))
+	req.Header.Set("Authorization", "Bearer test-secret-key-12345")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if ok, _ := payload["ok"].(bool); !ok {
+		t.Fatalf("expected ok=true, got %#v", payload["ok"])
+	}
+	if stringValue(payload["action"]) != "restart" {
+		t.Fatalf("expected action restart, got %#v", payload["action"])
+	}
+	if intValue(payload["audit_event_id"]) <= 0 {
+		t.Fatalf("expected audit_event_id > 0, got %#v", payload["audit_event_id"])
+	}
+
+	var pid int
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		st := state.GetState()
+		if st.Status == "RUNNING" && st.PID > 0 {
+			pid = st.PID
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if pid == 0 {
+		t.Fatal("expected restarted pid > 0")
+	}
+	t.Cleanup(func() {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	})
+}
+
+func TestIntegrationWorkspaceLatestIncident(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-inc", "/tmp/ws-inc")
+	database.SetRunID("run-int-latest")
+	if err := database.LogIncidentWithDecisionForIncident(
+		"python3 demo/runaway.py",
+		"gpt-4",
+		"LOOP_DETECTED",
+		92.0,
+		"repeat loop",
+		0.9,
+		120,
+		0.08,
+		"agent-x",
+		"1.0.0",
+		"loop detected in integration test",
+		93.0,
+		10.0,
+		95.0,
+		"terminated",
+		0,
+		"incident-int-latest-1",
+	); err != nil {
+		t.Fatalf("log incident: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-inc/incidents/latest", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if stringValue(payload["incident_id"]) != "incident-int-latest-1" {
+		t.Fatalf("expected incident_id incident-int-latest-1, got %#v", payload["incident_id"])
+	}
+	if stringValue(payload["exit_reason"]) != "LOOP_DETECTED" {
+		t.Fatalf("expected exit_reason LOOP_DETECTED, got %#v", payload["exit_reason"])
+	}
+	if floatValue(payload["confidence_score"]) <= 0 {
+		t.Fatalf("expected confidence_score > 0, got %#v", payload["confidence_score"])
+	}
+}
+
+func TestIntegrationWorkspaceActionsRequireAuth(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-auth", "/tmp/ws-auth")
+	req := httptest.NewRequest("POST", "/v1/integrations/workspaces/ws-auth/actions", strings.NewReader(`{"action":"kill","reason":"auth test"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 for missing auth, got %d", w.Result().StatusCode)
 	}
 }
 

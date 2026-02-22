@@ -175,6 +175,8 @@ func Start(port string) func() {
 	mux.HandleFunc("/metrics", withSecurity(HandleMetrics))
 	mux.HandleFunc("/worker/lifecycle", withSecurity(HandleWorkerLifecycle))
 	mux.HandleFunc("/timeline", withSecurity(HandleTimeline))
+	mux.HandleFunc("/v1/integrations/workspaces/register", withSecurity(HandleIntegrationWorkspaceRegister))
+	mux.HandleFunc("/v1/integrations/workspaces/", withSecurity(HandleIntegrationWorkspaceScoped))
 
 	addr := resolveBindAddr(port)
 	server := &http.Server{

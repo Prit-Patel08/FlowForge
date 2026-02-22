@@ -1,6 +1,6 @@
 # Integration API Contract (Cursor + Antigravity MVP)
 
-Status: Draft  
+Status: Implemented (v1 local integration surface)  
 Owner: API + Integration  
 Target: P1 (Day 31-90)
 
@@ -152,3 +152,13 @@ Common codes:
 1. Additive fields are allowed in responses.
 2. Existing response fields must not be removed in `v1`.
 3. Breaking changes require `/v2` path and migration note in release docs.
+
+## Current Implementation Notes
+
+1. All endpoints in this contract are now available under `/v1/integrations/workspaces/...`.
+2. Write endpoints (`register`, `protection`, `actions`) enforce API key auth via `Authorization: Bearer <FLOWFORGE_API_KEY>`.
+3. Workspace registration validates:
+- `workspace_id` pattern `[A-Za-z0-9._:-]` (max 128 chars)
+- absolute `workspace_path`
+4. `actions` supports `kill` and `restart` and persists integration action records with linked audit events.
+5. `incidents/latest` currently returns the latest supervisor incident in local runtime context.
