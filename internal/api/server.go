@@ -304,6 +304,8 @@ func NewHandler() http.Handler {
 	registerRoute(mux, "/v1/timeline", HandleTimeline)
 
 	registerRoute(mux, "/v1/ops/controlplane/replay/history", HandleControlPlaneReplayHistory)
+	registerRoute(mux, "/v1/ops/requests", HandleRequestTrace)
+	registerRoute(mux, "/v1/ops/requests/", HandleRequestTrace)
 	registerRoute(mux, "/v1/integrations/workspaces/register", HandleIntegrationWorkspaceRegister)
 	registerRoute(mux, "/v1/integrations/workspaces/", HandleIntegrationWorkspaceScoped)
 	return mux
@@ -494,6 +496,77 @@ func HandleControlPlaneReplayHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleRequestTrace returns all unified events correlated to a single request ID.
+func HandleRequestTrace(w http.ResponseWriter, r *http.Request) {
+	corsMiddleware(w, r)
+	r = ensureRequestContext(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSONErrorForRequest(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	requestID, err := parseRequestTraceID(r.URL.Path)
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	limit := 200
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsedLimit, err := strconv.Atoi(rawLimit)
+		if err != nil || parsedLimit < 1 || parsedLimit > 1000 {
+			writeJSONErrorForRequest(w, r, http.StatusBadRequest, "limit must be an integer between 1 and 1000")
+			return
+		}
+		limit = parsedLimit
+	}
+
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
+	}
+
+	events, err := database.GetUnifiedEventsByRequestID(requestID, limit)
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("failed to load request trace: %v", err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"request_id": requestID,
+		"count":      len(events),
+		"events":     events,
+	})
+}
+
+func parseRequestTraceID(path string) (string, error) {
+	const basePath = "/v1/ops/requests"
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == basePath || trimmedPath == basePath+"/" {
+		return "", fmt.Errorf("request_id is required in path /v1/ops/requests/{request_id}")
+	}
+	if !strings.HasPrefix(trimmedPath, basePath+"/") {
+		return "", fmt.Errorf("request trace endpoint not found")
+	}
+	rawID := strings.TrimPrefix(trimmedPath, basePath+"/")
+	if strings.Contains(rawID, "/") {
+		return "", fmt.Errorf("request_id must be a single path segment")
+	}
+	decodedID, err := url.PathUnescape(strings.TrimSpace(rawID))
+	if err != nil {
+		return "", fmt.Errorf("request_id is invalid: %v", err)
+	}
+	decodedID = strings.TrimSpace(decodedID)
+	if !isValidRequestID(decodedID) {
+		return "", fmt.Errorf("request_id must contain only visible ASCII and be <= %d chars", maxRequestIDLength)
+	}
+	return decodedID, nil
+}
+
 func controlPlaneReplayPrometheus() string {
 	var b strings.Builder
 	b.WriteString("# HELP flowforge_controlplane_replay_rows Current number of persisted control-plane replay rows.\n")
@@ -674,7 +747,7 @@ func HandleProcessKill(w http.ResponseWriter, r *http.Request) {
 	if decision.AcceptedNew {
 		apiMetrics.IncProcessKill()
 		incidentID := uuid.NewString()
-		_ = database.LogAuditEventWithIncident(actorFromRequest(r), "KILL", annotateReasonWithRequestID(reason, r), "api", decision.PID, stats.Command, incidentID)
+		_ = database.LogAuditEventWithIncidentAndRequestID(actorFromRequest(r), "KILL", annotateReasonWithRequestID(reason, r), "api", decision.PID, stats.Command, incidentID, requestIDFromRequest(r))
 	}
 	payload := map[string]interface{}{
 		"status":    decision.Status,
@@ -718,7 +791,7 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 		if statusCode == http.StatusTooManyRequests {
 			stats := state.GetState()
 			incidentID := uuid.NewString()
-			_ = database.LogAuditEventWithIncident(actorFromRequest(r), "RESTART_BLOCKED", annotateReasonWithRequestID(msg, r), "api", stats.PID, stats.Command, incidentID)
+			_ = database.LogAuditEventWithIncidentAndRequestID(actorFromRequest(r), "RESTART_BLOCKED", annotateReasonWithRequestID(msg, r), "api", stats.PID, stats.Command, incidentID, requestIDFromRequest(r))
 		}
 		if retryAfter := lifecycleRetryAfter(err); retryAfter > 0 {
 			w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
@@ -737,7 +810,7 @@ func HandleProcessRestart(w http.ResponseWriter, r *http.Request) {
 	if decision.AcceptedNew {
 		apiMetrics.IncProcessRestart()
 		incidentID := uuid.NewString()
-		_ = database.LogAuditEventWithIncident(actorFromRequest(r), "RESTART", annotateReasonWithRequestID(reason, r), "api", decision.PID, stats.Command, incidentID)
+		_ = database.LogAuditEventWithIncidentAndRequestID(actorFromRequest(r), "RESTART", annotateReasonWithRequestID(reason, r), "api", decision.PID, stats.Command, incidentID, requestIDFromRequest(r))
 	}
 	payload := map[string]interface{}{
 		"status":    decision.Status,

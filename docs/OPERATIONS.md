@@ -7,6 +7,7 @@
 - Metrics: `GET /v1/metrics` (Prometheus text format; legacy alias: `/metrics`)
 - Timeline: `GET /v1/timeline` (incident + audit + decision trace feed; legacy alias: `/timeline`)
 - Replay history: `GET /v1/ops/controlplane/replay/history?days=7` (daily replay/conflict trend + ledger stats)
+- Request trace: `GET /v1/ops/requests/{request_id}?limit=200` (all correlated control-plane/runtime events for a single request id)
 
 ## Hardened Container Run
 

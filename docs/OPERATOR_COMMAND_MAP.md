@@ -43,6 +43,7 @@ Use this file as the single command reference for day-to-day operation.
 | Strict snapshot (doctor strict) | `./scripts/ops_status_snapshot.sh --strict-doctor` |
 | Export signed evidence bundle | `go run . evidence export --out-dir pilot_artifacts/evidence-<timestamp>` |
 | Verify signed evidence bundle | `go run . evidence verify --bundle-dir pilot_artifacts/evidence-<timestamp>` |
+| Correlate a failed request by request id | `curl -s "http://127.0.0.1:8080/v1/ops/requests/<request_id>?limit=200" \| jq .` |
 
 ## 6) Release Workflow
 

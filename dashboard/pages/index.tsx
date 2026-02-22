@@ -32,6 +32,26 @@ const readAPIErrorMessage = (payload: unknown, status: number): string => {
   return `Request failed (${status})`;
 };
 
+const readAPIRequestID = (payload: unknown): string => {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+  const p = payload as Record<string, unknown>;
+  const rid = typeof p.request_id === 'string' ? p.request_id.trim() : '';
+  return rid;
+};
+
+const copyTextToClipboard = async (value: string): Promise<void> => {
+  if (typeof navigator === 'undefined' || !navigator.clipboard) {
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    // no-op
+  }
+};
+
 const fetchJSON = async (url: string): Promise<unknown> => {
   const res = await fetch(url);
   if (!res.ok) {
@@ -229,8 +249,10 @@ export default function Dashboard() {
   const [killConfirm, setKillConfirm] = useState(false);
   const [killStatus, setKillStatus] = useState<string | null>(null);
   const [killStatusIsError, setKillStatusIsError] = useState(false);
+  const [killRequestID, setKillRequestID] = useState<string | null>(null);
   const [restartStatus, setRestartStatus] = useState<string | null>(null);
   const [restartStatusIsError, setRestartStatusIsError] = useState(false);
+  const [restartRequestID, setRestartRequestID] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -445,7 +467,18 @@ export default function Dashboard() {
                 <div className="mt-4 pt-4 border-t border-gray-700/50">
                   {killStatus && (
                     <div className={`mb-3 text-xs font-mono px-3 py-2 rounded-lg border ${killStatusIsError ? 'text-red-400 bg-red-900/20 border-red-500/20' : 'text-green-400 bg-green-900/20 border-green-500/20'}`}>
-                      {killStatus}
+                      <div>{killStatus}</div>
+                      {killStatusIsError && killRequestID && (
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-red-200">
+                          <span>request_id: {killRequestID}</span>
+                          <button
+                            onClick={() => void copyTextToClipboard(killRequestID)}
+                            className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                   {!killConfirm ? (
@@ -461,6 +494,7 @@ export default function Dashboard() {
                       <span className="text-xs text-gray-400">Kill PID {liveStats.pid}?</span>
                       <button
                         onClick={async () => {
+                          setKillRequestID(null);
                           try {
                             const headers: Record<string, string> = {};
                             if (apiKey) {
@@ -469,6 +503,10 @@ export default function Dashboard() {
                             const res = await fetch(`${API_BASE}/v1/process/kill`, { method: 'POST', headers });
                             const data = await res.json().catch(() => ({} as Record<string, unknown>));
                             if (!res.ok) {
+                              const requestID = readAPIRequestID(data);
+                              if (requestID) {
+                                setKillRequestID(requestID);
+                              }
                               throw new Error(readAPIErrorMessage(data, res.status));
                             }
                             setKillStatusIsError(false);
@@ -614,11 +652,23 @@ export default function Dashboard() {
                   <div className="mt-3 border-t border-gray-700/60 pt-3">
                     {restartStatus && (
                       <div className={`mb-3 rounded-md border px-2 py-1 text-xs font-mono ${restartStatusIsError ? 'border-red-500/20 bg-red-900/20 text-red-300' : 'border-green-500/20 bg-green-900/20 text-green-300'}`}>
-                        {restartStatus}
+                        <div>{restartStatus}</div>
+                        {restartStatusIsError && restartRequestID && (
+                          <div className="mt-1 flex items-center gap-2 text-[11px] text-red-200">
+                            <span>request_id: {restartRequestID}</span>
+                            <button
+                              onClick={() => void copyTextToClipboard(restartRequestID)}
+                              className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     <button
                       onClick={async () => {
+                        setRestartRequestID(null);
                         try {
                           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
                           if (apiKey) {
@@ -631,6 +681,10 @@ export default function Dashboard() {
                           });
                           const data = await res.json().catch(() => ({} as Record<string, unknown>));
                           if (!res.ok) {
+                            const requestID = readAPIRequestID(data);
+                            if (requestID) {
+                              setRestartRequestID(requestID);
+                            }
                             const retryAfterSeconds = typeof data.retry_after_seconds === 'number' ? data.retry_after_seconds : 0;
                             const retryHint = retryAfterSeconds > 0
                               ? ` Retry in ${Math.round(retryAfterSeconds)}s.`

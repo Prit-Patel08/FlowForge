@@ -1184,6 +1184,126 @@ func TestControlPlaneReplayHistoryEndpointRejectsInvalidDays(t *testing.T) {
 	}
 }
 
+func TestRequestTraceEndpointContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-request-trace")
+	requestID := "req-trace-contract-1"
+
+	if _, err := database.InsertEventWithPayloadAndRequestID(
+		"audit",
+		"api-key",
+		"operator requested restart",
+		"run-request-trace",
+		"incident-request-trace",
+		"RESTART",
+		"manual restart request",
+		4242,
+		0,
+		0,
+		0,
+		requestID,
+		map[string]interface{}{"source": "api"},
+	); err != nil {
+		t.Fatalf("insert request-trace audit event: %v", err)
+	}
+	if _, err := database.InsertEventWithPayloadAndRequestID(
+		"decision",
+		"system",
+		"restart allowed by policy",
+		"run-request-trace",
+		"incident-request-trace",
+		"RESTART_ALLOWED",
+		"policy accepted restart request",
+		4242,
+		12.5,
+		40.1,
+		88.2,
+		requestID,
+		nil,
+	); err != nil {
+		t.Fatalf("insert request-trace decision event: %v", err)
+	}
+
+	handler := api.NewHandler()
+	req := httptest.NewRequest("GET", "/v1/ops/requests/"+requestID+"?limit=50", nil)
+	req.Header.Set("X-Request-Id", "req-test-request-trace-contract")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+	if headerReqID := resp.Header.Get("X-Request-Id"); headerReqID != "req-test-request-trace-contract" {
+		t.Fatalf("expected X-Request-Id header to echo request id, got %q", headerReqID)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode request trace payload: %v", err)
+	}
+	if got := stringValue(payload["request_id"]); got != requestID {
+		t.Fatalf("expected request_id %q, got %q", requestID, got)
+	}
+	if got := intValue(payload["count"]); got != 2 {
+		t.Fatalf("expected count=2, got %d", got)
+	}
+	eventsRaw, ok := payload["events"].([]interface{})
+	if !ok {
+		t.Fatalf("expected events array, got %T", payload["events"])
+	}
+	if len(eventsRaw) != 2 {
+		t.Fatalf("expected events length 2, got %d", len(eventsRaw))
+	}
+	first, ok := eventsRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first event object, got %T", eventsRaw[0])
+	}
+	if got := stringValue(first["request_id"]); got != requestID {
+		t.Fatalf("expected first event request_id %q, got %q", requestID, got)
+	}
+}
+
+func TestRequestTraceEndpointRejectsInvalidParams(t *testing.T) {
+	setupTempDBForAPI(t)
+
+	handler := api.NewHandler()
+	cases := []struct {
+		path            string
+		detailSubstring string
+	}{
+		{path: "/v1/ops/requests", detailSubstring: "request_id is required"},
+		{path: "/v1/ops/requests/", detailSubstring: "request_id is required"},
+		{path: "/v1/ops/requests/req-test-invalid?limit=0", detailSubstring: "limit must be an integer between 1 and 1000"},
+		{path: "/v1/ops/requests/req-test-invalid?limit=1001", detailSubstring: "limit must be an integer between 1 and 1000"},
+	}
+
+	for _, tc := range cases {
+		req := httptest.NewRequest("GET", tc.path, nil)
+		req.Header.Set("X-Request-Id", "req-test-request-trace-invalid")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		resp := w.Result()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("path %s expected status 400, got %d", tc.path, resp.StatusCode)
+		}
+		if ctype := resp.Header.Get("Content-Type"); !strings.Contains(ctype, "application/problem+json") {
+			t.Fatalf("path %s expected application/problem+json content-type, got %q", tc.path, ctype)
+		}
+
+		var payload map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("path %s decode response payload: %v", tc.path, err)
+		}
+		if reqID := stringValue(payload["request_id"]); reqID != "req-test-request-trace-invalid" {
+			t.Fatalf("path %s expected request_id req-test-request-trace-invalid, got %q", tc.path, reqID)
+		}
+		if detail := strings.ToLower(problemDetail(payload)); !strings.Contains(detail, strings.ToLower(tc.detailSubstring)) {
+			t.Fatalf("path %s expected detail to contain %q, got payload=%#v", tc.path, tc.detailSubstring, payload)
+		}
+	}
+}
+
 func TestHealthEndpoint(t *testing.T) {
 	req := httptest.NewRequest("GET", "/healthz", nil)
 	w := httptest.NewRecorder()
@@ -1211,6 +1331,7 @@ func TestV1CoreEndpointAliases(t *testing.T) {
 		{name: "incidents", path: "/v1/incidents", wantStatus: http.StatusOK},
 		{name: "timeline", path: "/v1/timeline", wantStatus: http.StatusOK},
 		{name: "lifecycle", path: "/v1/worker/lifecycle", wantStatus: http.StatusOK},
+		{name: "request-trace", path: "/v1/ops/requests/req-test-alias", wantStatus: http.StatusOK},
 	}
 
 	for _, tc := range cases {

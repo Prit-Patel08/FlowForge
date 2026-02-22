@@ -99,7 +99,7 @@ func HandleIntegrationWorkspaceRegister(w http.ResponseWriter, r *http.Request) 
 	}
 
 	reason := fmt.Sprintf("workspace registered via integration API: %s", ws.WorkspaceID)
-	_, _ = database.LogAuditEventWithIncidentAndID(actorFromRequest(r), "WORKSPACE_REGISTER", annotateReasonWithRequestID(reason, r), "integration", state.GetState().PID, ws.WorkspacePath, "")
+	_, _ = database.LogAuditEventWithIncidentAndIDAndRequestID(actorFromRequest(r), "WORKSPACE_REGISTER", annotateReasonWithRequestID(reason, r), "integration", state.GetState().PID, ws.WorkspacePath, "", requestIDFromRequest(r))
 
 	respond(http.StatusOK, map[string]interface{}{
 		"ok":           true,
@@ -249,7 +249,7 @@ func handleIntegrationWorkspaceProtection(w http.ResponseWriter, r *http.Request
 		reason = fmt.Sprintf("workspace protection set to %t", ws.ProtectionEnabled)
 	}
 	reason = annotateReasonWithRequestID(reason, r)
-	_, _ = database.LogAuditEventWithIncidentAndID(actorFromRequest(r), "PROTECTION_UPDATE", reason, "integration", state.GetState().PID, workspaceID, "")
+	_, _ = database.LogAuditEventWithIncidentAndIDAndRequestID(actorFromRequest(r), "PROTECTION_UPDATE", reason, "integration", state.GetState().PID, workspaceID, "", requestIDFromRequest(r))
 
 	respond(http.StatusOK, map[string]interface{}{
 		"ok":           true,
@@ -338,7 +338,7 @@ func handleIntegrationWorkspaceActions(w http.ResponseWriter, r *http.Request, w
 	}
 	reason = annotateReasonWithRequestID(reason, r)
 	actionLabel := strings.ToUpper("INTEGRATION_" + action)
-	auditEventID, err := database.LogAuditEventWithIncidentAndID(actorFromRequest(r), actionLabel, reason, "integration", decision.PID, workspaceID, "")
+	auditEventID, err := database.LogAuditEventWithIncidentAndIDAndRequestID(actorFromRequest(r), actionLabel, reason, "integration", decision.PID, workspaceID, "", requestIDFromRequest(r))
 	if err != nil {
 		respondErr(http.StatusInternalServerError, fmt.Sprintf("audit event write failed: %v", err))
 		return

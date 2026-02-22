@@ -51,6 +51,7 @@ type AuditEvent struct {
 	Source    string `json:"source"`
 	PID       int    `json:"pid"`
 	Details   string `json:"details"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 type DecisionTrace struct {
@@ -69,6 +70,7 @@ type TimelineEvent struct {
 	EventID    string                 `json:"event_id,omitempty"`
 	RunID      string                 `json:"run_id,omitempty"`
 	IncidentID string                 `json:"incident_id,omitempty"`
+	RequestID  string                 `json:"request_id,omitempty"`
 	Type       string                 `json:"type"`
 	Timestamp  string                 `json:"timestamp"`
 	Title      string                 `json:"title"`
@@ -87,6 +89,7 @@ type UnifiedEvent struct {
 	EventID    string                 `json:"event_id"`
 	RunID      string                 `json:"run_id"`
 	IncidentID string                 `json:"incident_id,omitempty"`
+	RequestID  string                 `json:"request_id,omitempty"`
 	EventType  string                 `json:"event_type"`
 	Actor      string                 `json:"actor"`
 	ReasonText string                 `json:"reason_text"`
@@ -124,9 +127,10 @@ type incidentEventPayload struct {
 }
 
 type auditEventPayload struct {
-	ID      int    `json:"id"`
-	Source  string `json:"source"`
-	Details string `json:"details"`
+	ID        int    `json:"id"`
+	Source    string `json:"source"`
+	Details   string `json:"details"`
+	RequestID string `json:"request_id,omitempty"`
 }
 
 type decisionEventPayload struct {
@@ -191,7 +195,8 @@ func InitDB() error {
 		reason TEXT,
 		source TEXT,
 		pid INTEGER,
-		details TEXT
+		details TEXT,
+		request_id TEXT DEFAULT ''
 	);`
 	if _, err := db.Exec(createAuditTableSQL); err != nil {
 		return err
@@ -217,6 +222,7 @@ func InitDB() error {
 		event_id TEXT NOT NULL UNIQUE,
 		run_id TEXT NOT NULL,
 		incident_id TEXT,
+		request_id TEXT DEFAULT '',
 		event_type TEXT NOT NULL,
 		actor TEXT NOT NULL DEFAULT 'system',
 		reason_text TEXT NOT NULL DEFAULT '',
@@ -246,6 +252,9 @@ func InitDB() error {
 	if err := ensureColumnExists("events", "incident_id", "TEXT"); err != nil {
 		return err
 	}
+	if err := ensureColumnExists("events", "request_id", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
 	if err := ensureColumnExists("events", "event_type", "TEXT DEFAULT 'legacy'"); err != nil {
 		return err
 	}
@@ -270,6 +279,7 @@ func InitDB() error {
 	db.Exec("UPDATE events SET event_type = COALESCE(NULLIF(event_type, ''), COALESCE(type, 'legacy'));")
 	db.Exec("UPDATE events SET reason_text = COALESCE(reason_text, reason, '');")
 	db.Exec("UPDATE events SET payload_json = COALESCE(NULLIF(TRIM(payload_json), ''), '{}');")
+	db.Exec("UPDATE events SET request_id = COALESCE(request_id, '');")
 	db.Exec("UPDATE events SET created_at = COALESCE(created_at, timestamp, CURRENT_TIMESTAMP);")
 
 	if _, err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_events_event_id ON events(event_id);"); err != nil {
@@ -282,6 +292,16 @@ func InitDB() error {
 		return err
 	}
 	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_events_type_created ON events(event_type, created_at);"); err != nil {
+		return err
+	}
+	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_events_request_created ON events(request_id, created_at);"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("audit_events", "request_id", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	db.Exec("UPDATE audit_events SET request_id = COALESCE(request_id, '');")
+	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_audit_events_request_time ON audit_events(request_id, timestamp);"); err != nil {
 		return err
 	}
 	if err := migrateLegacyRowsToUnifiedEvents(); err != nil {
@@ -542,35 +562,51 @@ func getAllIncidentsLegacy() ([]Incident, error) {
 }
 
 func LogAuditEvent(actor, action, reason, source string, pid int, details string) error {
-	_, err := LogAuditEventWithIncidentAndID(actor, action, reason, source, pid, details, "")
+	_, err := LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source, pid, details, "", "")
+	return err
+}
+
+func LogAuditEventWithRequestID(actor, action, reason, source string, pid int, details, requestID string) error {
+	_, err := LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source, pid, details, "", requestID)
 	return err
 }
 
 func LogAuditEventWithIncident(actor, action, reason, source string, pid int, details, incidentID string) error {
-	_, err := LogAuditEventWithIncidentAndID(actor, action, reason, source, pid, details, incidentID)
+	_, err := LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source, pid, details, incidentID, "")
+	return err
+}
+
+func LogAuditEventWithIncidentAndRequestID(actor, action, reason, source string, pid int, details, incidentID, requestID string) error {
+	_, err := LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source, pid, details, incidentID, requestID)
 	return err
 }
 
 func LogAuditEventWithIncidentAndID(actor, action, reason, source string, pid int, details, incidentID string) (int, error) {
+	return LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source, pid, details, incidentID, "")
+}
+
+func LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source string, pid int, details, incidentID, requestID string) (int, error) {
 	if db == nil {
 		return 0, fmt.Errorf("db not initialized")
 	}
-	stmt, err := db.Prepare("INSERT INTO audit_events(actor, action, reason, source, pid, details) VALUES(?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO audit_events(actor, action, reason, source, pid, details, request_id) VALUES(?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, err
 	}
 	defer stmt.Close()
-	result, err := stmt.Exec(actor, action, reason, source, pid, details)
+	requestID = strings.TrimSpace(requestID)
+	result, err := stmt.Exec(actor, action, reason, source, pid, details, requestID)
 	if err != nil {
 		return 0, err
 	}
 	insertedID, _ := result.LastInsertId()
 	payload := auditEventPayload{
-		ID:      int(insertedID),
-		Source:  source,
-		Details: details,
+		ID:        int(insertedID),
+		Source:    source,
+		Details:   details,
+		RequestID: requestID,
 	}
-	if err := logUnifiedEventWithPayload("audit", action, fmt.Sprintf("%s by %s", action, actor), reason, actor, incidentID, pid, 0, 0, 0, payload); err != nil {
+	if err := logUnifiedEventWithPayloadAndRequestID("audit", action, fmt.Sprintf("%s by %s", action, actor), reason, actor, incidentID, pid, 0, 0, 0, requestID, payload); err != nil {
 		return 0, err
 	}
 	return int(insertedID), nil
@@ -583,7 +619,7 @@ func GetAuditEvents(limit int) ([]AuditEvent, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := db.Query("SELECT id, timestamp, COALESCE(actor, ''), COALESCE(action, ''), COALESCE(reason, ''), COALESCE(source, ''), COALESCE(pid, 0), COALESCE(details, '') FROM audit_events ORDER BY id DESC LIMIT ?", limit)
+	rows, err := db.Query("SELECT id, timestamp, COALESCE(actor, ''), COALESCE(action, ''), COALESCE(reason, ''), COALESCE(source, ''), COALESCE(pid, 0), COALESCE(details, ''), COALESCE(request_id, '') FROM audit_events ORDER BY id DESC LIMIT ?", limit)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +627,7 @@ func GetAuditEvents(limit int) ([]AuditEvent, error) {
 	var events []AuditEvent
 	for rows.Next() {
 		var e AuditEvent
-		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Actor, &e.Action, &e.Reason, &e.Source, &e.PID, &e.Details); err != nil {
+		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Actor, &e.Action, &e.Reason, &e.Source, &e.PID, &e.Details, &e.RequestID); err != nil {
 			return nil, err
 		}
 		events = append(events, e)
@@ -657,6 +693,7 @@ func GetTimeline(limit int) ([]TimelineEvent, error) {
 				EventID:    e.EventID,
 				RunID:      e.RunID,
 				IncidentID: e.IncidentID,
+				RequestID:  e.RequestID,
 				Type:       e.EventType,
 				Timestamp:  e.CreatedAt,
 				Title:      e.Title,
@@ -725,6 +762,7 @@ func getLegacyTimeline(limit int) ([]TimelineEvent, error) {
 				Summary:   fmt.Sprintf("%s by %s", a.Action, a.Actor),
 				Reason:    a.Reason,
 				PID:       a.PID,
+				RequestID: a.RequestID,
 			},
 		})
 	}
@@ -774,6 +812,7 @@ SELECT
 	COALESCE(event_id, ''),
 	COALESCE(run_id, ''),
 	COALESCE(incident_id, ''),
+	COALESCE(request_id, ''),
 	COALESCE(event_type, type, ''),
 	COALESCE(actor, 'system'),
 	COALESCE(reason_text, reason, ''),
@@ -804,6 +843,7 @@ LIMIT ?`, limit)
 			&e.EventID,
 			&e.RunID,
 			&e.IncidentID,
+			&e.RequestID,
 			&e.EventType,
 			&e.Actor,
 			&e.ReasonText,
@@ -843,6 +883,7 @@ SELECT
 	COALESCE(event_id, ''),
 	COALESCE(run_id, ''),
 	COALESCE(incident_id, ''),
+	COALESCE(request_id, ''),
 	COALESCE(event_type, type, ''),
 	COALESCE(actor, 'system'),
 	COALESCE(reason_text, reason, ''),
@@ -877,6 +918,87 @@ LIMIT ?;
 			&e.EventID,
 			&e.RunID,
 			&e.IncidentID,
+			&e.RequestID,
+			&e.EventType,
+			&e.Actor,
+			&e.ReasonText,
+			&e.CreatedAt,
+			&e.Timestamp,
+			&e.Type,
+			&e.Title,
+			&e.Summary,
+			&e.Reason,
+			&e.PID,
+			&e.CPUScore,
+			&e.Entropy,
+			&e.Confidence,
+			&payloadRaw,
+		); err != nil {
+			return nil, err
+		}
+		e.Evidence = parseEvidencePayload(payloadRaw)
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+func GetUnifiedEventsByRequestID(requestID string, limit int) ([]UnifiedEvent, error) {
+	if db == nil {
+		return nil, fmt.Errorf("db missing")
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil, fmt.Errorf("request_id is required")
+	}
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	const requestTraceSQL = `
+SELECT
+	id,
+	COALESCE(event_id, ''),
+	COALESCE(run_id, ''),
+	COALESCE(incident_id, ''),
+	COALESCE(request_id, ''),
+	COALESCE(event_type, type, ''),
+	COALESCE(actor, 'system'),
+	COALESCE(reason_text, reason, ''),
+	COALESCE(created_at, timestamp, CURRENT_TIMESTAMP),
+	COALESCE(created_at, timestamp, CURRENT_TIMESTAMP),
+	COALESCE(event_type, type, ''),
+	COALESCE(title, ''),
+	COALESCE(summary, ''),
+	COALESCE(reason_text, reason, ''),
+	COALESCE(pid, 0),
+	COALESCE(cpu_score, 0.0),
+	COALESCE(entropy_score, 0.0),
+	COALESCE(confidence_score, 0.0),
+	COALESCE(payload_json, '{}')
+FROM events
+WHERE request_id = ?
+ORDER BY created_at ASC, id ASC
+LIMIT ?;
+`
+	rows, err := db.Query(requestTraceSQL, requestID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]UnifiedEvent, 0)
+	for rows.Next() {
+		var e UnifiedEvent
+		var payloadRaw string
+		if err := rows.Scan(
+			&e.ID,
+			&e.EventID,
+			&e.RunID,
+			&e.IncidentID,
+			&e.RequestID,
 			&e.EventType,
 			&e.Actor,
 			&e.ReasonText,
@@ -914,15 +1036,23 @@ func logUnifiedEventWithMeta(eventType, title, summary, reason, actor, incidentI
 }
 
 func logUnifiedEventWithPayload(eventType, title, summary, reason, actor, incidentID string, pid int, cpuScore, entropyScore, confidenceScore float64, payload any) error {
-	_, err := InsertEventWithPayload(eventType, actor, reason, currentRunID(), incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore, payload)
+	return logUnifiedEventWithPayloadAndRequestID(eventType, title, summary, reason, actor, incidentID, pid, cpuScore, entropyScore, confidenceScore, "", payload)
+}
+
+func logUnifiedEventWithPayloadAndRequestID(eventType, title, summary, reason, actor, incidentID string, pid int, cpuScore, entropyScore, confidenceScore float64, requestID string, payload any) error {
+	_, err := InsertEventWithPayloadAndRequestID(eventType, actor, reason, currentRunID(), incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore, requestID, payload)
 	return err
 }
 
 func InsertEvent(eventType, actor, reasonText, runID, incidentID, title, summary string, pid int, cpuScore, entropyScore, confidenceScore float64) (string, error) {
-	return InsertEventWithPayload(eventType, actor, reasonText, runID, incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore, nil)
+	return InsertEventWithPayloadAndRequestID(eventType, actor, reasonText, runID, incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore, "", nil)
 }
 
 func InsertEventWithPayload(eventType, actor, reasonText, runID, incidentID, title, summary string, pid int, cpuScore, entropyScore, confidenceScore float64, payload any) (string, error) {
+	return InsertEventWithPayloadAndRequestID(eventType, actor, reasonText, runID, incidentID, title, summary, pid, cpuScore, entropyScore, confidenceScore, "", payload)
+}
+
+func InsertEventWithPayloadAndRequestID(eventType, actor, reasonText, runID, incidentID, title, summary string, pid int, cpuScore, entropyScore, confidenceScore float64, requestID string, payload any) (string, error) {
 	if db == nil {
 		return "", fmt.Errorf("db not initialized")
 	}
@@ -932,9 +1062,9 @@ func InsertEventWithPayload(eventType, actor, reasonText, runID, incidentID, tit
 	}
 	stmt, err := db.Prepare(`
 INSERT INTO events(
-	event_id, run_id, incident_id, event_type, actor, reason_text, created_at,
+	event_id, run_id, incident_id, request_id, event_type, actor, reason_text, created_at,
 	payload_json, timestamp, type, title, summary, reason, pid, cpu_score, entropy_score, confidence_score
-) VALUES(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?)
 `)
 	if err != nil {
 		return "", err
@@ -958,11 +1088,19 @@ INSERT INTO events(
 	} else {
 		incidentIDValue = incidentID
 	}
+	requestID = strings.TrimSpace(requestID)
+	var requestIDValue interface{}
+	if requestID == "" {
+		requestIDValue = nil
+	} else {
+		requestIDValue = requestID
+	}
 
 	_, err = stmt.Exec(
 		eventID,
 		runID,
 		incidentIDValue,
+		requestIDValue,
 		eventType,
 		actor,
 		reasonText,
@@ -1187,6 +1325,7 @@ func backfillLegacyIncidents() error {
 			eventID,
 			"unknown-run",
 			incidentID,
+			"",
 			"incident",
 			"system",
 			inc.Reason,
@@ -1216,7 +1355,7 @@ func backfillLegacyAudits() error {
 		return err
 	}
 
-	rows, err := db.Query(`SELECT id, timestamp, COALESCE(actor, ''), COALESCE(action, ''), COALESCE(reason, ''), COALESCE(source, ''), COALESCE(pid, 0), COALESCE(details, '') FROM audit_events ORDER BY id ASC`)
+	rows, err := db.Query(`SELECT id, timestamp, COALESCE(actor, ''), COALESCE(action, ''), COALESCE(reason, ''), COALESCE(source, ''), COALESCE(pid, 0), COALESCE(details, ''), COALESCE(request_id, '') FROM audit_events ORDER BY id ASC`)
 	if err != nil {
 		return err
 	}
@@ -1225,7 +1364,7 @@ func backfillLegacyAudits() error {
 	audits := make([]AuditEvent, 0, legacyCount)
 	for rows.Next() {
 		var a AuditEvent
-		if err := rows.Scan(&a.ID, &a.Timestamp, &a.Actor, &a.Action, &a.Reason, &a.Source, &a.PID, &a.Details); err != nil {
+		if err := rows.Scan(&a.ID, &a.Timestamp, &a.Actor, &a.Action, &a.Reason, &a.Source, &a.PID, &a.Details, &a.RequestID); err != nil {
 			return err
 		}
 		audits = append(audits, a)
@@ -1236,9 +1375,10 @@ func backfillLegacyAudits() error {
 
 	for _, a := range audits {
 		payloadJSON, err := marshalPayload(auditEventPayload{
-			ID:      a.ID,
-			Source:  a.Source,
-			Details: a.Details,
+			ID:        a.ID,
+			Source:    a.Source,
+			Details:   a.Details,
+			RequestID: a.RequestID,
 		})
 		if err != nil {
 			return err
@@ -1248,6 +1388,7 @@ func backfillLegacyAudits() error {
 			eventID,
 			"unknown-run",
 			"",
+			a.RequestID,
 			"audit",
 			a.Actor,
 			a.Reason,
@@ -1308,6 +1449,7 @@ func backfillLegacyDecisions() error {
 			eventID,
 			"unknown-run",
 			"",
+			"",
 			"decision",
 			"system",
 			d.Reason,
@@ -1327,7 +1469,7 @@ func backfillLegacyDecisions() error {
 	return nil
 }
 
-func insertLegacyUnifiedEvent(eventID, runID, incidentID, eventType, actor, reasonText, createdAt, title, summary, reason string, pid int, cpuScore, entropyScore, confidenceScore float64, payloadJSON string) error {
+func insertLegacyUnifiedEvent(eventID, runID, incidentID, requestID, eventType, actor, reasonText, createdAt, title, summary, reason string, pid int, cpuScore, entropyScore, confidenceScore float64, payloadJSON string) error {
 	incidentID = strings.TrimSpace(incidentID)
 	var incidentIDValue interface{}
 	if incidentID == "" {
@@ -1335,14 +1477,22 @@ func insertLegacyUnifiedEvent(eventID, runID, incidentID, eventType, actor, reas
 	} else {
 		incidentIDValue = incidentID
 	}
+	requestID = strings.TrimSpace(requestID)
+	var requestIDValue interface{}
+	if requestID == "" {
+		requestIDValue = nil
+	} else {
+		requestIDValue = requestID
+	}
 	_, err := db.Exec(`
 INSERT OR IGNORE INTO events(
-	event_id, run_id, incident_id, event_type, actor, reason_text, created_at,
+	event_id, run_id, incident_id, request_id, event_type, actor, reason_text, created_at,
 	payload_json, timestamp, type, title, summary, reason, pid, cpu_score, entropy_score, confidence_score
-) VALUES(?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP), ?, COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES(?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP), ?, COALESCE(NULLIF(?, ''), CURRENT_TIMESTAMP), ?, ?, ?, ?, ?, ?, ?, ?)`,
 		eventID,
 		runID,
 		incidentIDValue,
+		requestIDValue,
 		eventType,
 		actor,
 		reasonText,

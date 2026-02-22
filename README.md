@@ -114,6 +114,8 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `GET /v1/timeline?incident_id=<id>`
 - `GET /v1/worker/lifecycle`
 - `GET /v1/metrics`
+- `GET /v1/ops/controlplane/replay/history?days=<n>`
+- `GET /v1/ops/requests/{request_id}?limit=<n>`
 - `POST /v1/process/kill`
 - `POST /v1/process/restart`
 - `POST /v1/integrations/workspaces/register`
@@ -129,6 +131,7 @@ Legacy non-versioned aliases remain available (`/healthz`, `/readyz`, `/incident
 Integration write endpoints require `FLOWFORGE_API_KEY`; workspace registration requires absolute `workspace_path`.
 Error responses use RFC 7807 Problem Details (`application/problem+json`) with structured `type` URIs, include `request_id`, and keep legacy `error` for compatibility.
 API echoes `X-Request-Id` (or generates one) so operators can correlate failed requests with audit evidence.
+Use `GET /v1/ops/requests/{request_id}` to retrieve the full correlated event chain for that request id.
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`
