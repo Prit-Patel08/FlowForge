@@ -33,6 +33,20 @@ setup_fake_toolchain() {
   local fake_gopath="$tmp_dir/gopath"
   mkdir -p "$bin_dir" "$fake_gopath/bin"
 
+  # Keep PATH deterministic for contract testing. We vend a minimal utility set
+  # into the fake bin so host-installed optional tools (for example docker on
+  # CI runners) do not affect assertions.
+  local util
+  local util_path
+  for util in bash grep rm cat chmod mkdir dirname head tr mktemp; do
+    util_path="$(command -v "$util")"
+    if [[ -z "$util_path" ]]; then
+      echo "missing required utility for contract test: $util" >&2
+      exit 1
+    fi
+    ln -sf "$util_path" "$bin_dir/$util"
+  done
+
   cat > "$bin_dir/go" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -87,7 +101,7 @@ EOF
   chmod +x "$bin_dir/go" "$bin_dir/node" "$bin_dir/npm" "$bin_dir/docker" "$bin_dir/shellcheck"
   chmod +x "$fake_gopath/bin/staticcheck" "$fake_gopath/bin/govulncheck"
 
-  export PATH="$bin_dir:/usr/bin:/bin"
+  export PATH="$bin_dir"
 }
 
 run_all_tools_present_case() {
