@@ -77,6 +77,11 @@ make contracts
 make precommit
 ```
 
+`make contracts` runs:
+- `scripts/tooling_doctor_contract_test.sh`
+- `scripts/release_checkpoint_contract_test.sh`
+- `scripts/install_git_hook_contract_test.sh`
+
 Notes:
 - strict mode fails if `staticcheck`/`govulncheck` are missing
 - if `govulncheck` reports Go stdlib advisories, upgrade local Go patch version to match CI (`1.25.7`)

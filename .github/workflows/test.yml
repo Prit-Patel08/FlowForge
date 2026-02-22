@@ -81,6 +81,9 @@ jobs:
       - name: Run release checkpoint contract tests
         run: ./scripts/release_checkpoint_contract_test.sh
 
+      - name: Run tooling doctor contract tests
+        run: ./scripts/tooling_doctor_contract_test.sh
+
       - name: Run git hook installer contract tests
         run: ./scripts/install_git_hook_contract_test.sh
 

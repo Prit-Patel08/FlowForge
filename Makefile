@@ -24,6 +24,7 @@ doctor-strict:
 	./scripts/tooling_doctor.sh --strict
 
 contracts:
+	./scripts/tooling_doctor_contract_test.sh
 	./scripts/release_checkpoint_contract_test.sh
 	./scripts/install_git_hook_contract_test.sh
 

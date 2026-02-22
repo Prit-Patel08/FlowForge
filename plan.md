@@ -4961,6 +4961,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] tooling doctor + dynamic-port contract tests added (precommit integration and flake-resistant local checks)
 - [x] developer bootstrap path simplified (Makefile shortcuts + CI tooling-doctor strict gate + first-run quickstart)
 - [x] tooling diagnostics operationalized (summary artifact output + CI artifact upload + make shortcut)
+- [x] tooling doctor behavior contract-tested and enforced in CI contract suite
 - [x] formal SLO dashboard operations in weekly ritual
 - [x] chaos drill evidence published
 - [x] external first-time usability validation completed

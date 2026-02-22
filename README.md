@@ -193,6 +193,7 @@ Release checkpoint (`./scripts/release_checkpoint.sh`) runs `verify_local.sh --s
 If `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`, it also enforces `/readyz` health (HTTP 200 + `status=ready` + `cloud_dependencies_required=true`).
 If `govulncheck` reports Go standard library advisories, upgrade your local Go patch version (CI uses Go `1.25.7`).
 Release checkpoint contract tests: `./scripts/release_checkpoint_contract_test.sh`.
+Tooling doctor contract tests: `./scripts/tooling_doctor_contract_test.sh`.
 CI also enforces `shellcheck` for `scripts/*.sh`.
 CI also runs `tooling_doctor.sh --strict`.
 CI uploads tooling doctor summary artifact (`tooling-doctor/summary.tsv`).
