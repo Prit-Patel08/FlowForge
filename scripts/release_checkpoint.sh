@@ -72,6 +72,9 @@ controlplane_replay_drill_status="SKIPPED (FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY
 controlplane_replay_drill_dir=""
 controlplane_replay_retention_status="SKIPPED (FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION not enabled)"
 controlplane_replay_retention_dir=""
+weekly_slo_green_gate_status="SKIPPED (FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN not enabled)"
+weekly_slo_review_dir=""
+weekly_slo_error_budget_status="N/A"
 
 if is_truthy "${FLOWFORGE_CLOUD_DEPS_REQUIRED:-0}"; then
   readyz_artifact="$REPORT_DIR/readyz.json"
@@ -187,6 +190,64 @@ if is_truthy "${FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION:-0}"; then
   fi
 fi
 
+if is_truthy "${FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN:-0}"; then
+  if [[ ! -x "./scripts/slo_weekly_review.sh" ]]; then
+    echo "Blocked: weekly SLO gate requires scripts/slo_weekly_review.sh." >&2
+    exit 1
+  fi
+
+  weekly_slo_review_days="${FLOWFORGE_SLO_REVIEW_DAYS:-7}"
+  weekly_slo_review_dir="$REPORT_DIR/slo-weekly-review"
+
+  slo_review_cmd=(
+    ./scripts/slo_weekly_review.sh
+    --days "$weekly_slo_review_days"
+    --out "$weekly_slo_review_dir"
+  )
+  if [[ -n "${FLOWFORGE_API_BASE:-}" ]]; then
+    slo_review_cmd+=(--api-base "${FLOWFORGE_API_BASE}")
+  fi
+  if [[ -n "${FLOWFORGE_DB_PATH:-}" ]]; then
+    slo_review_cmd+=(--db "${FLOWFORGE_DB_PATH}")
+  fi
+  if [[ -n "${FLOWFORGE_SLO_REPLAY_MAX_ROWS:-}" ]]; then
+    slo_review_cmd+=(--replay-max-rows "${FLOWFORGE_SLO_REPLAY_MAX_ROWS}")
+  fi
+  if [[ -n "${FLOWFORGE_SLO_REPLAY_SPIKE_YELLOW:-}" ]]; then
+    slo_review_cmd+=(--replay-spike-yellow "${FLOWFORGE_SLO_REPLAY_SPIKE_YELLOW}")
+  fi
+  if [[ -n "${FLOWFORGE_SLO_REPLAY_SPIKE_RED:-}" ]]; then
+    slo_review_cmd+=(--replay-spike-red "${FLOWFORGE_SLO_REPLAY_SPIKE_RED}")
+  fi
+  if [[ -n "${FLOWFORGE_SLO_CONFLICT_SPIKE_YELLOW:-}" ]]; then
+    slo_review_cmd+=(--conflict-spike-yellow "${FLOWFORGE_SLO_CONFLICT_SPIKE_YELLOW}")
+  fi
+  if [[ -n "${FLOWFORGE_SLO_CONFLICT_SPIKE_RED:-}" ]]; then
+    slo_review_cmd+=(--conflict-spike-red "${FLOWFORGE_SLO_CONFLICT_SPIKE_RED}")
+  fi
+  if ! "${slo_review_cmd[@]}" >/dev/null; then
+    echo "Blocked: weekly SLO review script failed while evaluating release gate." >&2
+    exit 1
+  fi
+
+  weekly_slo_summary="$weekly_slo_review_dir/summary.tsv"
+  if [[ ! -f "$weekly_slo_summary" ]]; then
+    echo "Blocked: weekly SLO review did not produce summary.tsv." >&2
+    exit 1
+  fi
+  weekly_slo_error_budget_status="$(awk -F '\t' '$1=="error_budget_status"{print $2; exit}' "$weekly_slo_summary")"
+  if [[ -z "$weekly_slo_error_budget_status" ]]; then
+    echo "Blocked: weekly SLO summary missing error_budget_status." >&2
+    exit 1
+  fi
+  if [[ "$weekly_slo_error_budget_status" != "GREEN" ]]; then
+    echo "Blocked: weekly SLO gate requires error_budget_status=GREEN (found: $weekly_slo_error_budget_status)." >&2
+    exit 1
+  fi
+
+  weekly_slo_green_gate_status="PASS"
+fi
+
 cat > "$REPORT_FILE" <<EOF
 # Release Checkpoint
 
@@ -202,6 +263,7 @@ Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Signed evidence bundle gate: $evidence_bundle_status
 - Control-plane replay drill gate: $controlplane_replay_drill_status
 - Control-plane replay retention prune: $controlplane_replay_retention_status
+- Weekly SLO GREEN gate: $weekly_slo_green_gate_status
 
 ## Readiness Evidence
 
@@ -210,6 +272,8 @@ Date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - Evidence bundle artifact: ${evidence_bundle_dir:-N/A}
 - Control-plane replay drill artifact: ${controlplane_replay_drill_dir:-N/A}
 - Control-plane replay retention artifact: ${controlplane_replay_retention_dir:-N/A}
+- Weekly SLO artifact: ${weekly_slo_review_dir:-N/A}
+- Weekly SLO error budget status: ${weekly_slo_error_budget_status:-N/A}
 
 ## Ready
 

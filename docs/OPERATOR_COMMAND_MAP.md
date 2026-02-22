@@ -50,6 +50,7 @@ Use this file as the single command reference for day-to-day operation.
 |---|---|
 | Release checkpoint | `./scripts/release_checkpoint.sh` |
 | Release checkpoint (replay + retention strict) | `FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1 FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1 ./scripts/release_checkpoint.sh` |
+| Release checkpoint (weekly SLO GREEN strict) | `FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1 FLOWFORGE_SLO_REVIEW_DAYS=7 FLOWFORGE_SLO_REPLAY_MAX_ROWS=50000 ./scripts/release_checkpoint.sh` |
 | Weekly SLO report | `./scripts/slo_weekly_review.sh --days 7` |
 | Control-plane replay drill | `./scripts/controlplane_replay_drill.sh` |
 | Control-plane replay retention prune | `./scripts/controlplane_replay_retention.sh --retention-days 30 --max-rows 50000` |

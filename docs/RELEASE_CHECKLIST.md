@@ -10,6 +10,7 @@ Use this checklist before tagging any release.
 - [ ] If `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`, API `/readyz` is healthy and reports `cloud_dependencies_required=true`.
 - [ ] If `FLOWFORGE_REQUIRE_CONTROLPLANE_REPLAY_DRILL=1`, replay drill artifact shows `overall_status=PASS`.
 - [ ] If `FLOWFORGE_RUN_CONTROLPLANE_REPLAY_RETENTION=1`, retention artifact status is `PASS` or `SKIPPED`.
+- [ ] If `FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1`, weekly SLO artifact summary shows `error_budget_status=GREEN`.
 - [ ] Signed evidence bundle exported: `go run . evidence export --out-dir <release-artifact-dir>/evidence`.
 - [ ] Signed evidence bundle verified: `go run . evidence verify --bundle-dir <release-artifact-dir>/evidence`.
 - [ ] CI checks on `main` are green (`shellcheck`, `release-checkpoint-contract`, `backend` [build/test/race/vet/staticcheck/govulncheck], `dashboard`, `smoke`, `replay-drill`, `docker`, `sbom`).

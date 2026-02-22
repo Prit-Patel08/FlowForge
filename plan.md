@@ -4977,6 +4977,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] CI live replay-drill gate added (dashboard API boot + control-plane replay drill artifact upload)
 - [x] replay history ops endpoint + dashboard daily trend implemented (`/v1/ops/controlplane/replay/history` + Lifecycle SLO trend view + API contract validation)
 - [x] weekly SLO replay trend spike policy operationalized (report analysis + YELLOW/RED trigger logic + CI contract test gate)
+- [x] release checkpoint weekly SLO GREEN gate implemented (optional strict gate + summary parsing + contract coverage)
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

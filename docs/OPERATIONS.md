@@ -183,6 +183,26 @@ FLOWFORGE_CONTROLPLANE_REPLAY_MAX_ROWS=50000 \
 ./scripts/release_checkpoint.sh
 ```
 
+Optional weekly SLO green gate during release checkpoint:
+
+```bash
+FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1 \
+FLOWFORGE_SLO_REVIEW_DAYS=7 \
+FLOWFORGE_SLO_REPLAY_MAX_ROWS=50000 \
+./scripts/release_checkpoint.sh
+```
+
+Optional weekly SLO spike-threshold pass-through for the release gate:
+
+```bash
+FLOWFORGE_REQUIRE_WEEKLY_SLO_GREEN=1 \
+FLOWFORGE_SLO_REPLAY_SPIKE_YELLOW=5 \
+FLOWFORGE_SLO_REPLAY_SPIKE_RED=10 \
+FLOWFORGE_SLO_CONFLICT_SPIKE_YELLOW=2 \
+FLOWFORGE_SLO_CONFLICT_SPIKE_RED=5 \
+./scripts/release_checkpoint.sh
+```
+
 ## Issue Intake and Postmortem Templates
 
 Use GitHub issue forms:
