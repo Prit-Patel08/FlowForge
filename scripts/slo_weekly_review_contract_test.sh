@@ -15,7 +15,7 @@ trap cleanup EXIT
 assert_file_contains() {
   local file_path="$1"
   local pattern="$2"
-  if ! rg -q -- "$pattern" "$file_path"; then
+  if ! grep -Eq -- "$pattern" "$file_path"; then
     echo "assertion failed: expected pattern '$pattern' in $file_path" >&2
     exit 1
   fi

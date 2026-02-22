@@ -24,7 +24,7 @@ make_repo() {
 assert_file_contains() {
   local file_path="$1"
   local pattern="$2"
-  if ! rg -q -- "$pattern" "$file_path"; then
+  if ! grep -Eq -- "$pattern" "$file_path"; then
     echo "assertion failed: expected pattern '$pattern' in $file_path" >&2
     exit 1
   fi
@@ -33,7 +33,7 @@ assert_file_contains() {
 assert_file_not_contains() {
   local file_path="$1"
   local pattern="$2"
-  if rg -q -- "$pattern" "$file_path"; then
+  if grep -Eq -- "$pattern" "$file_path"; then
     echo "assertion failed: unexpected pattern '$pattern' in $file_path" >&2
     exit 1
   fi
@@ -64,7 +64,7 @@ run_default_install_case() {
     after_sum="$(shasum ".git/hooks/pre-commit" | awk '{print $1}')"
 
     [[ "$before_sum" == "$after_sum" ]]
-    echo "$second_run_output" | rg -q "already up to date"
+    echo "$second_run_output" | grep -Eq "already up to date"
 
     ./scripts/install_git_hook.sh --strict >/dev/null
     assert_file_contains ".git/hooks/pre-commit" "--strict"
