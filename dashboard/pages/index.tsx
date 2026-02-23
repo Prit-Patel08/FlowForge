@@ -154,6 +154,10 @@ interface RequestTraceEvent {
   actor: string;
   incident_id: string;
   reason_text: string;
+  decision_engine: string;
+  engine_version: string;
+  decision_contract_version: string;
+  rollout_mode: string;
 }
 
 interface RequestTraceResponse {
@@ -438,7 +442,11 @@ export default function Dashboard() {
             title: typeof event.title === 'string' ? event.title : '',
             actor: typeof event.actor === 'string' ? event.actor : '',
             incident_id: typeof event.incident_id === 'string' ? event.incident_id : '',
-            reason_text: typeof event.reason_text === 'string' ? event.reason_text : ''
+            reason_text: typeof event.reason_text === 'string' ? event.reason_text : '',
+            decision_engine: typeof event.decision_engine === 'string' ? event.decision_engine : '',
+            engine_version: typeof event.engine_version === 'string' ? event.engine_version : '',
+            decision_contract_version: typeof event.decision_contract_version === 'string' ? event.decision_contract_version : '',
+            rollout_mode: typeof event.rollout_mode === 'string' ? event.rollout_mode : ''
           };
         })
         .filter((event): event is RequestTraceEvent => event !== null);
@@ -970,6 +978,13 @@ export default function Dashboard() {
                               <p className="font-mono text-[11px] text-gray-200">{event.event_type || 'unknown'}</p>
                               <p className="text-gray-300">{event.title || 'Untitled event'}</p>
                               <p className="text-[11px] text-gray-500">{event.created_at || 'timestamp unavailable'}</p>
+                              {(event.engine_version || event.decision_engine || event.decision_contract_version || event.rollout_mode) && (
+                                <p className="mt-1 text-[11px] font-mono text-cyan-300/90">
+                                  Engine {event.decision_engine || 'unknown'}{event.engine_version ? `@${event.engine_version}` : ''}
+                                  {event.decision_contract_version ? ` | Contract ${event.decision_contract_version}` : ''}
+                                  {event.rollout_mode ? ` | Rollout ${event.rollout_mode}` : ''}
+                                </p>
+                              )}
                             </div>
                             {event.incident_id && (
                               <button

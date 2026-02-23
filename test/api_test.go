@@ -1797,6 +1797,119 @@ func TestTimelineIncidentEndpointSnapshotContract(t *testing.T) {
 	}
 }
 
+func TestTimelineDecisionEngineVersionContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-timeline-engine-contract")
+	incidentID := "incident-engine-contract-1"
+
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "canary",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 worker.py",
+		5150,
+		94.0,
+		12.0,
+		96.0,
+		"KILL",
+		"timeline contract with engine version",
+		incidentID,
+		meta,
+	); err != nil {
+		t.Fatalf("LogDecisionTraceWithIncidentAndMeta: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/timeline?incident_id="+incidentID, nil)
+	w := httptest.NewRecorder()
+	api.HandleTimeline(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload []map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode timeline payload: %v", err)
+	}
+	if len(payload) == 0 {
+		t.Fatal("expected timeline payload to include decision event")
+	}
+	ev := payload[0]
+	if got := stringValue(ev["engine_version"]); got != meta.EngineVersion {
+		t.Fatalf("expected engine_version %q, got %q", meta.EngineVersion, got)
+	}
+	if got := stringValue(ev["decision_engine"]); got != meta.DecisionEngine {
+		t.Fatalf("expected decision_engine %q, got %q", meta.DecisionEngine, got)
+	}
+	if got := stringValue(ev["decision_contract_version"]); got != meta.DecisionContract {
+		t.Fatalf("expected decision_contract_version %q, got %q", meta.DecisionContract, got)
+	}
+	if got := stringValue(ev["rollout_mode"]); got != meta.PolicyRolloutMode {
+		t.Fatalf("expected rollout_mode %q, got %q", meta.PolicyRolloutMode, got)
+	}
+}
+
+func TestRequestTraceEndpointIncludesDecisionEngineVersionContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	requestID := "req-trace-engine-contract"
+
+	if _, err := database.InsertEventWithPayloadAndRequestID(
+		"decision",
+		"system",
+		"request trace with versioned decision metadata",
+		"run-request-trace-engine",
+		"incident-request-trace-engine",
+		"KILL",
+		"policy enforcement executed",
+		7070,
+		98.0,
+		10.0,
+		97.5,
+		requestID,
+		map[string]interface{}{
+			"id":                        1,
+			"command":                   "python3 worker.py",
+			"decision_engine":           "threshold-decider",
+			"engine_version":            "1.1.0",
+			"decision_contract_version": "decision-trace.v1",
+			"rollout_mode":              "enforce",
+		},
+	); err != nil {
+		t.Fatalf("insert versioned decision event: %v", err)
+	}
+
+	handler := api.NewHandler()
+	req := httptest.NewRequest("GET", "/v1/ops/requests/"+requestID, nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode request trace payload: %v", err)
+	}
+	eventsRaw, ok := body["events"].([]interface{})
+	if !ok || len(eventsRaw) == 0 {
+		t.Fatalf("expected non-empty events array, got %#v", body["events"])
+	}
+	ev, ok := eventsRaw[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected first event object, got %T", eventsRaw[0])
+	}
+	if got := stringValue(ev["engine_version"]); got != "1.1.0" {
+		t.Fatalf("expected engine_version 1.1.0, got %q", got)
+	}
+	if got := stringValue(ev["decision_engine"]); got != "threshold-decider" {
+		t.Fatalf("expected decision_engine threshold-decider, got %q", got)
+	}
+}
+
 func TestIntegrationWorkspaceRegisterAndStatus(t *testing.T) {
 	setupTempDBForAPI(t)
 	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")

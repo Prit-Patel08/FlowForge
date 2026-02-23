@@ -147,6 +147,13 @@ export default function IncidentDrilldownPanel({ incidentId, events, loading, er
               {(event.reason_text || event.reason) && (
                 <p className="mt-1 text-xs text-gray-300">Reason: {event.reason_text || event.reason}</p>
               )}
+              {(event.engine_version || event.decision_engine || event.decision_contract_version || event.rollout_mode) && (
+                <p className="mt-1 text-[11px] font-mono text-cyan-300/90">
+                  Engine {event.decision_engine || "unknown"}{event.engine_version ? `@${event.engine_version}` : ""}
+                  {event.decision_contract_version ? ` | Contract ${event.decision_contract_version}` : ""}
+                  {event.rollout_mode ? ` | Rollout ${event.rollout_mode}` : ""}
+                </p>
+              )}
               <p className="mt-1 text-[11px] text-gray-500">
                 Actor: {event.actor || 'system'}{event.pid > 0 ? ` | PID ${event.pid}` : ''}
               </p>

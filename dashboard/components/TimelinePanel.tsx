@@ -65,6 +65,13 @@ export default function TimelinePanel({ events, selectedIncidentId, onSelectInci
             <div className="space-y-2">
               {group.events.map((event, idx) => (
                 <div key={`${group.incidentId}-${event.event_id || idx}-${event.timestamp}`} className="rounded border border-gray-800 bg-black/20 p-2">
+                  {(() => {
+                    const decisionEngine = event.decision_engine || evidenceString(event, "decision_engine");
+                    const engineVersion = event.engine_version || evidenceString(event, "engine_version");
+                    const contractVersion = event.decision_contract_version || evidenceString(event, "decision_contract_version");
+                    const rolloutMode = event.rollout_mode || evidenceString(event, "rollout_mode");
+                    return (
+                      <>
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-300">{event.type}</span>
                     <span className="text-[11px] text-gray-500">
@@ -74,6 +81,13 @@ export default function TimelinePanel({ events, selectedIncidentId, onSelectInci
                   <p className="text-sm font-medium text-gray-200">{event.title}</p>
                   <p className="mt-1 text-xs text-gray-400">{event.summary}</p>
                   {event.reason && <p className="mt-1 text-xs text-gray-300">Reason: {event.reason}</p>}
+                  {engineVersion && (
+                    <p className="mt-1 text-[11px] font-mono text-cyan-300/90">
+                      Engine {decisionEngine || "unknown"}@{engineVersion}
+                      {contractVersion ? ` | Contract ${contractVersion}` : ""}
+                      {rolloutMode ? ` | Rollout ${rolloutMode}` : ""}
+                    </p>
+                  )}
                   {event.type === "lifecycle" && (
                     <p className="mt-1 text-[11px] font-mono text-cyan-300/90">
                       Phase {evidenceString(event, "phase") || "UNKNOWN"} | Op {evidenceString(event, "operation") || "idle"} | PID {evidenceNumber(event, "pid") ?? 0} | Managed {evidenceBool(event, "managed") ? "yes" : "no"}
@@ -85,6 +99,9 @@ export default function TimelinePanel({ events, selectedIncidentId, onSelectInci
                       CPU {event.cpu_score?.toFixed(1) || "0.0"} | Entropy {event.entropy_score?.toFixed(1) || "0.0"} | Confidence {event.confidence_score?.toFixed(1) || "0.0"}
                     </p>
                   )}
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

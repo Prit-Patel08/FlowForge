@@ -1070,7 +1070,7 @@ Domain 10 capabilities:
 - Strategic intent: Strengthen Engine version control to support deterministic, explainable execution control.
 - Capability target: Engine version control
 - Phase: Foundation (P0-P1)
-- Delivery status: planned
+- Delivery status: implemented-baseline
 - Build scope:
   1. Define contract/spec for Engine version control behavior and failure modes.
   2. Implement baseline instrumentation and evidence linkage for Engine version control.
@@ -4982,6 +4982,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] API error contract standardized to RFC7807 across runtime/integration handlers (Problem Details + dashboard parsing + contract assertions)
 - [x] request correlation hardened end-to-end (`X-Request-Id` propagation + typed problem URIs + audit reason tagging for control-plane actions)
 - [x] request traceability made first-class in persistence + ops UX (`request_id` stored on audit/unified events, `/v1/ops/requests/{request_id}` endpoint, dashboard copyable request id on mutation errors)
+- [x] decision engine version control foundation implemented (`decision_engine` + `engine_version` + `decision_contract_version` + `rollout_mode` persisted in decision traces/events, surfaced through timeline/request-trace API + dashboard, and covered by release/CI contract tests)
 - [x] MVP Phase-1 exit gate operationalized (`scripts/mvp_phase1_exit_gate.sh` + release checkpoint optional strict gate + contract coverage + dashboard request-trace lookup UX)
 - [x] local daemon lifecycle operationalized (`flowforge daemon start|stop|status|logs` + `flowforge dashboard` daemon auto-attach + script-safe `--foreground` mode)
 - [x] daemon reliability + integration lifecycle hardening (`scripts/daemon_smoke.sh` + daemon smoke contract/release strict gate + workspace unregister API with audit/idempotency contract tests)

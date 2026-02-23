@@ -471,6 +471,19 @@ func runProcess(args []string) {
 		DryRunActor:       "system",
 		DryRunEventPrefix: "Policy dry-run",
 	}
+	engineContract := policy.CurrentEngineContract(rolloutMode)
+	decisionTraceMeta := database.DecisionTraceMeta{
+		DecisionEngine:    engineContract.EngineName,
+		EngineVersion:     engineContract.EngineVersion,
+		DecisionContract:  engineContract.ContractVersion,
+		PolicyRolloutMode: engineContract.RolloutMode,
+	}
+	fmt.Printf("[FlowForge] Decision engine=%s version=%s contract=%s rollout=%s\n",
+		engineContract.EngineName,
+		engineContract.EngineVersion,
+		engineContract.ContractVersion,
+		engineContract.RolloutMode,
+	)
 
 	// Create Monitor instance
 	monitor := sysmon.NewMonitor()
@@ -610,7 +623,7 @@ func runProcess(args []string) {
 					reason := decision.Reason
 
 					if time.Since(lastDecisionTrace) > 5*time.Second || decision.Action != policy.ActionContinue {
-						_ = database.LogDecisionTrace(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason)
+						_ = database.LogDecisionTraceWithMeta(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, decisionTraceMeta)
 						lastDecisionTrace = time.Now()
 					}
 					state.UpdateDecision(reason, cpuScore, entropyScore, confidenceScore)
@@ -650,7 +663,7 @@ func runProcess(args []string) {
 							finalTokens := int(observer.TotalTokens())
 							finalCost := tokens.EstimateCost(finalTokens, modelName)
 
-							_ = database.LogDecisionTraceWithIncident(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID)
+							_ = database.LogDecisionTraceWithIncidentAndMeta(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID, decisionTraceMeta)
 							_ = database.LogIncidentWithDecisionForIncident(
 								fullCommand,
 								modelName,
@@ -686,7 +699,7 @@ func runProcess(args []string) {
 					case policy.ActionLogOnly:
 						fmt.Printf("\n[FlowForge] 🧪 %s\n", reason)
 						incidentID := uuid.NewString()
-						_ = database.LogDecisionTraceWithIncident(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID)
+						_ = database.LogDecisionTraceWithIncidentAndMeta(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID, decisionTraceMeta)
 						_ = database.LogPolicyDryRunWithIncident(fullCommand, pid, reason, confidenceScore, incidentID)
 					case policy.ActionKill, policy.ActionRestart:
 						if noKill {
@@ -694,7 +707,7 @@ func runProcess(args []string) {
 							fmt.Printf("\n[FlowForge] WATCHDOG MODE: %s\n", reason)
 							incidentID := uuid.NewString()
 							blockedReason := "watchdog mode blocked destructive action: " + reason
-							_ = database.LogDecisionTraceWithIncident(fullCommand, pid, cpuScore, entropyScore, confidenceScore, "ACTION_BLOCKED", blockedReason, incidentID)
+							_ = database.LogDecisionTraceWithIncidentAndMeta(fullCommand, pid, cpuScore, entropyScore, confidenceScore, "ACTION_BLOCKED", blockedReason, incidentID, decisionTraceMeta)
 							_ = database.LogPolicyDryRunWithIncident(fullCommand, pid, blockedReason, confidenceScore, incidentID)
 							continue
 						}
@@ -721,7 +734,7 @@ func runProcess(args []string) {
 						finalTokens := int(observer.TotalTokens())
 						finalCost := tokens.EstimateCost(finalTokens, modelName)
 
-						_ = database.LogDecisionTraceWithIncident(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID)
+						_ = database.LogDecisionTraceWithIncidentAndMeta(fullCommand, pid, cpuScore, entropyScore, confidenceScore, decision.Action.String(), reason, incidentID, decisionTraceMeta)
 						_ = database.LogIncidentWithDecisionForIncident(
 							fullCommand,
 							modelName,

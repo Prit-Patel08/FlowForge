@@ -20,6 +20,7 @@ Main gaps are in:
 2. Domain 2 (Decision Intelligence)
 - multi-signal scoring and reason output are in production path.
 - shadow-mode policy behavior exists.
+- decision traces now carry versioned engine metadata (`decision_engine`, `engine_version`, `decision_contract_version`, `rollout_mode`) across DB, API, and dashboard.
 
 3. Domain 3 (Policy and Governance)
 - policy dry-run/shadow mode exists.
@@ -41,11 +42,7 @@ Main gaps are in:
 
 ## What Is Partially Aligned (Realign Required)
 
-1. Decision engine versioning
-- reason outputs exist, but formal `engine_version` contract is not yet first-class.
-- action: add decision engine metadata contract in schema and API payloads.
-
-2. SLO ritual maturity
+1. SLO ritual maturity
 - checks exist technically, but reliability governance rituals are not fully formalized.
 - action: add weekly SLO dashboard + error budget policy doc + owner cadence.
 

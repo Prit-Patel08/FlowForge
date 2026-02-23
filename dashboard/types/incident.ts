@@ -19,6 +19,7 @@ export interface TimelineEvent {
     event_id?: string;
     run_id?: string;
     incident_id?: string;
+    request_id?: string;
     type: string;
     timestamp: string;
     title: string;
@@ -29,6 +30,10 @@ export interface TimelineEvent {
     cpu_score?: number;
     entropy_score?: number;
     confidence_score?: number;
+    decision_engine?: string;
+    engine_version?: string;
+    decision_contract_version?: string;
+    rollout_mode?: string;
     evidence?: Record<string, unknown>;
 }
 
@@ -50,6 +55,10 @@ export interface IncidentChainEvent {
     cpu_score: number;
     entropy_score: number;
     confidence_score: number;
+    decision_engine?: string;
+    engine_version?: string;
+    decision_contract_version?: string;
+    rollout_mode?: string;
     evidence?: Record<string, unknown>;
 }
 
@@ -119,6 +128,7 @@ export function parseTimelinePayload(payload: unknown): TimelineEvent[] {
             event_id: asString(entry.event_id),
             run_id: asString(entry.run_id),
             incident_id: asString(entry.incident_id),
+            request_id: asString(entry.request_id),
             type,
             timestamp,
             title: asString(entry.title),
@@ -129,6 +139,10 @@ export function parseTimelinePayload(payload: unknown): TimelineEvent[] {
             cpu_score: asOptionalNumber(entry.cpu_score),
             entropy_score: asOptionalNumber(entry.entropy_score),
             confidence_score: asOptionalNumber(entry.confidence_score),
+            decision_engine: asString(entry.decision_engine),
+            engine_version: asString(entry.engine_version),
+            decision_contract_version: asString(entry.decision_contract_version),
+            rollout_mode: asString(entry.rollout_mode),
             evidence: asRecord(entry.evidence),
         }];
     });
@@ -169,6 +183,10 @@ export function parseIncidentChainPayload(payload: unknown): IncidentChainEvent[
             cpu_score: asNumber(entry.cpu_score),
             entropy_score: asNumber(entry.entropy_score),
             confidence_score: asNumber(entry.confidence_score),
+            decision_engine: asString(entry.decision_engine),
+            engine_version: asString(entry.engine_version),
+            decision_contract_version: asString(entry.decision_contract_version),
+            rollout_mode: asString(entry.rollout_mode),
             evidence: asRecord(entry.evidence),
         }];
     });

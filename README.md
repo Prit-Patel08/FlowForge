@@ -144,6 +144,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 Legacy non-versioned aliases remain available (`/healthz`, `/readyz`, `/incidents`, `/timeline`, `/worker/lifecycle`, `/metrics`, `/stream`, `/process/*`) for backward compatibility.
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
+`decision` timeline/request-trace events now include versioned engine metadata (`decision_engine`, `engine_version`, `decision_contract_version`, `rollout_mode`) for deterministic replay and audits.
 /readyz returns structured readiness checks and can enforce cloud dependency health when `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`.
 Integration write endpoints require `FLOWFORGE_API_KEY`; workspace registration requires absolute `workspace_path`.
 Error responses use RFC 7807 Problem Details (`application/problem+json`) with structured `type` URIs, include `request_id`, and keep legacy `error` for compatibility.

@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -219,5 +220,132 @@ func TestInitDBMigratesLegacyEventsWithoutCreatedAt(t *testing.T) {
 		if !indexes[idx] {
 			t.Fatalf("expected index %s to exist after migration", idx)
 		}
+	}
+}
+
+func TestDecisionTraceMetadataPersistsToDecisionTableAndUnifiedEvents(t *testing.T) {
+	_ = withTempDBPath(t)
+	CloseDB()
+	if err := InitDB(); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	SetRunID("run-decision-engine-meta")
+
+	incidentID := "incident-engine-meta-1"
+	meta := DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "canary",
+	}
+	if err := LogDecisionTraceWithIncidentAndMeta(
+		"python3 worker.py",
+		4242,
+		92.1,
+		12.0,
+		95.4,
+		"KILL",
+		"contract metadata persist test",
+		incidentID,
+		meta,
+	); err != nil {
+		t.Fatalf("LogDecisionTraceWithIncidentAndMeta: %v", err)
+	}
+
+	traces, err := GetDecisionTraces(10)
+	if err != nil {
+		t.Fatalf("GetDecisionTraces: %v", err)
+	}
+	if len(traces) == 0 {
+		t.Fatal("expected at least one decision trace")
+	}
+	got := traces[0]
+	if got.DecisionEngine != meta.DecisionEngine {
+		t.Fatalf("expected decision_engine %q, got %q", meta.DecisionEngine, got.DecisionEngine)
+	}
+	if got.DecisionEngineVersion != meta.EngineVersion {
+		t.Fatalf("expected engine_version %q, got %q", meta.EngineVersion, got.DecisionEngineVersion)
+	}
+	if got.DecisionContract != meta.DecisionContract {
+		t.Fatalf("expected decision_contract_version %q, got %q", meta.DecisionContract, got.DecisionContract)
+	}
+	if got.PolicyRolloutMode != meta.PolicyRolloutMode {
+		t.Fatalf("expected rollout_mode %q, got %q", meta.PolicyRolloutMode, got.PolicyRolloutMode)
+	}
+
+	events, err := GetIncidentTimelineByIncidentID(incidentID, 10)
+	if err != nil {
+		t.Fatalf("GetIncidentTimelineByIncidentID: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("expected incident timeline to include decision event")
+	}
+	ev := events[0]
+	if ev.DecisionEngineVersion != meta.EngineVersion {
+		t.Fatalf("expected event engine_version %q, got %q", meta.EngineVersion, ev.DecisionEngineVersion)
+	}
+	if ev.DecisionEngine != meta.DecisionEngine {
+		t.Fatalf("expected event decision_engine %q, got %q", meta.DecisionEngine, ev.DecisionEngine)
+	}
+	if ev.DecisionContract != meta.DecisionContract {
+		t.Fatalf("expected event decision_contract_version %q, got %q", meta.DecisionContract, ev.DecisionContract)
+	}
+	if ev.PolicyRolloutMode != meta.PolicyRolloutMode {
+		t.Fatalf("expected event rollout_mode %q, got %q", meta.PolicyRolloutMode, ev.PolicyRolloutMode)
+	}
+}
+
+func TestInitDBBackfillsLegacyDecisionTraceEngineMetadataForReplayCompatibility(t *testing.T) {
+	dbPath := withTempDBPath(t)
+	CloseDB()
+
+	legacyDB, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("open legacy db: %v", err)
+	}
+
+	const legacyDecisionSchema = `CREATE TABLE IF NOT EXISTS decision_traces (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+		command TEXT,
+		pid INTEGER,
+		cpu_score REAL,
+		entropy_score REAL,
+		confidence_score REAL,
+		decision TEXT,
+		reason TEXT
+	);`
+	if _, err := legacyDB.Exec(legacyDecisionSchema); err != nil {
+		t.Fatalf("create legacy decision_traces schema: %v", err)
+	}
+	if _, err := legacyDB.Exec(`INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason)
+	VALUES ('python3 legacy.py', 1234, 97.0, 11.0, 96.0, 'KILL', 'legacy replay record')`); err != nil {
+		t.Fatalf("insert legacy decision trace: %v", err)
+	}
+	if err := legacyDB.Close(); err != nil {
+		t.Fatalf("close legacy db: %v", err)
+	}
+
+	if err := InitDB(); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+
+	var payloadRaw string
+	if err := GetDB().QueryRow(`SELECT COALESCE(payload_json, '{}') FROM events WHERE event_type='decision' ORDER BY id DESC LIMIT 1`).Scan(&payloadRaw); err != nil {
+		t.Fatalf("query decision payload: %v", err)
+	}
+
+	var payload decisionEventPayload
+	if err := json.Unmarshal([]byte(payloadRaw), &payload); err != nil {
+		t.Fatalf("decode decision payload: %v", err)
+	}
+	if payload.EngineVersion != "legacy-unknown" {
+		t.Fatalf("expected legacy engine version fallback, got %q", payload.EngineVersion)
+	}
+	if payload.DecisionEngine != "legacy-decider" {
+		t.Fatalf("expected legacy decision engine fallback, got %q", payload.DecisionEngine)
+	}
+	if payload.DecisionContract != "legacy-decision-trace" {
+		t.Fatalf("expected legacy contract fallback, got %q", payload.DecisionContract)
 	}
 }

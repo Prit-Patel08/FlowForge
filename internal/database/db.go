@@ -55,55 +55,67 @@ type AuditEvent struct {
 }
 
 type DecisionTrace struct {
-	ID              int     `json:"id"`
-	Timestamp       string  `json:"timestamp"`
-	Command         string  `json:"command"`
-	PID             int     `json:"pid"`
-	CPUScore        float64 `json:"cpu_score"`
-	EntropyScore    float64 `json:"entropy_score"`
-	ConfidenceScore float64 `json:"confidence_score"`
-	Decision        string  `json:"decision"`
-	Reason          string  `json:"reason"`
+	ID                    int     `json:"id"`
+	Timestamp             string  `json:"timestamp"`
+	Command               string  `json:"command"`
+	PID                   int     `json:"pid"`
+	CPUScore              float64 `json:"cpu_score"`
+	EntropyScore          float64 `json:"entropy_score"`
+	ConfidenceScore       float64 `json:"confidence_score"`
+	Decision              string  `json:"decision"`
+	Reason                string  `json:"reason"`
+	DecisionEngine        string  `json:"decision_engine,omitempty"`
+	DecisionEngineVersion string  `json:"engine_version,omitempty"`
+	DecisionContract      string  `json:"decision_contract_version,omitempty"`
+	PolicyRolloutMode     string  `json:"rollout_mode,omitempty"`
 }
 
 type TimelineEvent struct {
-	EventID    string                 `json:"event_id,omitempty"`
-	RunID      string                 `json:"run_id,omitempty"`
-	IncidentID string                 `json:"incident_id,omitempty"`
-	RequestID  string                 `json:"request_id,omitempty"`
-	Type       string                 `json:"type"`
-	Timestamp  string                 `json:"timestamp"`
-	Title      string                 `json:"title"`
-	Summary    string                 `json:"summary"`
-	Reason     string                 `json:"reason"`
-	Actor      string                 `json:"actor,omitempty"`
-	PID        int                    `json:"pid"`
-	CPUScore   float64                `json:"cpu_score,omitempty"`
-	Entropy    float64                `json:"entropy_score,omitempty"`
-	Confidence float64                `json:"confidence_score,omitempty"`
-	Evidence   map[string]interface{} `json:"evidence,omitempty"`
+	EventID               string                 `json:"event_id,omitempty"`
+	RunID                 string                 `json:"run_id,omitempty"`
+	IncidentID            string                 `json:"incident_id,omitempty"`
+	RequestID             string                 `json:"request_id,omitempty"`
+	Type                  string                 `json:"type"`
+	Timestamp             string                 `json:"timestamp"`
+	Title                 string                 `json:"title"`
+	Summary               string                 `json:"summary"`
+	Reason                string                 `json:"reason"`
+	Actor                 string                 `json:"actor,omitempty"`
+	PID                   int                    `json:"pid"`
+	CPUScore              float64                `json:"cpu_score,omitempty"`
+	Entropy               float64                `json:"entropy_score,omitempty"`
+	Confidence            float64                `json:"confidence_score,omitempty"`
+	DecisionEngine        string                 `json:"decision_engine,omitempty"`
+	DecisionEngineVersion string                 `json:"engine_version,omitempty"`
+	DecisionContract      string                 `json:"decision_contract_version,omitempty"`
+	PolicyRolloutMode     string                 `json:"rollout_mode,omitempty"`
+	Evidence              map[string]interface{} `json:"evidence,omitempty"`
 }
 
 type UnifiedEvent struct {
-	ID         int                    `json:"id"`
-	EventID    string                 `json:"event_id"`
-	RunID      string                 `json:"run_id"`
-	IncidentID string                 `json:"incident_id,omitempty"`
-	RequestID  string                 `json:"request_id,omitempty"`
-	EventType  string                 `json:"event_type"`
-	Actor      string                 `json:"actor"`
-	ReasonText string                 `json:"reason_text"`
-	CreatedAt  string                 `json:"created_at"`
-	Timestamp  string                 `json:"timestamp"`
-	Type       string                 `json:"type"`
-	Title      string                 `json:"title"`
-	Summary    string                 `json:"summary"`
-	Reason     string                 `json:"reason"`
-	PID        int                    `json:"pid"`
-	CPUScore   float64                `json:"cpu_score"`
-	Entropy    float64                `json:"entropy_score"`
-	Confidence float64                `json:"confidence_score"`
-	Evidence   map[string]interface{} `json:"evidence,omitempty"`
+	ID                    int                    `json:"id"`
+	EventID               string                 `json:"event_id"`
+	RunID                 string                 `json:"run_id"`
+	IncidentID            string                 `json:"incident_id,omitempty"`
+	RequestID             string                 `json:"request_id,omitempty"`
+	EventType             string                 `json:"event_type"`
+	Actor                 string                 `json:"actor"`
+	ReasonText            string                 `json:"reason_text"`
+	CreatedAt             string                 `json:"created_at"`
+	Timestamp             string                 `json:"timestamp"`
+	Type                  string                 `json:"type"`
+	Title                 string                 `json:"title"`
+	Summary               string                 `json:"summary"`
+	Reason                string                 `json:"reason"`
+	PID                   int                    `json:"pid"`
+	CPUScore              float64                `json:"cpu_score"`
+	Entropy               float64                `json:"entropy_score"`
+	Confidence            float64                `json:"confidence_score"`
+	DecisionEngine        string                 `json:"decision_engine,omitempty"`
+	DecisionEngineVersion string                 `json:"engine_version,omitempty"`
+	DecisionContract      string                 `json:"decision_contract_version,omitempty"`
+	PolicyRolloutMode     string                 `json:"rollout_mode,omitempty"`
+	Evidence              map[string]interface{} `json:"evidence,omitempty"`
 }
 
 type incidentEventPayload struct {
@@ -134,8 +146,19 @@ type auditEventPayload struct {
 }
 
 type decisionEventPayload struct {
-	ID      int    `json:"id"`
-	Command string `json:"command"`
+	ID                int    `json:"id"`
+	Command           string `json:"command"`
+	DecisionEngine    string `json:"decision_engine,omitempty"`
+	EngineVersion     string `json:"engine_version,omitempty"`
+	DecisionContract  string `json:"decision_contract_version,omitempty"`
+	PolicyRolloutMode string `json:"rollout_mode,omitempty"`
+}
+
+type DecisionTraceMeta struct {
+	DecisionEngine    string `json:"decision_engine,omitempty"`
+	EngineVersion     string `json:"engine_version,omitempty"`
+	DecisionContract  string `json:"decision_contract_version,omitempty"`
+	PolicyRolloutMode string `json:"rollout_mode,omitempty"`
 }
 
 func InitDB() error {
@@ -211,11 +234,31 @@ func InitDB() error {
 		entropy_score REAL,
 		confidence_score REAL,
 		decision TEXT,
-		reason TEXT
+		reason TEXT,
+		decision_engine TEXT DEFAULT '',
+		engine_version TEXT DEFAULT '',
+		decision_contract_version TEXT DEFAULT '',
+		rollout_mode TEXT DEFAULT ''
 	);`
 	if _, err := db.Exec(createDecisionTableSQL); err != nil {
 		return err
 	}
+	if err := ensureColumnExists("decision_traces", "decision_engine", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_traces", "engine_version", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_traces", "decision_contract_version", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_traces", "rollout_mode", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	db.Exec("UPDATE decision_traces SET decision_engine = COALESCE(decision_engine, '');")
+	db.Exec("UPDATE decision_traces SET engine_version = COALESCE(engine_version, '');")
+	db.Exec("UPDATE decision_traces SET decision_contract_version = COALESCE(decision_contract_version, '');")
+	db.Exec("UPDATE decision_traces SET rollout_mode = COALESCE(rollout_mode, '');")
 
 	createEventsTableSQL := `CREATE TABLE IF NOT EXISTS events (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -636,27 +679,51 @@ func GetAuditEvents(limit int) ([]AuditEvent, error) {
 }
 
 func LogDecisionTrace(command string, pid int, cpuScore, entropyScore, confidenceScore float64, decision, reason string) error {
-	return LogDecisionTraceWithIncident(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason, "")
+	return LogDecisionTraceWithIncidentAndMeta(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason, "", DecisionTraceMeta{})
 }
 
 func LogDecisionTraceWithIncident(command string, pid int, cpuScore, entropyScore, confidenceScore float64, decision, reason, incidentID string) error {
+	return LogDecisionTraceWithIncidentAndMeta(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason, incidentID, DecisionTraceMeta{})
+}
+
+func LogDecisionTraceWithMeta(command string, pid int, cpuScore, entropyScore, confidenceScore float64, decision, reason string, meta DecisionTraceMeta) error {
+	return LogDecisionTraceWithIncidentAndMeta(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason, "", meta)
+}
+
+func LogDecisionTraceWithIncidentAndMeta(command string, pid int, cpuScore, entropyScore, confidenceScore float64, decision, reason, incidentID string, meta DecisionTraceMeta) error {
 	if db == nil {
 		return fmt.Errorf("db not initialized")
 	}
-	stmt, err := db.Prepare("INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason) VALUES(?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason, decision_engine, engine_version, decision_contract_version, rollout_mode) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	result, err := stmt.Exec(command, pid, cpuScore, entropyScore, confidenceScore, decision, reason)
+	result, err := stmt.Exec(
+		command,
+		pid,
+		cpuScore,
+		entropyScore,
+		confidenceScore,
+		decision,
+		reason,
+		strings.TrimSpace(meta.DecisionEngine),
+		strings.TrimSpace(meta.EngineVersion),
+		strings.TrimSpace(meta.DecisionContract),
+		strings.TrimSpace(meta.PolicyRolloutMode),
+	)
 	if err != nil {
 		return err
 	}
 	insertedID, _ := result.LastInsertId()
 	summary := fmt.Sprintf("CPU %.1f / Entropy %.1f / Confidence %.1f", cpuScore, entropyScore, confidenceScore)
 	payload := decisionEventPayload{
-		ID:      int(insertedID),
-		Command: command,
+		ID:                int(insertedID),
+		Command:           command,
+		DecisionEngine:    strings.TrimSpace(meta.DecisionEngine),
+		EngineVersion:     strings.TrimSpace(meta.EngineVersion),
+		DecisionContract:  strings.TrimSpace(meta.DecisionContract),
+		PolicyRolloutMode: strings.TrimSpace(meta.PolicyRolloutMode),
 	}
 	return logUnifiedEventWithPayload("decision", decision, summary, reason, "system", incidentID, pid, cpuScore, entropyScore, confidenceScore, payload)
 }
@@ -668,7 +735,7 @@ func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := db.Query("SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, '') FROM decision_traces ORDER BY id DESC LIMIT ?", limit)
+	rows, err := db.Query("SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, '') FROM decision_traces ORDER BY id DESC LIMIT ?", limit)
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +743,21 @@ func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
 	var traces []DecisionTrace
 	for rows.Next() {
 		var t DecisionTrace
-		if err := rows.Scan(&t.ID, &t.Timestamp, &t.Command, &t.PID, &t.CPUScore, &t.EntropyScore, &t.ConfidenceScore, &t.Decision, &t.Reason); err != nil {
+		if err := rows.Scan(
+			&t.ID,
+			&t.Timestamp,
+			&t.Command,
+			&t.PID,
+			&t.CPUScore,
+			&t.EntropyScore,
+			&t.ConfidenceScore,
+			&t.Decision,
+			&t.Reason,
+			&t.DecisionEngine,
+			&t.DecisionEngineVersion,
+			&t.DecisionContract,
+			&t.PolicyRolloutMode,
+		); err != nil {
 			return nil, err
 		}
 		traces = append(traces, t)
@@ -690,21 +771,25 @@ func GetTimeline(limit int) ([]TimelineEvent, error) {
 		out := make([]TimelineEvent, 0, len(events))
 		for _, e := range events {
 			out = append(out, TimelineEvent{
-				EventID:    e.EventID,
-				RunID:      e.RunID,
-				IncidentID: e.IncidentID,
-				RequestID:  e.RequestID,
-				Type:       e.EventType,
-				Timestamp:  e.CreatedAt,
-				Title:      e.Title,
-				Summary:    e.Summary,
-				Reason:     e.ReasonText,
-				Actor:      e.Actor,
-				PID:        e.PID,
-				CPUScore:   e.CPUScore,
-				Entropy:    e.Entropy,
-				Confidence: e.Confidence,
-				Evidence:   e.Evidence,
+				EventID:               e.EventID,
+				RunID:                 e.RunID,
+				IncidentID:            e.IncidentID,
+				RequestID:             e.RequestID,
+				Type:                  e.EventType,
+				Timestamp:             e.CreatedAt,
+				Title:                 e.Title,
+				Summary:               e.Summary,
+				Reason:                e.ReasonText,
+				Actor:                 e.Actor,
+				PID:                   e.PID,
+				CPUScore:              e.CPUScore,
+				Entropy:               e.Entropy,
+				Confidence:            e.Confidence,
+				DecisionEngine:        e.DecisionEngine,
+				DecisionEngineVersion: e.DecisionEngineVersion,
+				DecisionContract:      e.DecisionContract,
+				PolicyRolloutMode:     e.PolicyRolloutMode,
+				Evidence:              e.Evidence,
 			})
 		}
 		return out, nil
@@ -771,15 +856,19 @@ func getLegacyTimeline(limit int) ([]TimelineEvent, error) {
 		records = append(records, timelineRecord{
 			at: parseTimestamp(t.Timestamp),
 			event: TimelineEvent{
-				Type:       "decision",
-				Timestamp:  t.Timestamp,
-				Title:      t.Decision,
-				Summary:    fmt.Sprintf("CPU %.1f / Entropy %.1f / Confidence %.1f", t.CPUScore, t.EntropyScore, t.ConfidenceScore),
-				Reason:     t.Reason,
-				PID:        t.PID,
-				CPUScore:   t.CPUScore,
-				Entropy:    t.EntropyScore,
-				Confidence: t.ConfidenceScore,
+				Type:                  "decision",
+				Timestamp:             t.Timestamp,
+				Title:                 t.Decision,
+				Summary:               fmt.Sprintf("CPU %.1f / Entropy %.1f / Confidence %.1f", t.CPUScore, t.EntropyScore, t.ConfidenceScore),
+				Reason:                t.Reason,
+				PID:                   t.PID,
+				CPUScore:              t.CPUScore,
+				Entropy:               t.EntropyScore,
+				Confidence:            t.ConfidenceScore,
+				DecisionEngine:        t.DecisionEngine,
+				DecisionEngineVersion: t.DecisionEngineVersion,
+				DecisionContract:      t.DecisionContract,
+				PolicyRolloutMode:     t.PolicyRolloutMode,
 			},
 		})
 	}
@@ -862,6 +951,7 @@ LIMIT ?`, limit)
 			return nil, err
 		}
 		e.Evidence = parseEvidencePayload(payloadRaw)
+		hydrateDecisionMetadataFromEvidence(&e)
 		list = append(list, e)
 	}
 	return list, nil
@@ -937,6 +1027,7 @@ LIMIT ?;
 			return nil, err
 		}
 		e.Evidence = parseEvidencePayload(payloadRaw)
+		hydrateDecisionMetadataFromEvidence(&e)
 		out = append(out, e)
 	}
 	return out, nil
@@ -1017,6 +1108,7 @@ LIMIT ?;
 			return nil, err
 		}
 		e.Evidence = parseEvidencePayload(payloadRaw)
+		hydrateDecisionMetadataFromEvidence(&e)
 		out = append(out, e)
 	}
 	return out, nil
@@ -1147,6 +1239,39 @@ func parseEvidencePayload(raw string) map[string]interface{} {
 		return nil
 	}
 	return out
+}
+
+func evidenceStringValue(evidence map[string]interface{}, key string) string {
+	if evidence == nil {
+		return ""
+	}
+	raw, ok := evidence[key]
+	if !ok {
+		return ""
+	}
+	v, ok := raw.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(v)
+}
+
+func hydrateDecisionMetadataFromEvidence(event *UnifiedEvent) {
+	if event == nil || event.Evidence == nil {
+		return
+	}
+	if event.DecisionEngine == "" {
+		event.DecisionEngine = evidenceStringValue(event.Evidence, "decision_engine")
+	}
+	if event.DecisionEngineVersion == "" {
+		event.DecisionEngineVersion = evidenceStringValue(event.Evidence, "engine_version")
+	}
+	if event.DecisionContract == "" {
+		event.DecisionContract = evidenceStringValue(event.Evidence, "decision_contract_version")
+	}
+	if event.PolicyRolloutMode == "" {
+		event.PolicyRolloutMode = evidenceStringValue(event.Evidence, "rollout_mode")
+	}
 }
 
 func decryptIfPossible(value string) string {
@@ -1418,7 +1543,7 @@ func backfillLegacyDecisions() error {
 		return err
 	}
 
-	rows, err := db.Query(`SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, '') FROM decision_traces ORDER BY id ASC`)
+	rows, err := db.Query(`SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, '') FROM decision_traces ORDER BY id ASC`)
 	if err != nil {
 		return err
 	}
@@ -1427,7 +1552,21 @@ func backfillLegacyDecisions() error {
 	decisions := make([]DecisionTrace, 0, legacyCount)
 	for rows.Next() {
 		var d DecisionTrace
-		if err := rows.Scan(&d.ID, &d.Timestamp, &d.Command, &d.PID, &d.CPUScore, &d.EntropyScore, &d.ConfidenceScore, &d.Decision, &d.Reason); err != nil {
+		if err := rows.Scan(
+			&d.ID,
+			&d.Timestamp,
+			&d.Command,
+			&d.PID,
+			&d.CPUScore,
+			&d.EntropyScore,
+			&d.ConfidenceScore,
+			&d.Decision,
+			&d.Reason,
+			&d.DecisionEngine,
+			&d.DecisionEngineVersion,
+			&d.DecisionContract,
+			&d.PolicyRolloutMode,
+		); err != nil {
 			return err
 		}
 		decisions = append(decisions, d)
@@ -1438,8 +1577,12 @@ func backfillLegacyDecisions() error {
 
 	for _, d := range decisions {
 		payloadJSON, err := marshalPayload(decisionEventPayload{
-			ID:      d.ID,
-			Command: d.Command,
+			ID:                d.ID,
+			Command:           d.Command,
+			DecisionEngine:    withDefault(strings.TrimSpace(d.DecisionEngine), "legacy-decider"),
+			EngineVersion:     withDefault(strings.TrimSpace(d.DecisionEngineVersion), "legacy-unknown"),
+			DecisionContract:  withDefault(strings.TrimSpace(d.DecisionContract), "legacy-decision-trace"),
+			PolicyRolloutMode: strings.TrimSpace(d.PolicyRolloutMode),
 		})
 		if err != nil {
 			return err
@@ -1517,6 +1660,14 @@ func normalizeIncidentID(id string) string {
 		return uuid.NewString()
 	}
 	return id
+}
+
+func withDefault(value, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
 }
 
 func parseTimestamp(raw string) time.Time {
