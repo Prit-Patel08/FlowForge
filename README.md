@@ -325,6 +325,12 @@ export FLOWFORGE_RESTART_BUDGET_MAX=3
 export FLOWFORGE_RESTART_BUDGET_WINDOW_SECONDS=300
 ```
 
+Optional container health probe override (for custom ports/sidecar layouts):
+
+```bash
+export FLOWFORGE_HEALTHCHECK_URL=http://127.0.0.1:8080/healthz
+```
+
 ## Troubleshooting
 
 1. Dashboard cannot connect
