@@ -76,6 +76,38 @@ func metricValue(prometheus, metric string) (float64, bool) {
 	return 0, false
 }
 
+func lifecycleSnapshotForTest() (map[string]interface{}, int, string) {
+	req := httptest.NewRequest("GET", "/worker/lifecycle", nil)
+	w := httptest.NewRecorder()
+	api.HandleWorkerLifecycle(w, req)
+	body := w.Body.String()
+	var payload map[string]interface{}
+	_ = json.Unmarshal([]byte(body), &payload)
+	return payload, w.Result().StatusCode, body
+}
+
+func waitForLifecyclePhase(t *testing.T, phase string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		payload, status, _ := lifecycleSnapshotForTest()
+		if status == http.StatusOK && stringValue(payload["phase"]) == phase {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	payload, status, body := lifecycleSnapshotForTest()
+	t.Fatalf(
+		"expected lifecycle phase %q within %s (status=%d observed_phase=%q pid=%v body=%s)",
+		phase,
+		timeout,
+		status,
+		stringValue(payload["phase"]),
+		payload["pid"],
+		body,
+	)
+}
+
 func snapshotTimelineEvent(raw map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"actor":            stringValue(raw["actor"]),
@@ -355,17 +387,7 @@ func TestKillEndpointAcknowledgesAndTerminatesWorker(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatalf("worker pid %d did not exit after kill request", pid)
 	}
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		st := state.GetState()
-		if st.Status == "STOPPED" {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("expected state STOPPED after process exit, got %q", st.Status)
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
+	waitForLifecyclePhase(t, "STOPPED", 2*time.Second)
 }
 
 func TestRestartEndpointUpdatesRuntimeState(t *testing.T) {
@@ -508,14 +530,7 @@ func TestRestartEndpointEnforcesRestartBudget(t *testing.T) {
 		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
 	}
 
-	stopDeadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(stopDeadline) {
-		st := state.GetState()
-		if st.Status == "STOPPED" {
-			break
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
+	waitForLifecyclePhase(t, "STOPPED", 4*time.Second)
 
 	restartReq2 := httptest.NewRequest("POST", "/process/restart", nil)
 	restartReq2.Header.Set("Authorization", "Bearer test-secret-key-12345")
@@ -598,13 +613,7 @@ func TestRestartBudgetAllowsRequestsAfterWindow(t *testing.T) {
 	if killW.Result().StatusCode != http.StatusAccepted {
 		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
 	}
-	stopDeadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(stopDeadline) {
-		if state.GetState().Status == "STOPPED" {
-			break
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
+	waitForLifecyclePhase(t, "STOPPED", 4*time.Second)
 
 	restartReq2 := httptest.NewRequest("POST", "/process/restart", nil)
 	restartReq2.Header.Set("Authorization", "Bearer test-secret-key-12345")
@@ -678,6 +687,7 @@ func TestKillAndRestartConflictDuringStop(t *testing.T) {
 	if restartW.Result().StatusCode != http.StatusConflict {
 		t.Fatalf("expected restart status 409 during STOPPING, got %d", restartW.Result().StatusCode)
 	}
+	waitForLifecyclePhase(t, "STOPPED", 4*time.Second)
 }
 
 func TestRepeatedKillRequestsAreIdempotent(t *testing.T) {
@@ -715,6 +725,7 @@ func TestRepeatedKillRequestsAreIdempotent(t *testing.T) {
 	if w2.Result().StatusCode != http.StatusAccepted {
 		t.Fatalf("expected second kill status 202 idempotent, got %d", w2.Result().StatusCode)
 	}
+	waitForLifecyclePhase(t, "STOPPED", 4*time.Second)
 }
 
 func TestProcessKillIdempotencyReplayAndConflict(t *testing.T) {
@@ -980,6 +991,12 @@ func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
 		_ = json.Unmarshal([]byte(body), &payload)
 		return payload, w.Result().StatusCode, body
 	}
+	metricsSnapshot := func() (string, int) {
+		req := httptest.NewRequest("GET", "/metrics", nil)
+		w := httptest.NewRecorder()
+		api.HandleMetrics(w, req)
+		return w.Body.String(), w.Result().StatusCode
+	}
 
 	var pid int
 	restartDeadline := time.Now().Add(8 * time.Second)
@@ -1023,25 +1040,38 @@ func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
 		t.Fatalf("expected kill status 202, got %d", killW.Result().StatusCode)
 	}
 
-	stopDeadline := time.Now().Add(6 * time.Second)
+	stopDeadline := time.Now().Add(8 * time.Second)
+	stopObserved := false
+	var latestMetricsBody string
 	for time.Now().Before(stopDeadline) {
-		if st := state.GetState(); st.Status == "STOPPED" {
-			break
-		}
 		lifecyclePayload, lifecycleStatus, _ := lifecycleSnapshot()
 		if lifecycleStatus == http.StatusOK && stringValue(lifecyclePayload["phase"]) == "STOPPED" {
-			break
+			latestMetricsBody, metricsStatus := metricsSnapshot()
+			if metricsStatus == http.StatusOK {
+				if stopCount, ok := metricValue(latestMetricsBody, "flowforge_stop_latency_count"); ok && stopCount >= 1 {
+					stopObserved = true
+					break
+				}
+			}
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-
-	metricsReq := httptest.NewRequest("GET", "/metrics", nil)
-	metricsW := httptest.NewRecorder()
-	api.HandleMetrics(metricsW, metricsReq)
-	if metricsW.Result().StatusCode != http.StatusOK {
-		t.Fatalf("expected metrics status 200, got %d", metricsW.Result().StatusCode)
+	if !stopObserved {
+		lifecyclePayload, lifecycleStatus, lifecycleBody := lifecycleSnapshot()
+		t.Fatalf(
+			"expected stop lifecycle and metrics to settle (lifecycle_status=%d lifecycle_phase=%q lifecycle_pid=%v lifecycle_body=%s metrics=%s)",
+			lifecycleStatus,
+			stringValue(lifecyclePayload["phase"]),
+			lifecyclePayload["pid"],
+			lifecycleBody,
+			latestMetricsBody,
+		)
 	}
-	body := metricsW.Body.String()
+
+	body, metricsStatus := metricsSnapshot()
+	if metricsStatus != http.StatusOK {
+		t.Fatalf("expected metrics status 200, got %d", metricsStatus)
+	}
 
 	restartCount, ok := metricValue(body, "flowforge_restart_latency_count")
 	if !ok || restartCount < 1 {
