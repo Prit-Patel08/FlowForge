@@ -37,11 +37,12 @@ var (
 
 type requestContextKey string
 
+const requestIDContextKey requestContextKey = "flowforge_request_id"
+
 const (
-	requestIDContextKey requestContextKey = "flowforge_request_id"
-	requestIDHeader                       = "X-Request-Id"
-	maxRequestIDLength                    = 128
-	problemTypeBaseURI                    = "https://flowforge.dev/problems/"
+	requestIDHeader    = "X-Request-Id"
+	maxRequestIDLength = 128
+	problemTypeBaseURI = "https://flowforge.dev/problems/"
 )
 
 type statusRecorder struct {
