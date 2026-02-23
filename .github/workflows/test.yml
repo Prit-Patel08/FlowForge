@@ -279,7 +279,7 @@ jobs:
 
       - name: Runtime health smoke
         run: |
-          docker run -d --name flowforge-runtime --entrypoint /flowforge flowforge-ci dashboard
+          docker run -d --name flowforge-runtime --entrypoint /flowforge flowforge-ci dashboard --foreground
           for i in $(seq 1 40); do
             STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' flowforge-runtime)"
             if [ "$STATUS" = "healthy" ]; then
