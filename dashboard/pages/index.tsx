@@ -396,8 +396,8 @@ export default function Dashboard() {
           ? 'FlowForge enforced a safety limit and stopped the process.'
           : 'FlowForge recorded an action for this process.';
 
-  const handleRequestTraceLookup = async (): Promise<void> => {
-    const requestID = requestTraceQuery.trim();
+  const lookupRequestTrace = async (requestIDRaw: string): Promise<void> => {
+    const requestID = requestIDRaw.trim();
     if (!requestID) {
       setRequestTraceResult(null);
       setRequestTraceError('Enter a request_id to query correlated events.');
@@ -456,6 +456,15 @@ export default function Dashboard() {
     } finally {
       setRequestTraceLoading(false);
     }
+  };
+
+  const handleRequestTraceLookup = async (): Promise<void> => {
+    await lookupRequestTrace(requestTraceQuery);
+  };
+
+  const traceRequestID = async (requestID: string): Promise<void> => {
+    setRequestTraceQuery(requestID);
+    await lookupRequestTrace(requestID);
   };
 
   return (
@@ -551,7 +560,7 @@ export default function Dashboard() {
                   {killStatus && (
                     <div className={`mb-3 text-xs font-mono px-3 py-2 rounded-lg border ${killStatusIsError ? 'text-red-400 bg-red-900/20 border-red-500/20' : 'text-green-400 bg-green-900/20 border-green-500/20'}`}>
                       <div>{killStatus}</div>
-                      {killStatusIsError && killRequestID && (
+                      {killRequestID && (
                         <div className="mt-1 flex items-center gap-2 text-[11px] text-red-200">
                           <span>request_id: {killRequestID}</span>
                           <button
@@ -559,6 +568,12 @@ export default function Dashboard() {
                             className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
                           >
                             Copy
+                          </button>
+                          <button
+                            onClick={() => void traceRequestID(killRequestID)}
+                            className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
+                          >
+                            Trace
                           </button>
                         </div>
                       )}
@@ -585,11 +600,11 @@ export default function Dashboard() {
                             }
                             const res = await fetch(`${API_BASE}/v1/process/kill`, { method: 'POST', headers });
                             const data = await res.json().catch(() => ({} as Record<string, unknown>));
+                            const requestID = readAPIRequestID(data);
+                            if (requestID) {
+                              setKillRequestID(requestID);
+                            }
                             if (!res.ok) {
-                              const requestID = readAPIRequestID(data);
-                              if (requestID) {
-                                setKillRequestID(requestID);
-                              }
                               throw new Error(readAPIErrorMessage(data, res.status));
                             }
                             setKillStatusIsError(false);
@@ -736,7 +751,7 @@ export default function Dashboard() {
                     {restartStatus && (
                       <div className={`mb-3 rounded-md border px-2 py-1 text-xs font-mono ${restartStatusIsError ? 'border-red-500/20 bg-red-900/20 text-red-300' : 'border-green-500/20 bg-green-900/20 text-green-300'}`}>
                         <div>{restartStatus}</div>
-                        {restartStatusIsError && restartRequestID && (
+                        {restartRequestID && (
                           <div className="mt-1 flex items-center gap-2 text-[11px] text-red-200">
                             <span>request_id: {restartRequestID}</span>
                             <button
@@ -744,6 +759,12 @@ export default function Dashboard() {
                               className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
                             >
                               Copy
+                            </button>
+                            <button
+                              onClick={() => void traceRequestID(restartRequestID)}
+                              className="rounded border border-red-400/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-100 hover:border-red-300/60 hover:text-red-50 transition-colors"
+                            >
+                              Trace
                             </button>
                           </div>
                         )}
@@ -763,11 +784,11 @@ export default function Dashboard() {
                             body: JSON.stringify({ reason: 'dashboard manual restart' })
                           });
                           const data = await res.json().catch(() => ({} as Record<string, unknown>));
+                          const requestID = readAPIRequestID(data);
+                          if (requestID) {
+                            setRestartRequestID(requestID);
+                          }
                           if (!res.ok) {
-                            const requestID = readAPIRequestID(data);
-                            if (requestID) {
-                              setRestartRequestID(requestID);
-                            }
                             const retryAfterSeconds = typeof data.retry_after_seconds === 'number' ? data.retry_after_seconds : 0;
                             const retryHint = retryAfterSeconds > 0
                               ? ` Retry in ${Math.round(retryAfterSeconds)}s.`
