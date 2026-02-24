@@ -653,9 +653,9 @@ type decisionReplayHealthSummary struct {
 }
 
 type decisionSignalBaselineFilter struct {
-	Engine        string
-	EngineVersion string
-	RolloutMode   string
+	Engine        string `json:"engine"`
+	EngineVersion string `json:"engine_version"`
+	RolloutMode   string `json:"rollout_mode"`
 }
 
 func (f decisionSignalBaselineFilter) matches(trace database.DecisionTrace) bool {
