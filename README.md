@@ -133,6 +133,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `GET /v1/ops/controlplane/replay/history?days=<n>`
 - `GET /v1/ops/decisions/replay/{trace_id}`
 - `GET /v1/ops/decisions/replay/health?limit=<n>&strict=1`
+- `GET /v1/ops/decisions/signals/baseline?limit=<n>&strict=1`
 - `GET /v1/ops/requests/{request_id}?limit=<n>`
 - `POST /v1/process/kill`
 - `POST /v1/process/restart`
@@ -155,6 +156,7 @@ API echoes `X-Request-Id` (or generates one) so operators can correlate failed r
 Use `GET /v1/ops/requests/{request_id}` to retrieve the full correlated event chain for that request id.
 Use `GET /v1/ops/decisions/replay/{trace_id}` to recompute and verify deterministic replay digest integrity for a recorded decision trace.
 Use `GET /v1/ops/decisions/replay/health` to audit recent replay integrity at fleet level (`strict=1` returns `409` when mismatches, missing digests, or unreplayable traces are detected).
+Use `GET /v1/ops/decisions/signals/baseline` to audit signal-history drift by decision-engine bucket (`strict=1` returns `409` when baseline deltas exceed configured thresholds).
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`
@@ -172,6 +174,15 @@ Use `GET /v1/ops/decisions/replay/health` to audit recent replay integrity at fl
 - `flowforge_decision_replay_healthiness`
 - `flowforge_decision_replay_health_sample_limit`
 - `flowforge_decision_replay_stats_error`
+- `flowforge_decision_signal_baseline_checked_rows`
+- `flowforge_decision_signal_baseline_bucket_count`
+- `flowforge_decision_signal_baseline_at_risk_buckets`
+- `flowforge_decision_signal_baseline_max_cpu_delta_abs`
+- `flowforge_decision_signal_baseline_max_entropy_delta_abs`
+- `flowforge_decision_signal_baseline_max_confidence_delta_abs`
+- `flowforge_decision_signal_baseline_healthiness`
+- `flowforge_decision_signal_baseline_sample_limit`
+- `flowforge_decision_signal_baseline_stats_error`
 
 ## Detection Benchmark Baseline
 

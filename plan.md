@@ -1154,7 +1154,7 @@ Domain 10 capabilities:
 - Strategic intent: Strengthen Signal history baselining to support deterministic, explainable execution control.
 - Capability target: Signal history baselining
 - Phase: Foundation (P0-P1)
-- Delivery status: planned
+- Delivery status: implemented-baseline
 - Build scope:
   1. Define contract/spec for Signal history baselining behavior and failure modes.
   2. Implement baseline instrumentation and evidence linkage for Signal history baselining.
@@ -4988,6 +4988,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] daemon reliability + integration lifecycle hardening (`scripts/daemon_smoke.sh` + daemon smoke contract/release strict gate + workspace unregister API with audit/idempotency contract tests)
 - [x] deterministic replay foundation implemented (`decision` replay digest contract + persisted `replay_contract_version`/`replay_digest` metadata + `/v1/ops/decisions/replay/{trace_id}` verification endpoint + dashboard/timeline visibility + contract tests)
 - [x] deterministic replay hardening implemented (fleet replay-health endpoint + strict integrity mode + Prometheus replay health gauges + Lifecycle SLO dashboard integrity panel + release gate coverage)
+- [x] signal history baselining foundation implemented (`/v1/ops/decisions/signals/baseline` API + strict mode + baseline drift Prometheus gauges + Lifecycle SLO signal-baseline panel + release gate contract coverage)
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

@@ -162,6 +162,52 @@ interface DecisionReplayHealth {
   missing_digest_trace_ids: number[];
 }
 
+interface DecisionSignalBaselineThresholds {
+  cpu_delta: number;
+  entropy_delta: number;
+  confidence_delta: number;
+}
+
+interface DecisionSignalBaselineBucket {
+  bucket_key: string;
+  decision_engine: string;
+  engine_version: string;
+  rollout_mode: string;
+  sample_count: number;
+  baseline_sample_count: number;
+  latest_trace_id: number;
+  latest_timestamp: string;
+  latest_cpu_score: number;
+  latest_entropy_score: number;
+  latest_confidence_score: number;
+  baseline_cpu_mean: number;
+  baseline_entropy_mean: number;
+  baseline_confidence_mean: number;
+  cpu_delta: number;
+  entropy_delta: number;
+  confidence_delta: number;
+  cpu_drift: boolean;
+  entropy_drift: boolean;
+  confidence_drift: boolean;
+  healthy: boolean;
+}
+
+interface DecisionSignalBaseline {
+  contract_version: string;
+  limit: number;
+  scanned: number;
+  bucket_count: number;
+  at_risk_bucket_count: number;
+  max_cpu_delta_abs: number;
+  max_entropy_delta_abs: number;
+  max_confidence_delta_abs: number;
+  healthy: boolean;
+  checked_at: string;
+  thresholds: DecisionSignalBaselineThresholds;
+  buckets: DecisionSignalBaselineBucket[];
+  at_risk_bucket_keys: string[];
+}
+
 interface RequestTraceEvent {
   event_id: string;
   created_at: string;
@@ -287,6 +333,32 @@ export default function Dashboard() {
         checked_at: '',
         mismatch_trace_ids: [],
         missing_digest_trace_ids: []
+      }
+    }
+  );
+  const { data: decisionSignalBaseline } = useSWR<DecisionSignalBaseline>(
+    `${API_BASE}/v1/ops/decisions/signals/baseline?limit=500`,
+    async (url: string): Promise<DecisionSignalBaseline> => (await fetchJSON(url)) as DecisionSignalBaseline,
+    {
+      refreshInterval: 10000,
+      fallbackData: {
+        contract_version: '',
+        limit: 500,
+        scanned: 0,
+        bucket_count: 0,
+        at_risk_bucket_count: 0,
+        max_cpu_delta_abs: 0,
+        max_entropy_delta_abs: 0,
+        max_confidence_delta_abs: 0,
+        healthy: true,
+        checked_at: '',
+        thresholds: {
+          cpu_delta: 25,
+          entropy_delta: 20,
+          confidence_delta: 20
+        },
+        buckets: [],
+        at_risk_bucket_keys: []
       }
     }
   );
@@ -431,10 +503,12 @@ export default function Dashboard() {
     (lifecycleSLO?.idempotencyConflicts ?? 0) <= 0 &&
     (lifecycleSLO?.replayRows ?? 0) <= REPLAY_ROW_CAP_TARGET &&
     (lifecycleSLO?.replayStatsError ?? 0) === 0 &&
-    (decisionReplayHealth?.healthy ?? true);
+    (decisionReplayHealth?.healthy ?? true) &&
+    (decisionSignalBaseline?.healthy ?? true);
   const decisionReplayMismatchPct = ((decisionReplayHealth?.mismatch_ratio ?? 0) * 100).toFixed(2);
   const mismatchTraceSamples = (decisionReplayHealth?.mismatch_trace_ids ?? []).slice(0, 3);
   const missingDigestTraceSamples = (decisionReplayHealth?.missing_digest_trace_ids ?? []).slice(0, 3);
+  const atRiskSignalBucket = (decisionSignalBaseline?.buckets ?? []).find((bucket) => !bucket.healthy);
   const actionSummary =
     latestActionedIncident?.exit_reason === 'LOOP_DETECTED'
       ? 'FlowForge stopped the process to prevent runaway cost.'
@@ -1016,6 +1090,60 @@ export default function Dashboard() {
                       <p className="mt-1 font-mono text-amber-300">missing digest traces: {missingDigestTraceSamples.join(', ')}</p>
                     )}
                   </div>
+                </div>
+                <div className="mt-3 rounded-md bg-black/20 p-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500">Signal Baseline</p>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                      decisionSignalBaseline?.healthy
+                        ? 'border-green-500/30 bg-green-500/20 text-green-300'
+                        : 'border-amber-500/30 bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {decisionSignalBaseline?.healthy ? 'HEALTHY' : 'AT RISK'}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Scanned</p>
+                      <p className="font-mono text-gray-200">{Math.round(decisionSignalBaseline?.scanned ?? 0)}</p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Buckets</p>
+                      <p className="font-mono text-gray-200">{Math.round(decisionSignalBaseline?.bucket_count ?? 0)}</p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">At-Risk Buckets</p>
+                      <p className={`font-mono ${(decisionSignalBaseline?.at_risk_bucket_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {Math.round(decisionSignalBaseline?.at_risk_bucket_count ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Max |CPU Delta|</p>
+                      <p className={`font-mono ${(decisionSignalBaseline?.max_cpu_delta_abs ?? 0) >= (decisionSignalBaseline?.thresholds?.cpu_delta ?? 25) ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {(decisionSignalBaseline?.max_cpu_delta_abs ?? 0).toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Max |Entropy Delta|</p>
+                      <p className={`font-mono ${(decisionSignalBaseline?.max_entropy_delta_abs ?? 0) >= (decisionSignalBaseline?.thresholds?.entropy_delta ?? 20) ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {(decisionSignalBaseline?.max_entropy_delta_abs ?? 0).toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Max |Confidence Delta|</p>
+                      <p className={`font-mono ${(decisionSignalBaseline?.max_confidence_delta_abs ?? 0) >= (decisionSignalBaseline?.thresholds?.confidence_delta ?? 20) ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {(decisionSignalBaseline?.max_confidence_delta_abs ?? 0).toFixed(1)}
+                      </p>
+                    </div>
+                  </div>
+                  {atRiskSignalBucket && (
+                    <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
+                      <p className="font-mono">{atRiskSignalBucket.bucket_key}</p>
+                      <p className="font-mono">
+                        Δcpu {atRiskSignalBucket.cpu_delta.toFixed(1)} | Δentropy {atRiskSignalBucket.entropy_delta.toFixed(1)} | Δconfidence {atRiskSignalBucket.confidence_delta.toFixed(1)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">

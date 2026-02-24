@@ -15,10 +15,12 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -42,11 +44,17 @@ type requestContextKey string
 const requestIDContextKey requestContextKey = "flowforge_request_id"
 
 const (
-	requestIDHeader                  = "X-Request-Id"
-	maxRequestIDLength               = 128
-	problemTypeBaseURI               = "https://flowforge.dev/problems/"
-	defaultDecisionReplayHealthLimit = 500
-	maxDecisionReplayHealthLimit     = 5000
+	requestIDHeader                               = "X-Request-Id"
+	maxRequestIDLength                            = 128
+	problemTypeBaseURI                            = "https://flowforge.dev/problems/"
+	defaultDecisionReplayHealthLimit              = 500
+	maxDecisionReplayHealthLimit                  = 5000
+	defaultDecisionSignalBaselineLimit            = 500
+	maxDecisionSignalBaselineLimit                = 5000
+	decisionSignalBaselineContractVersion         = "decision-signal-baseline.v1"
+	defaultDecisionSignalCPUDeltaThreshold        = 25.0
+	defaultDecisionSignalEntropyDeltaThreshold    = 20.0
+	defaultDecisionSignalConfidenceDeltaThreshold = 20.0
 )
 
 type statusRecorder struct {
@@ -312,6 +320,7 @@ func NewHandler() http.Handler {
 	registerRoute(mux, "/v1/ops/requests", HandleRequestTrace)
 	registerRoute(mux, "/v1/ops/requests/", HandleRequestTrace)
 	registerRoute(mux, "/v1/ops/decisions/replay/health", HandleDecisionReplayHealth)
+	registerRoute(mux, "/v1/ops/decisions/signals/baseline", HandleDecisionSignalBaseline)
 	registerRoute(mux, "/v1/ops/decisions/replay", HandleDecisionReplay)
 	registerRoute(mux, "/v1/ops/decisions/replay/", HandleDecisionReplay)
 	registerRoute(mux, "/v1/integrations/workspaces/register", HandleIntegrationWorkspaceRegister)
@@ -452,6 +461,7 @@ func HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprint(w, apiMetrics.Prometheus(active))
 	_, _ = fmt.Fprint(w, controlPlaneReplayPrometheus())
 	_, _ = fmt.Fprint(w, decisionReplayPrometheus())
+	_, _ = fmt.Fprint(w, decisionSignalBaselinePrometheus())
 }
 
 // HandleControlPlaneReplayHistory exposes replay/conflict event trend for recent days.
@@ -642,6 +652,75 @@ type decisionReplayHealthSummary struct {
 	MissingDigestTraceIDs []int   `json:"missing_digest_trace_ids,omitempty"`
 }
 
+type decisionSignalBaselineFilter struct {
+	Engine        string
+	EngineVersion string
+	RolloutMode   string
+}
+
+func (f decisionSignalBaselineFilter) matches(trace database.DecisionTrace) bool {
+	engine := strings.ToLower(strings.TrimSpace(trace.DecisionEngine))
+	version := strings.ToLower(strings.TrimSpace(trace.DecisionEngineVersion))
+	rollout := strings.ToLower(strings.TrimSpace(trace.PolicyRolloutMode))
+	if f.Engine != "" && engine != f.Engine {
+		return false
+	}
+	if f.EngineVersion != "" && version != f.EngineVersion {
+		return false
+	}
+	if f.RolloutMode != "" && rollout != f.RolloutMode {
+		return false
+	}
+	return true
+}
+
+type decisionSignalBaselineThresholds struct {
+	CPUDelta        float64 `json:"cpu_delta"`
+	EntropyDelta    float64 `json:"entropy_delta"`
+	ConfidenceDelta float64 `json:"confidence_delta"`
+}
+
+type decisionSignalBaselineBucket struct {
+	BucketKey              string  `json:"bucket_key"`
+	DecisionEngine         string  `json:"decision_engine"`
+	EngineVersion          string  `json:"engine_version"`
+	RolloutMode            string  `json:"rollout_mode"`
+	SampleCount            int     `json:"sample_count"`
+	BaselineSampleCount    int     `json:"baseline_sample_count"`
+	LatestTraceID          int     `json:"latest_trace_id"`
+	LatestTimestamp        string  `json:"latest_timestamp"`
+	LatestCPUScore         float64 `json:"latest_cpu_score"`
+	LatestEntropyScore     float64 `json:"latest_entropy_score"`
+	LatestConfidenceScore  float64 `json:"latest_confidence_score"`
+	BaselineCPUMean        float64 `json:"baseline_cpu_mean"`
+	BaselineEntropyMean    float64 `json:"baseline_entropy_mean"`
+	BaselineConfidenceMean float64 `json:"baseline_confidence_mean"`
+	CPUDelta               float64 `json:"cpu_delta"`
+	EntropyDelta           float64 `json:"entropy_delta"`
+	ConfidenceDelta        float64 `json:"confidence_delta"`
+	CPUDrift               bool    `json:"cpu_drift"`
+	EntropyDrift           bool    `json:"entropy_drift"`
+	ConfidenceDrift        bool    `json:"confidence_drift"`
+	Healthy                bool    `json:"healthy"`
+}
+
+type decisionSignalBaselineSummary struct {
+	ContractVersion       string                           `json:"contract_version"`
+	Limit                 int                              `json:"limit"`
+	Scanned               int                              `json:"scanned"`
+	BucketCount           int                              `json:"bucket_count"`
+	AtRiskBucketCount     int                              `json:"at_risk_bucket_count"`
+	MaxCPUDeltaAbs        float64                          `json:"max_cpu_delta_abs"`
+	MaxEntropyDeltaAbs    float64                          `json:"max_entropy_delta_abs"`
+	MaxConfidenceDeltaAbs float64                          `json:"max_confidence_delta_abs"`
+	Healthy               bool                             `json:"healthy"`
+	CheckedAt             string                           `json:"checked_at"`
+	Filter                decisionSignalBaselineFilter     `json:"filter"`
+	Thresholds            decisionSignalBaselineThresholds `json:"thresholds"`
+	Buckets               []decisionSignalBaselineBucket   `json:"buckets"`
+	AtRiskBucketKeys      []string                         `json:"at_risk_bucket_keys,omitempty"`
+}
+
 // HandleDecisionReplayHealth returns replay integrity summary over recent decision traces.
 func HandleDecisionReplayHealth(w http.ResponseWriter, r *http.Request) {
 	corsMiddleware(w, r)
@@ -678,6 +757,56 @@ func HandleDecisionReplayHealth(w http.ResponseWriter, r *http.Request) {
 			http.StatusConflict,
 			"decision replay strict health check failed",
 			map[string]interface{}{"replay_health": summary},
+		)
+		writeProblem(w, http.StatusConflict, payload)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, summary)
+}
+
+// HandleDecisionSignalBaseline returns grouped signal baselines over recent decision traces.
+func HandleDecisionSignalBaseline(w http.ResponseWriter, r *http.Request) {
+	corsMiddleware(w, r)
+	r = ensureRequestContext(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSONErrorForRequest(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	limit, err := parseDecisionSignalBaselineLimit(r.URL.Query().Get("limit"))
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+	filter := decisionSignalBaselineFilter{
+		Engine:        strings.ToLower(strings.TrimSpace(r.URL.Query().Get("engine"))),
+		EngineVersion: strings.ToLower(strings.TrimSpace(r.URL.Query().Get("engine_version"))),
+		RolloutMode:   strings.ToLower(strings.TrimSpace(r.URL.Query().Get("rollout_mode"))),
+	}
+
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
+	}
+
+	thresholds := decisionSignalBaselineThresholdsFromEnv()
+	summary, err := buildDecisionSignalBaselineSummary(limit, filter, thresholds)
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("failed to compute decision signal baseline: %v", err))
+		return
+	}
+
+	if parseBoolQueryValue(r.URL.Query().Get("strict")) && !summary.Healthy {
+		payload := problemPayload(
+			r,
+			http.StatusConflict,
+			"decision signal baseline strict health check failed",
+			map[string]interface{}{"signal_baseline": summary},
 		)
 		writeProblem(w, http.StatusConflict, payload)
 		return
@@ -742,6 +871,18 @@ func parseDecisionReplayHealthLimit(raw string) (int, error) {
 	parsed, err := strconv.Atoi(raw)
 	if err != nil || parsed < 1 || parsed > maxDecisionReplayHealthLimit {
 		return 0, fmt.Errorf("limit must be an integer between 1 and %d", maxDecisionReplayHealthLimit)
+	}
+	return parsed, nil
+}
+
+func parseDecisionSignalBaselineLimit(raw string) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultDecisionSignalBaselineLimit, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < 1 || parsed > maxDecisionSignalBaselineLimit {
+		return 0, fmt.Errorf("limit must be an integer between 1 and %d", maxDecisionSignalBaselineLimit)
 	}
 	return parsed, nil
 }
@@ -813,6 +954,168 @@ func buildDecisionReplayHealthSummary(limit int) (decisionReplayHealthSummary, e
 	}
 	summary.Healthy = summary.MismatchCount == 0 && summary.MissingDigestCount == 0 && summary.UnreplayableCount == 0
 
+	return summary, nil
+}
+
+func decisionSignalBaselineThresholdsFromEnv() decisionSignalBaselineThresholds {
+	return decisionSignalBaselineThresholds{
+		CPUDelta:        positiveFloatFromEnv("FLOWFORGE_DECISION_SIGNAL_CPU_DELTA_THRESHOLD", defaultDecisionSignalCPUDeltaThreshold),
+		EntropyDelta:    positiveFloatFromEnv("FLOWFORGE_DECISION_SIGNAL_ENTROPY_DELTA_THRESHOLD", defaultDecisionSignalEntropyDeltaThreshold),
+		ConfidenceDelta: positiveFloatFromEnv("FLOWFORGE_DECISION_SIGNAL_CONFIDENCE_DELTA_THRESHOLD", defaultDecisionSignalConfidenceDeltaThreshold),
+	}
+}
+
+func positiveFloatFromEnv(name string, fallback float64) float64 {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
+}
+
+func normalizeSignalBucketDimension(v string, fallback string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return fallback
+	}
+	return v
+}
+
+func decisionSignalBucketKey(trace database.DecisionTrace) string {
+	engine := normalizeSignalBucketDimension(trace.DecisionEngine, "unknown-engine")
+	version := normalizeSignalBucketDimension(trace.DecisionEngineVersion, "unknown-version")
+	rollout := normalizeSignalBucketDimension(trace.PolicyRolloutMode, "unknown-rollout")
+	return fmt.Sprintf("%s@%s|%s", engine, version, rollout)
+}
+
+func meanSignalScores(traces []database.DecisionTrace) (cpu, entropy, confidence float64) {
+	if len(traces) == 0 {
+		return 0, 0, 0
+	}
+	for _, trace := range traces {
+		cpu += trace.CPUScore
+		entropy += trace.EntropyScore
+		confidence += trace.ConfidenceScore
+	}
+	n := float64(len(traces))
+	return cpu / n, entropy / n, confidence / n
+}
+
+func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaselineFilter, thresholds decisionSignalBaselineThresholds) (decisionSignalBaselineSummary, error) {
+	if limit <= 0 {
+		limit = defaultDecisionSignalBaselineLimit
+	}
+	if limit > maxDecisionSignalBaselineLimit {
+		limit = maxDecisionSignalBaselineLimit
+	}
+
+	traces, err := database.GetDecisionTraces(limit)
+	if err != nil {
+		return decisionSignalBaselineSummary{}, err
+	}
+
+	filtered := make([]database.DecisionTrace, 0, len(traces))
+	for _, trace := range traces {
+		if filter.matches(trace) {
+			filtered = append(filtered, trace)
+		}
+	}
+
+	summary := decisionSignalBaselineSummary{
+		ContractVersion: decisionSignalBaselineContractVersion,
+		Limit:           limit,
+		Scanned:         len(filtered),
+		CheckedAt:       time.Now().UTC().Format(time.RFC3339),
+		Filter:          filter,
+		Thresholds:      thresholds,
+	}
+	if len(filtered) == 0 {
+		summary.Healthy = true
+		return summary, nil
+	}
+
+	bucketMap := make(map[string][]database.DecisionTrace)
+	for _, trace := range filtered {
+		key := decisionSignalBucketKey(trace)
+		bucketMap[key] = append(bucketMap[key], trace)
+	}
+
+	buckets := make([]decisionSignalBaselineBucket, 0, len(bucketMap))
+	for key, bucketTraces := range bucketMap {
+		if len(bucketTraces) == 0 {
+			continue
+		}
+		latest := bucketTraces[0]
+		baselineTraces := bucketTraces
+		if len(bucketTraces) > 1 {
+			baselineTraces = bucketTraces[1:]
+		}
+		baselineCPUMean, baselineEntropyMean, baselineConfidenceMean := meanSignalScores(baselineTraces)
+		cpuDelta := latest.CPUScore - baselineCPUMean
+		entropyDelta := latest.EntropyScore - baselineEntropyMean
+		confidenceDelta := latest.ConfidenceScore - baselineConfidenceMean
+		cpuDrift := math.Abs(cpuDelta) >= thresholds.CPUDelta
+		entropyDrift := math.Abs(entropyDelta) >= thresholds.EntropyDelta
+		confidenceDrift := math.Abs(confidenceDelta) >= thresholds.ConfidenceDelta
+		healthy := !(cpuDrift || entropyDrift || confidenceDrift)
+		engine := normalizeSignalBucketDimension(latest.DecisionEngine, "unknown-engine")
+		version := normalizeSignalBucketDimension(latest.DecisionEngineVersion, "unknown-version")
+		rollout := normalizeSignalBucketDimension(latest.PolicyRolloutMode, "unknown-rollout")
+
+		if !healthy {
+			summary.AtRiskBucketKeys = append(summary.AtRiskBucketKeys, key)
+		}
+		if abs := math.Abs(cpuDelta); abs > summary.MaxCPUDeltaAbs {
+			summary.MaxCPUDeltaAbs = abs
+		}
+		if abs := math.Abs(entropyDelta); abs > summary.MaxEntropyDeltaAbs {
+			summary.MaxEntropyDeltaAbs = abs
+		}
+		if abs := math.Abs(confidenceDelta); abs > summary.MaxConfidenceDeltaAbs {
+			summary.MaxConfidenceDeltaAbs = abs
+		}
+
+		buckets = append(buckets, decisionSignalBaselineBucket{
+			BucketKey:              key,
+			DecisionEngine:         engine,
+			EngineVersion:          version,
+			RolloutMode:            rollout,
+			SampleCount:            len(bucketTraces),
+			BaselineSampleCount:    len(baselineTraces),
+			LatestTraceID:          latest.ID,
+			LatestTimestamp:        latest.Timestamp,
+			LatestCPUScore:         latest.CPUScore,
+			LatestEntropyScore:     latest.EntropyScore,
+			LatestConfidenceScore:  latest.ConfidenceScore,
+			BaselineCPUMean:        baselineCPUMean,
+			BaselineEntropyMean:    baselineEntropyMean,
+			BaselineConfidenceMean: baselineConfidenceMean,
+			CPUDelta:               cpuDelta,
+			EntropyDelta:           entropyDelta,
+			ConfidenceDelta:        confidenceDelta,
+			CPUDrift:               cpuDrift,
+			EntropyDrift:           entropyDrift,
+			ConfidenceDrift:        confidenceDrift,
+			Healthy:                healthy,
+		})
+	}
+
+	sort.Slice(buckets, func(i, j int) bool {
+		if buckets[i].SampleCount == buckets[j].SampleCount {
+			return buckets[i].BucketKey < buckets[j].BucketKey
+		}
+		return buckets[i].SampleCount > buckets[j].SampleCount
+	})
+	sort.Strings(summary.AtRiskBucketKeys)
+
+	summary.Buckets = buckets
+	summary.BucketCount = len(buckets)
+	summary.AtRiskBucketCount = len(summary.AtRiskBucketKeys)
+	summary.Healthy = summary.AtRiskBucketCount == 0
 	return summary, nil
 }
 
@@ -939,6 +1242,91 @@ func decisionReplayPrometheus() string {
 	}
 	fmt.Fprintf(&b, "flowforge_decision_replay_health_sample_limit %d\n", summary.Limit)
 	b.WriteString("flowforge_decision_replay_stats_error 0\n")
+	return b.String()
+}
+
+func decisionSignalBaselineSampleLimitFromEnv() int {
+	limit := defaultDecisionSignalBaselineLimit
+	raw := strings.TrimSpace(os.Getenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_LIMIT"))
+	if raw == "" {
+		return limit
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return limit
+	}
+	if parsed < 1 {
+		return 1
+	}
+	if parsed > maxDecisionSignalBaselineLimit {
+		return maxDecisionSignalBaselineLimit
+	}
+	return parsed
+}
+
+func decisionSignalBaselinePrometheus() string {
+	var b strings.Builder
+	b.WriteString("# HELP flowforge_decision_signal_baseline_checked_rows Number of decision traces scanned for signal baseline checks.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_checked_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_bucket_count Number of grouped signal baseline buckets.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_bucket_count gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_at_risk_buckets Number of signal baseline buckets currently marked at risk.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_at_risk_buckets gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_max_cpu_delta_abs Maximum absolute CPU-score delta from baseline.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_max_cpu_delta_abs gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_max_entropy_delta_abs Maximum absolute entropy-score delta from baseline.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_max_entropy_delta_abs gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_max_confidence_delta_abs Maximum absolute confidence-score delta from baseline.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_max_confidence_delta_abs gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_healthiness Signal baseline healthiness flag (1 healthy, 0 at risk).\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_healthiness gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_sample_limit Sample size used for signal baseline scan.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_sample_limit gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_stats_error Whether signal baseline collection failed (1) or succeeded (0).\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_stats_error gauge\n")
+
+	if err := ensureAPIDBReady(); err != nil {
+		b.WriteString("flowforge_decision_signal_baseline_checked_rows 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_bucket_count 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_at_risk_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_cpu_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_entropy_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_confidence_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", decisionSignalBaselineSampleLimitFromEnv())
+		b.WriteString("flowforge_decision_signal_baseline_stats_error 1\n")
+		return b.String()
+	}
+
+	thresholds := decisionSignalBaselineThresholdsFromEnv()
+	limit := decisionSignalBaselineSampleLimitFromEnv()
+	summary, err := buildDecisionSignalBaselineSummary(limit, decisionSignalBaselineFilter{}, thresholds)
+	if err != nil {
+		b.WriteString("flowforge_decision_signal_baseline_checked_rows 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_bucket_count 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_at_risk_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_cpu_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_entropy_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_confidence_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", limit)
+		b.WriteString("flowforge_decision_signal_baseline_stats_error 1\n")
+		return b.String()
+	}
+
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_checked_rows %d\n", summary.Scanned)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_bucket_count %d\n", summary.BucketCount)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_at_risk_buckets %d\n", summary.AtRiskBucketCount)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_cpu_delta_abs %.6f\n", summary.MaxCPUDeltaAbs)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_entropy_delta_abs %.6f\n", summary.MaxEntropyDeltaAbs)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_confidence_delta_abs %.6f\n", summary.MaxConfidenceDeltaAbs)
+	if summary.Healthy {
+		b.WriteString("flowforge_decision_signal_baseline_healthiness 1\n")
+	} else {
+		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
+	}
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", summary.Limit)
+	b.WriteString("flowforge_decision_signal_baseline_stats_error 0\n")
 	return b.String()
 }
 

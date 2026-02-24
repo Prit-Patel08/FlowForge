@@ -1107,6 +1107,15 @@ func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
 	if statsErr, ok := metricValue(body, "flowforge_decision_replay_stats_error"); !ok || statsErr != 0 {
 		t.Fatalf("expected flowforge_decision_replay_stats_error=0, got %v (ok=%v)", statsErr, ok)
 	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_checked_rows"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_checked_rows metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_at_risk_buckets"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_at_risk_buckets metric in output")
+	}
+	if statsErr, ok := metricValue(body, "flowforge_decision_signal_baseline_stats_error"); !ok || statsErr != 0 {
+		t.Fatalf("expected flowforge_decision_signal_baseline_stats_error=0, got %v (ok=%v)", statsErr, ok)
+	}
 }
 
 func TestControlPlaneReplayHistoryEndpointContract(t *testing.T) {
@@ -1555,6 +1564,241 @@ func TestDecisionReplayHealthEndpointRejectsInvalidLimit(t *testing.T) {
 		"/v1/ops/decisions/replay/health?limit=0",
 		"/v1/ops/decisions/replay/health?limit=5001",
 		"/v1/ops/decisions/replay/health?limit=abc",
+	} {
+		req := httptest.NewRequest("GET", path, nil)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		resp := w.Result()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("path %s expected status 400, got %d", path, resp.StatusCode)
+		}
+		var payload map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("path %s decode response: %v", path, err)
+		}
+		detail := strings.ToLower(problemDetail(payload))
+		if !strings.Contains(detail, "limit must be an integer between 1 and 5000") {
+			t.Fatalf("path %s expected limit validation detail, got %#v", path, payload)
+		}
+	}
+}
+
+func TestDecisionSignalBaselineEndpointContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-signal-baseline")
+
+	primaryMeta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 baseline-a.py",
+		7101,
+		50.0,
+		20.0,
+		90.0,
+		"ALERT",
+		"baseline sample 1",
+		"incident-baseline-1",
+		primaryMeta,
+	); err != nil {
+		t.Fatalf("insert baseline sample 1: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 baseline-b.py",
+		7102,
+		52.0,
+		22.0,
+		88.0,
+		"ALERT",
+		"baseline sample 2",
+		"incident-baseline-2",
+		primaryMeta,
+	); err != nil {
+		t.Fatalf("insert baseline sample 2: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 baseline-c.py",
+		7103,
+		92.0,
+		58.0,
+		50.0,
+		"KILL",
+		"latest drift sample",
+		"incident-baseline-3",
+		primaryMeta,
+	); err != nil {
+		t.Fatalf("insert baseline drift sample: %v", err)
+	}
+
+	stableMeta := database.DecisionTraceMeta{
+		DecisionEngine:    "stable-decider",
+		EngineVersion:     "0.2.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "shadow",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 stable-a.py",
+		7104,
+		40.0,
+		30.0,
+		70.0,
+		"ALLOW",
+		"stable sample 1",
+		"incident-stable-1",
+		stableMeta,
+	); err != nil {
+		t.Fatalf("insert stable sample 1: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 stable-b.py",
+		7105,
+		41.0,
+		31.0,
+		71.0,
+		"ALLOW",
+		"stable sample 2",
+		"incident-stable-2",
+		stableMeta,
+	); err != nil {
+		t.Fatalf("insert stable sample 2: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/ops/decisions/signals/baseline?limit=20", nil)
+	req.Header.Set("X-Request-Id", "req-decision-signal-baseline-contract")
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := stringValue(payload["contract_version"]); got != "decision-signal-baseline.v1" {
+		t.Fatalf("expected contract_version decision-signal-baseline.v1, got %q", got)
+	}
+	if got := intValue(payload["scanned"]); got != 5 {
+		t.Fatalf("expected scanned=5, got %d", got)
+	}
+	if got := intValue(payload["bucket_count"]); got != 2 {
+		t.Fatalf("expected bucket_count=2, got %d", got)
+	}
+	if got := intValue(payload["at_risk_bucket_count"]); got != 1 {
+		t.Fatalf("expected at_risk_bucket_count=1, got %d", got)
+	}
+	if healthy, ok := payload["healthy"].(bool); !ok || healthy {
+		t.Fatalf("expected healthy=false, got %#v", payload["healthy"])
+	}
+
+	rawBuckets, ok := payload["buckets"].([]interface{})
+	if !ok || len(rawBuckets) != 2 {
+		t.Fatalf("expected 2 buckets, got %#v", payload["buckets"])
+	}
+	var primaryBucket map[string]interface{}
+	for _, raw := range rawBuckets {
+		bucket, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if stringValue(bucket["bucket_key"]) == "threshold-decider@1.1.0|enforce" {
+			primaryBucket = bucket
+			break
+		}
+	}
+	if primaryBucket == nil {
+		t.Fatalf("expected threshold bucket in payload: %#v", rawBuckets)
+	}
+	if got := intValue(primaryBucket["sample_count"]); got != 3 {
+		t.Fatalf("expected primary sample_count=3, got %d", got)
+	}
+	if got := intValue(primaryBucket["baseline_sample_count"]); got != 2 {
+		t.Fatalf("expected primary baseline_sample_count=2, got %d", got)
+	}
+	if drift, ok := primaryBucket["cpu_drift"].(bool); !ok || !drift {
+		t.Fatalf("expected cpu_drift=true, got %#v", primaryBucket["cpu_drift"])
+	}
+	if drift, ok := primaryBucket["entropy_drift"].(bool); !ok || !drift {
+		t.Fatalf("expected entropy_drift=true, got %#v", primaryBucket["entropy_drift"])
+	}
+	if drift, ok := primaryBucket["confidence_drift"].(bool); !ok || !drift {
+		t.Fatalf("expected confidence_drift=true, got %#v", primaryBucket["confidence_drift"])
+	}
+}
+
+func TestDecisionSignalBaselineEndpointStrictMode(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-signal-baseline-strict")
+
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 strict-baseline-a.py",
+		7201,
+		50.0,
+		20.0,
+		90.0,
+		"ALERT",
+		"strict baseline seed",
+		"incident-strict-baseline-1",
+		meta,
+	); err != nil {
+		t.Fatalf("insert strict baseline sample: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 strict-baseline-b.py",
+		7202,
+		95.0,
+		65.0,
+		35.0,
+		"KILL",
+		"strict baseline drift",
+		"incident-strict-baseline-2",
+		meta,
+	); err != nil {
+		t.Fatalf("insert strict baseline drift sample: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/ops/decisions/signals/baseline?strict=1&limit=10", nil)
+	req.Header.Set("X-Request-Id", "req-decision-signal-baseline-strict")
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected status 409, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode strict response: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(problemDetail(payload)), "strict health check failed") {
+		t.Fatalf("expected strict health check failure detail, got %#v", payload)
+	}
+	extension, ok := payload["signal_baseline"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected signal_baseline extension payload, got %#v", payload["signal_baseline"])
+	}
+	if got := intValue(extension["at_risk_bucket_count"]); got < 1 {
+		t.Fatalf("expected at_risk_bucket_count >= 1, got %d", got)
+	}
+}
+
+func TestDecisionSignalBaselineEndpointRejectsInvalidLimit(t *testing.T) {
+	setupTempDBForAPI(t)
+	handler := api.NewHandler()
+	for _, path := range []string{
+		"/v1/ops/decisions/signals/baseline?limit=0",
+		"/v1/ops/decisions/signals/baseline?limit=5001",
+		"/v1/ops/decisions/signals/baseline?limit=abc",
 	} {
 		req := httptest.NewRequest("GET", path, nil)
 		w := httptest.NewRecorder()
