@@ -131,6 +131,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `GET /v1/worker/lifecycle`
 - `GET /v1/metrics`
 - `GET /v1/ops/controlplane/replay/history?days=<n>`
+- `GET /v1/ops/decisions/replay/{trace_id}`
 - `GET /v1/ops/requests/{request_id}?limit=<n>`
 - `POST /v1/process/kill`
 - `POST /v1/process/restart`
@@ -145,11 +146,13 @@ Legacy non-versioned aliases remain available (`/healthz`, `/readyz`, `/incident
 
 `/timeline` now includes `lifecycle` events with structured `evidence` payload for transition forensics.
 `decision` timeline/request-trace events now include versioned engine metadata (`decision_engine`, `engine_version`, `decision_contract_version`, `rollout_mode`) for deterministic replay and audits.
+`decision` timeline/request-trace events also carry replay metadata (`replay_contract_version`, `replay_digest`) so operators can verify decision determinism.
 /readyz returns structured readiness checks and can enforce cloud dependency health when `FLOWFORGE_CLOUD_DEPS_REQUIRED=1`.
 Integration write endpoints require `FLOWFORGE_API_KEY`; workspace registration requires absolute `workspace_path`.
 Error responses use RFC 7807 Problem Details (`application/problem+json`) with structured `type` URIs, include `request_id`, and keep legacy `error` for compatibility.
 API echoes `X-Request-Id` (or generates one) so operators can correlate failed requests with audit evidence.
 Use `GET /v1/ops/requests/{request_id}` to retrieve the full correlated event chain for that request id.
+Use `GET /v1/ops/decisions/replay/{trace_id}` to recompute and verify deterministic replay digest integrity for a recorded decision trace.
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`

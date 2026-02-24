@@ -1112,7 +1112,7 @@ Domain 10 capabilities:
 - Strategic intent: Strengthen Deterministic replay to support deterministic, explainable execution control.
 - Capability target: Deterministic replay
 - Phase: Foundation (P0-P1)
-- Delivery status: planned
+- Delivery status: implemented-baseline
 - Build scope:
   1. Define contract/spec for Deterministic replay behavior and failure modes.
   2. Implement baseline instrumentation and evidence linkage for Deterministic replay.
@@ -4986,6 +4986,7 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] MVP Phase-1 exit gate operationalized (`scripts/mvp_phase1_exit_gate.sh` + release checkpoint optional strict gate + contract coverage + dashboard request-trace lookup UX)
 - [x] local daemon lifecycle operationalized (`flowforge daemon start|stop|status|logs` + `flowforge dashboard` daemon auto-attach + script-safe `--foreground` mode)
 - [x] daemon reliability + integration lifecycle hardening (`scripts/daemon_smoke.sh` + daemon smoke contract/release strict gate + workspace unregister API with audit/idempotency contract tests)
+- [x] deterministic replay foundation implemented (`decision` replay digest contract + persisted `replay_contract_version`/`replay_digest` metadata + `/v1/ops/decisions/replay/{trace_id}` verification endpoint + dashboard/timeline visibility + contract tests)
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

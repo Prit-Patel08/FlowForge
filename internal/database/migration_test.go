@@ -237,6 +237,8 @@ func TestDecisionTraceMetadataPersistsToDecisionTableAndUnifiedEvents(t *testing
 		EngineVersion:     "1.1.0",
 		DecisionContract:  "decision-trace.v1",
 		PolicyRolloutMode: "canary",
+		ReplayContract:    "decision-replay.v1",
+		ReplayDigest:      "abc123replaydigest",
 	}
 	if err := LogDecisionTraceWithIncidentAndMeta(
 		"python3 worker.py",
@@ -272,6 +274,12 @@ func TestDecisionTraceMetadataPersistsToDecisionTableAndUnifiedEvents(t *testing
 	if got.PolicyRolloutMode != meta.PolicyRolloutMode {
 		t.Fatalf("expected rollout_mode %q, got %q", meta.PolicyRolloutMode, got.PolicyRolloutMode)
 	}
+	if got.ReplayContract != meta.ReplayContract {
+		t.Fatalf("expected replay_contract_version %q, got %q", meta.ReplayContract, got.ReplayContract)
+	}
+	if got.ReplayDigest != meta.ReplayDigest {
+		t.Fatalf("expected replay_digest %q, got %q", meta.ReplayDigest, got.ReplayDigest)
+	}
 
 	events, err := GetIncidentTimelineByIncidentID(incidentID, 10)
 	if err != nil {
@@ -292,6 +300,12 @@ func TestDecisionTraceMetadataPersistsToDecisionTableAndUnifiedEvents(t *testing
 	}
 	if ev.PolicyRolloutMode != meta.PolicyRolloutMode {
 		t.Fatalf("expected event rollout_mode %q, got %q", meta.PolicyRolloutMode, ev.PolicyRolloutMode)
+	}
+	if ev.ReplayContract != meta.ReplayContract {
+		t.Fatalf("expected event replay_contract_version %q, got %q", meta.ReplayContract, ev.ReplayContract)
+	}
+	if ev.ReplayDigest != meta.ReplayDigest {
+		t.Fatalf("expected event replay_digest %q, got %q", meta.ReplayDigest, ev.ReplayDigest)
 	}
 }
 
@@ -347,5 +361,8 @@ func TestInitDBBackfillsLegacyDecisionTraceEngineMetadataForReplayCompatibility(
 	}
 	if payload.DecisionContract != "legacy-decision-trace" {
 		t.Fatalf("expected legacy contract fallback, got %q", payload.DecisionContract)
+	}
+	if payload.ReplayContract != "legacy-decision-replay" {
+		t.Fatalf("expected legacy replay contract fallback, got %q", payload.ReplayContract)
 	}
 }

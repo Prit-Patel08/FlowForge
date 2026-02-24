@@ -68,6 +68,8 @@ type DecisionTrace struct {
 	DecisionEngineVersion string  `json:"engine_version,omitempty"`
 	DecisionContract      string  `json:"decision_contract_version,omitempty"`
 	PolicyRolloutMode     string  `json:"rollout_mode,omitempty"`
+	ReplayContract        string  `json:"replay_contract_version,omitempty"`
+	ReplayDigest          string  `json:"replay_digest,omitempty"`
 }
 
 type TimelineEvent struct {
@@ -89,6 +91,8 @@ type TimelineEvent struct {
 	DecisionEngineVersion string                 `json:"engine_version,omitempty"`
 	DecisionContract      string                 `json:"decision_contract_version,omitempty"`
 	PolicyRolloutMode     string                 `json:"rollout_mode,omitempty"`
+	ReplayContract        string                 `json:"replay_contract_version,omitempty"`
+	ReplayDigest          string                 `json:"replay_digest,omitempty"`
 	Evidence              map[string]interface{} `json:"evidence,omitempty"`
 }
 
@@ -115,6 +119,8 @@ type UnifiedEvent struct {
 	DecisionEngineVersion string                 `json:"engine_version,omitempty"`
 	DecisionContract      string                 `json:"decision_contract_version,omitempty"`
 	PolicyRolloutMode     string                 `json:"rollout_mode,omitempty"`
+	ReplayContract        string                 `json:"replay_contract_version,omitempty"`
+	ReplayDigest          string                 `json:"replay_digest,omitempty"`
 	Evidence              map[string]interface{} `json:"evidence,omitempty"`
 }
 
@@ -152,6 +158,8 @@ type decisionEventPayload struct {
 	EngineVersion     string `json:"engine_version,omitempty"`
 	DecisionContract  string `json:"decision_contract_version,omitempty"`
 	PolicyRolloutMode string `json:"rollout_mode,omitempty"`
+	ReplayContract    string `json:"replay_contract_version,omitempty"`
+	ReplayDigest      string `json:"replay_digest,omitempty"`
 }
 
 type DecisionTraceMeta struct {
@@ -159,6 +167,8 @@ type DecisionTraceMeta struct {
 	EngineVersion     string `json:"engine_version,omitempty"`
 	DecisionContract  string `json:"decision_contract_version,omitempty"`
 	PolicyRolloutMode string `json:"rollout_mode,omitempty"`
+	ReplayContract    string `json:"replay_contract_version,omitempty"`
+	ReplayDigest      string `json:"replay_digest,omitempty"`
 }
 
 func InitDB() error {
@@ -238,7 +248,9 @@ func InitDB() error {
 		decision_engine TEXT DEFAULT '',
 		engine_version TEXT DEFAULT '',
 		decision_contract_version TEXT DEFAULT '',
-		rollout_mode TEXT DEFAULT ''
+		rollout_mode TEXT DEFAULT '',
+		replay_contract_version TEXT DEFAULT '',
+		replay_digest TEXT DEFAULT ''
 	);`
 	if _, err := db.Exec(createDecisionTableSQL); err != nil {
 		return err
@@ -255,10 +267,18 @@ func InitDB() error {
 	if err := ensureColumnExists("decision_traces", "rollout_mode", "TEXT DEFAULT ''"); err != nil {
 		return err
 	}
+	if err := ensureColumnExists("decision_traces", "replay_contract_version", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_traces", "replay_digest", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
 	db.Exec("UPDATE decision_traces SET decision_engine = COALESCE(decision_engine, '');")
 	db.Exec("UPDATE decision_traces SET engine_version = COALESCE(engine_version, '');")
 	db.Exec("UPDATE decision_traces SET decision_contract_version = COALESCE(decision_contract_version, '');")
 	db.Exec("UPDATE decision_traces SET rollout_mode = COALESCE(rollout_mode, '');")
+	db.Exec("UPDATE decision_traces SET replay_contract_version = COALESCE(replay_contract_version, '');")
+	db.Exec("UPDATE decision_traces SET replay_digest = COALESCE(replay_digest, '');")
 
 	createEventsTableSQL := `CREATE TABLE IF NOT EXISTS events (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -694,7 +714,7 @@ func LogDecisionTraceWithIncidentAndMeta(command string, pid int, cpuScore, entr
 	if db == nil {
 		return fmt.Errorf("db not initialized")
 	}
-	stmt, err := db.Prepare("INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason, decision_engine, engine_version, decision_contract_version, rollout_mode) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason, decision_engine, engine_version, decision_contract_version, rollout_mode, replay_contract_version, replay_digest) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -711,6 +731,8 @@ func LogDecisionTraceWithIncidentAndMeta(command string, pid int, cpuScore, entr
 		strings.TrimSpace(meta.EngineVersion),
 		strings.TrimSpace(meta.DecisionContract),
 		strings.TrimSpace(meta.PolicyRolloutMode),
+		strings.TrimSpace(meta.ReplayContract),
+		strings.TrimSpace(meta.ReplayDigest),
 	)
 	if err != nil {
 		return err
@@ -724,6 +746,8 @@ func LogDecisionTraceWithIncidentAndMeta(command string, pid int, cpuScore, entr
 		EngineVersion:     strings.TrimSpace(meta.EngineVersion),
 		DecisionContract:  strings.TrimSpace(meta.DecisionContract),
 		PolicyRolloutMode: strings.TrimSpace(meta.PolicyRolloutMode),
+		ReplayContract:    strings.TrimSpace(meta.ReplayContract),
+		ReplayDigest:      strings.TrimSpace(meta.ReplayDigest),
 	}
 	return logUnifiedEventWithPayload("decision", decision, summary, reason, "system", incidentID, pid, cpuScore, entropyScore, confidenceScore, payload)
 }
@@ -735,7 +759,7 @@ func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := db.Query("SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, '') FROM decision_traces ORDER BY id DESC LIMIT ?", limit)
+	rows, err := db.Query("SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, ''), COALESCE(replay_contract_version, ''), COALESCE(replay_digest, '') FROM decision_traces ORDER BY id DESC LIMIT ?", limit)
 	if err != nil {
 		return nil, err
 	}
@@ -757,12 +781,63 @@ func GetDecisionTraces(limit int) ([]DecisionTrace, error) {
 			&t.DecisionEngineVersion,
 			&t.DecisionContract,
 			&t.PolicyRolloutMode,
+			&t.ReplayContract,
+			&t.ReplayDigest,
 		); err != nil {
 			return nil, err
 		}
 		traces = append(traces, t)
 	}
 	return traces, nil
+}
+
+func GetDecisionTraceByID(id int) (DecisionTrace, error) {
+	if db == nil {
+		return DecisionTrace{}, fmt.Errorf("db missing")
+	}
+	if id <= 0 {
+		return DecisionTrace{}, fmt.Errorf("id must be > 0")
+	}
+
+	var t DecisionTrace
+	err := db.QueryRow(`SELECT
+	id,
+	timestamp,
+	COALESCE(command, ''),
+	COALESCE(pid, 0),
+	COALESCE(cpu_score, 0.0),
+	COALESCE(entropy_score, 0.0),
+	COALESCE(confidence_score, 0.0),
+	COALESCE(decision, ''),
+	COALESCE(reason, ''),
+	COALESCE(decision_engine, ''),
+	COALESCE(engine_version, ''),
+	COALESCE(decision_contract_version, ''),
+	COALESCE(rollout_mode, ''),
+	COALESCE(replay_contract_version, ''),
+	COALESCE(replay_digest, '')
+FROM decision_traces
+WHERE id = ?`, id).Scan(
+		&t.ID,
+		&t.Timestamp,
+		&t.Command,
+		&t.PID,
+		&t.CPUScore,
+		&t.EntropyScore,
+		&t.ConfidenceScore,
+		&t.Decision,
+		&t.Reason,
+		&t.DecisionEngine,
+		&t.DecisionEngineVersion,
+		&t.DecisionContract,
+		&t.PolicyRolloutMode,
+		&t.ReplayContract,
+		&t.ReplayDigest,
+	)
+	if err != nil {
+		return DecisionTrace{}, err
+	}
+	return t, nil
 }
 
 func GetTimeline(limit int) ([]TimelineEvent, error) {
@@ -789,6 +864,8 @@ func GetTimeline(limit int) ([]TimelineEvent, error) {
 				DecisionEngineVersion: e.DecisionEngineVersion,
 				DecisionContract:      e.DecisionContract,
 				PolicyRolloutMode:     e.PolicyRolloutMode,
+				ReplayContract:        e.ReplayContract,
+				ReplayDigest:          e.ReplayDigest,
 				Evidence:              e.Evidence,
 			})
 		}
@@ -869,6 +946,8 @@ func getLegacyTimeline(limit int) ([]TimelineEvent, error) {
 				DecisionEngineVersion: t.DecisionEngineVersion,
 				DecisionContract:      t.DecisionContract,
 				PolicyRolloutMode:     t.PolicyRolloutMode,
+				ReplayContract:        t.ReplayContract,
+				ReplayDigest:          t.ReplayDigest,
 			},
 		})
 	}
@@ -1272,6 +1351,12 @@ func hydrateDecisionMetadataFromEvidence(event *UnifiedEvent) {
 	if event.PolicyRolloutMode == "" {
 		event.PolicyRolloutMode = evidenceStringValue(event.Evidence, "rollout_mode")
 	}
+	if event.ReplayContract == "" {
+		event.ReplayContract = evidenceStringValue(event.Evidence, "replay_contract_version")
+	}
+	if event.ReplayDigest == "" {
+		event.ReplayDigest = evidenceStringValue(event.Evidence, "replay_digest")
+	}
 }
 
 func decryptIfPossible(value string) string {
@@ -1543,7 +1628,7 @@ func backfillLegacyDecisions() error {
 		return err
 	}
 
-	rows, err := db.Query(`SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, '') FROM decision_traces ORDER BY id ASC`)
+	rows, err := db.Query(`SELECT id, timestamp, COALESCE(command, ''), COALESCE(pid, 0), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(decision, ''), COALESCE(reason, ''), COALESCE(decision_engine, ''), COALESCE(engine_version, ''), COALESCE(decision_contract_version, ''), COALESCE(rollout_mode, ''), COALESCE(replay_contract_version, ''), COALESCE(replay_digest, '') FROM decision_traces ORDER BY id ASC`)
 	if err != nil {
 		return err
 	}
@@ -1566,6 +1651,8 @@ func backfillLegacyDecisions() error {
 			&d.DecisionEngineVersion,
 			&d.DecisionContract,
 			&d.PolicyRolloutMode,
+			&d.ReplayContract,
+			&d.ReplayDigest,
 		); err != nil {
 			return err
 		}
@@ -1583,6 +1670,8 @@ func backfillLegacyDecisions() error {
 			EngineVersion:     withDefault(strings.TrimSpace(d.DecisionEngineVersion), "legacy-unknown"),
 			DecisionContract:  withDefault(strings.TrimSpace(d.DecisionContract), "legacy-decision-trace"),
 			PolicyRolloutMode: strings.TrimSpace(d.PolicyRolloutMode),
+			ReplayContract:    withDefault(strings.TrimSpace(d.ReplayContract), "legacy-decision-replay"),
+			ReplayDigest:      strings.TrimSpace(d.ReplayDigest),
 		})
 		if err != nil {
 			return err

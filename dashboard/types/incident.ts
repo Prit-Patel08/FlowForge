@@ -34,6 +34,8 @@ export interface TimelineEvent {
     engine_version?: string;
     decision_contract_version?: string;
     rollout_mode?: string;
+    replay_contract_version?: string;
+    replay_digest?: string;
     evidence?: Record<string, unknown>;
 }
 
@@ -59,6 +61,8 @@ export interface IncidentChainEvent {
     engine_version?: string;
     decision_contract_version?: string;
     rollout_mode?: string;
+    replay_contract_version?: string;
+    replay_digest?: string;
     evidence?: Record<string, unknown>;
 }
 
@@ -143,6 +147,8 @@ export function parseTimelinePayload(payload: unknown): TimelineEvent[] {
             engine_version: asString(entry.engine_version),
             decision_contract_version: asString(entry.decision_contract_version),
             rollout_mode: asString(entry.rollout_mode),
+            replay_contract_version: asString(entry.replay_contract_version),
+            replay_digest: asString(entry.replay_digest),
             evidence: asRecord(entry.evidence),
         }];
     });
@@ -187,6 +193,8 @@ export function parseIncidentChainPayload(payload: unknown): IncidentChainEvent[
             engine_version: asString(entry.engine_version),
             decision_contract_version: asString(entry.decision_contract_version),
             rollout_mode: asString(entry.rollout_mode),
+            replay_contract_version: asString(entry.replay_contract_version),
+            replay_digest: asString(entry.replay_digest),
             evidence: asRecord(entry.evidence),
         }];
     });

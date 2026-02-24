@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -17,6 +18,7 @@ import (
 
 	"flowforge/internal/api"
 	"flowforge/internal/database"
+	"flowforge/internal/policy"
 	"flowforge/internal/state"
 )
 
@@ -1239,6 +1241,167 @@ func TestControlPlaneReplayHistoryEndpointRejectsInvalidDays(t *testing.T) {
 		errMsg := strings.ToLower(problemDetail(payload))
 		if !strings.Contains(errMsg, "days must be an integer between 1 and 90") {
 			t.Fatalf("path %s expected days validation error, got payload=%#v", path, payload)
+		}
+	}
+}
+
+func TestDecisionReplayEndpointContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+		ReplayContract:    policy.DecisionReplayContractVersion,
+	}
+	meta.ReplayDigest = policy.DecisionReplayDigest(policy.DecisionReplayInput{
+		DecisionEngine:   meta.DecisionEngine,
+		EngineVersion:    meta.EngineVersion,
+		DecisionContract: meta.DecisionContract,
+		RolloutMode:      meta.PolicyRolloutMode,
+		Decision:         "KILL",
+		Reason:           "policy breach deterministic replay",
+		CPUScore:         99.1,
+		EntropyScore:     10.0,
+		ConfidenceScore:  96.5,
+	})
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 worker.py",
+		4040,
+		99.1,
+		10.0,
+		96.5,
+		"KILL",
+		"policy breach deterministic replay",
+		"incident-replay-contract",
+		meta,
+	); err != nil {
+		t.Fatalf("LogDecisionTraceWithIncidentAndMeta: %v", err)
+	}
+
+	traces, err := database.GetDecisionTraces(1)
+	if err != nil || len(traces) == 0 {
+		t.Fatalf("GetDecisionTraces: err=%v len=%d", err, len(traces))
+	}
+	traceID := traces[0].ID
+
+	handler := api.NewHandler()
+	req := httptest.NewRequest("GET", fmt.Sprintf("/v1/ops/decisions/replay/%d", traceID), nil)
+	req.Header.Set("X-Request-Id", "req-test-decision-replay-contract")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := intValue(payload["trace_id"]); got != traceID {
+		t.Fatalf("expected trace_id %d, got %d", traceID, got)
+	}
+	if status := stringValue(payload["replay_status"]); status != policy.ReplayStatusMatch {
+		t.Fatalf("expected replay_status %q, got %q", policy.ReplayStatusMatch, status)
+	}
+	if match, ok := payload["deterministic_match"].(bool); !ok || !match {
+		t.Fatalf("expected deterministic_match=true, got %#v", payload["deterministic_match"])
+	}
+	if got := stringValue(payload["computed_replay_digest"]); got == "" {
+		t.Fatalf("expected computed_replay_digest to be present")
+	}
+	if got := stringValue(payload["stored_replay_digest"]); got != strings.ToLower(meta.ReplayDigest) {
+		t.Fatalf("expected stored digest %q, got %q", strings.ToLower(meta.ReplayDigest), got)
+	}
+	if got := stringValue(payload["trace_replay_contract_version"]); got != policy.DecisionReplayContractVersion {
+		t.Fatalf("expected trace replay contract version %q, got %q", policy.DecisionReplayContractVersion, got)
+	}
+}
+
+func TestDecisionReplayEndpointDetectsMismatch(t *testing.T) {
+	setupTempDBForAPI(t)
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+		ReplayContract:    policy.DecisionReplayContractVersion,
+		ReplayDigest:      "deadbeef",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 mismatch.py",
+		5050,
+		97.0,
+		11.0,
+		95.0,
+		"KILL",
+		"mismatch replay digest",
+		"incident-replay-mismatch",
+		meta,
+	); err != nil {
+		t.Fatalf("LogDecisionTraceWithIncidentAndMeta: %v", err)
+	}
+
+	traces, err := database.GetDecisionTraces(1)
+	if err != nil || len(traces) == 0 {
+		t.Fatalf("GetDecisionTraces: err=%v len=%d", err, len(traces))
+	}
+	traceID := traces[0].ID
+
+	handler := api.NewHandler()
+	req := httptest.NewRequest("GET", fmt.Sprintf("/v1/ops/decisions/replay/%d", traceID), nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if status := stringValue(payload["replay_status"]); status != policy.ReplayStatusMismatch {
+		t.Fatalf("expected replay_status %q, got %q", policy.ReplayStatusMismatch, status)
+	}
+	if match, ok := payload["deterministic_match"].(bool); !ok || match {
+		t.Fatalf("expected deterministic_match=false, got %#v", payload["deterministic_match"])
+	}
+}
+
+func TestDecisionReplayEndpointRejectsInvalidParams(t *testing.T) {
+	setupTempDBForAPI(t)
+	handler := api.NewHandler()
+
+	cases := []struct {
+		path            string
+		expectedStatus  int
+		detailSubstring string
+	}{
+		{path: "/v1/ops/decisions/replay", expectedStatus: http.StatusBadRequest, detailSubstring: "trace_id is required"},
+		{path: "/v1/ops/decisions/replay/", expectedStatus: http.StatusBadRequest, detailSubstring: "trace_id is required"},
+		{path: "/v1/ops/decisions/replay/not-an-int", expectedStatus: http.StatusBadRequest, detailSubstring: "trace_id must be a positive integer"},
+		{path: "/v1/ops/decisions/replay/0", expectedStatus: http.StatusBadRequest, detailSubstring: "trace_id must be a positive integer"},
+		{path: "/v1/ops/decisions/replay/99999", expectedStatus: http.StatusNotFound, detailSubstring: "decision trace not found"},
+	}
+
+	for _, tc := range cases {
+		req := httptest.NewRequest("GET", tc.path, nil)
+		req.Header.Set("X-Request-Id", "req-test-decision-replay-invalid")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		resp := w.Result()
+		if resp.StatusCode != tc.expectedStatus {
+			t.Fatalf("path %s expected status %d, got %d", tc.path, tc.expectedStatus, resp.StatusCode)
+		}
+		var payload map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("path %s decode error: %v", tc.path, err)
+		}
+		errMsg := strings.ToLower(problemDetail(payload))
+		if !strings.Contains(errMsg, strings.ToLower(tc.detailSubstring)) {
+			t.Fatalf("path %s expected detail substring %q, got payload=%#v", tc.path, tc.detailSubstring, payload)
 		}
 	}
 }

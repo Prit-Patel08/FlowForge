@@ -158,6 +158,8 @@ interface RequestTraceEvent {
   engine_version: string;
   decision_contract_version: string;
   rollout_mode: string;
+  replay_contract_version: string;
+  replay_digest: string;
 }
 
 interface RequestTraceResponse {
@@ -446,7 +448,9 @@ export default function Dashboard() {
             decision_engine: typeof event.decision_engine === 'string' ? event.decision_engine : '',
             engine_version: typeof event.engine_version === 'string' ? event.engine_version : '',
             decision_contract_version: typeof event.decision_contract_version === 'string' ? event.decision_contract_version : '',
-            rollout_mode: typeof event.rollout_mode === 'string' ? event.rollout_mode : ''
+            rollout_mode: typeof event.rollout_mode === 'string' ? event.rollout_mode : '',
+            replay_contract_version: typeof event.replay_contract_version === 'string' ? event.replay_contract_version : '',
+            replay_digest: typeof event.replay_digest === 'string' ? event.replay_digest : ''
           };
         })
         .filter((event): event is RequestTraceEvent => event !== null);
@@ -983,6 +987,12 @@ export default function Dashboard() {
                                   Engine {event.decision_engine || 'unknown'}{event.engine_version ? `@${event.engine_version}` : ''}
                                   {event.decision_contract_version ? ` | Contract ${event.decision_contract_version}` : ''}
                                   {event.rollout_mode ? ` | Rollout ${event.rollout_mode}` : ''}
+                                </p>
+                              )}
+                              {(event.replay_contract_version || event.replay_digest) && (
+                                <p className="mt-1 text-[11px] font-mono text-emerald-300/90">
+                                  Replay {event.replay_contract_version || 'unknown'}
+                                  {event.replay_digest ? ` | Digest ${event.replay_digest.slice(0, 14)}...` : ' | Digest missing'}
                                 </p>
                               )}
                             </div>

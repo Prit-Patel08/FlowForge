@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flowforge/internal/clouddeps"
 	"flowforge/internal/database"
 	"flowforge/internal/metrics"
+	"flowforge/internal/policy"
 	"flowforge/internal/state"
 	"fmt"
 	"io"
@@ -307,6 +309,8 @@ func NewHandler() http.Handler {
 	registerRoute(mux, "/v1/ops/controlplane/replay/history", HandleControlPlaneReplayHistory)
 	registerRoute(mux, "/v1/ops/requests", HandleRequestTrace)
 	registerRoute(mux, "/v1/ops/requests/", HandleRequestTrace)
+	registerRoute(mux, "/v1/ops/decisions/replay", HandleDecisionReplay)
+	registerRoute(mux, "/v1/ops/decisions/replay/", HandleDecisionReplay)
 	registerRoute(mux, "/v1/integrations/workspaces/register", HandleIntegrationWorkspaceRegister)
 	registerRoute(mux, "/v1/integrations/workspaces/", HandleIntegrationWorkspaceScoped)
 	return mux
@@ -544,6 +548,80 @@ func HandleRequestTrace(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleDecisionReplay verifies deterministic replay digest integrity for a recorded decision trace.
+func HandleDecisionReplay(w http.ResponseWriter, r *http.Request) {
+	corsMiddleware(w, r)
+	r = ensureRequestContext(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSONErrorForRequest(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	traceID, err := parseDecisionReplayTraceID(r.URL.Path)
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
+	}
+
+	trace, err := database.GetDecisionTraceByID(traceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSONErrorForRequest(w, r, http.StatusNotFound, "decision trace not found")
+			return
+		}
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("failed to load decision trace: %v", err))
+		return
+	}
+
+	verification := policy.VerifyDecisionReplay(trace.ReplayDigest, policy.DecisionReplayInput{
+		DecisionEngine:   trace.DecisionEngine,
+		EngineVersion:    trace.DecisionEngineVersion,
+		DecisionContract: trace.DecisionContract,
+		RolloutMode:      trace.PolicyRolloutMode,
+		Decision:         trace.Decision,
+		Reason:           trace.Reason,
+		CPUScore:         trace.CPUScore,
+		EntropyScore:     trace.EntropyScore,
+		ConfidenceScore:  trace.ConfidenceScore,
+	})
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"trace_id":                      trace.ID,
+		"timestamp":                     trace.Timestamp,
+		"command":                       trace.Command,
+		"pid":                           trace.PID,
+		"decision":                      trace.Decision,
+		"reason":                        trace.Reason,
+		"cpu_score":                     trace.CPUScore,
+		"entropy_score":                 trace.EntropyScore,
+		"confidence_score":              trace.ConfidenceScore,
+		"decision_engine":               trace.DecisionEngine,
+		"engine_version":                trace.DecisionEngineVersion,
+		"decision_contract_version":     trace.DecisionContract,
+		"rollout_mode":                  trace.PolicyRolloutMode,
+		"trace_replay_contract_version": strings.TrimSpace(trace.ReplayContract),
+		"trace_replay_digest":           strings.TrimSpace(trace.ReplayDigest),
+		"replay_contract_version":       verification.ContractVersion,
+		"replay_status":                 verification.Status,
+		"replayable":                    verification.Replayable,
+		"deterministic_match":           verification.DeterministicMatch,
+		"legacy_fallback":               verification.LegacyFallback,
+		"replay_reason":                 verification.Reason,
+		"stored_replay_digest":          verification.StoredDigest,
+		"computed_replay_digest":        verification.ComputedDigest,
+		"canonical_input":               verification.CanonicalInput,
+	})
+}
+
 func parseRequestTraceID(path string) (string, error) {
 	const basePath = "/v1/ops/requests"
 	trimmedPath := strings.TrimSpace(path)
@@ -566,6 +644,30 @@ func parseRequestTraceID(path string) (string, error) {
 		return "", fmt.Errorf("request_id must contain only visible ASCII and be <= %d chars", maxRequestIDLength)
 	}
 	return decodedID, nil
+}
+
+func parseDecisionReplayTraceID(path string) (int, error) {
+	const basePath = "/v1/ops/decisions/replay"
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == basePath || trimmedPath == basePath+"/" {
+		return 0, fmt.Errorf("trace_id is required in path /v1/ops/decisions/replay/{trace_id}")
+	}
+	if !strings.HasPrefix(trimmedPath, basePath+"/") {
+		return 0, fmt.Errorf("decision replay endpoint not found")
+	}
+	rawID := strings.TrimPrefix(trimmedPath, basePath+"/")
+	if strings.Contains(rawID, "/") {
+		return 0, fmt.Errorf("trace_id must be a single path segment")
+	}
+	decodedID, err := url.PathUnescape(strings.TrimSpace(rawID))
+	if err != nil {
+		return 0, fmt.Errorf("trace_id is invalid: %v", err)
+	}
+	parsedID, err := strconv.Atoi(decodedID)
+	if err != nil || parsedID <= 0 {
+		return 0, fmt.Errorf("trace_id must be a positive integer")
+	}
+	return parsedID, nil
 }
 
 func controlPlaneReplayPrometheus() string {

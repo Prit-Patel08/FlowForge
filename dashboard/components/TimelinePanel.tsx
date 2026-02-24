@@ -70,6 +70,8 @@ export default function TimelinePanel({ events, selectedIncidentId, onSelectInci
                     const engineVersion = event.engine_version || evidenceString(event, "engine_version");
                     const contractVersion = event.decision_contract_version || evidenceString(event, "decision_contract_version");
                     const rolloutMode = event.rollout_mode || evidenceString(event, "rollout_mode");
+                    const replayContract = event.replay_contract_version || evidenceString(event, "replay_contract_version");
+                    const replayDigest = event.replay_digest || evidenceString(event, "replay_digest");
                     return (
                       <>
                   <div className="mb-1 flex items-center justify-between">
@@ -86,6 +88,12 @@ export default function TimelinePanel({ events, selectedIncidentId, onSelectInci
                       Engine {decisionEngine || "unknown"}@{engineVersion}
                       {contractVersion ? ` | Contract ${contractVersion}` : ""}
                       {rolloutMode ? ` | Rollout ${rolloutMode}` : ""}
+                    </p>
+                  )}
+                  {(replayContract || replayDigest) && (
+                    <p className="mt-1 text-[11px] font-mono text-emerald-300/90">
+                      Replay {replayContract || "unknown"}
+                      {replayDigest ? ` | Digest ${replayDigest.slice(0, 14)}...` : " | Digest missing"}
                     </p>
                   )}
                   {event.type === "lifecycle" && (

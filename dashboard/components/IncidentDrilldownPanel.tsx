@@ -154,6 +154,12 @@ export default function IncidentDrilldownPanel({ incidentId, events, loading, er
                   {event.rollout_mode ? ` | Rollout ${event.rollout_mode}` : ""}
                 </p>
               )}
+              {(event.replay_contract_version || event.replay_digest) && (
+                <p className="mt-1 text-[11px] font-mono text-emerald-300/90">
+                  Replay {event.replay_contract_version || "unknown"}
+                  {event.replay_digest ? ` | Digest ${event.replay_digest.slice(0, 14)}...` : " | Digest missing"}
+                </p>
+              )}
               <p className="mt-1 text-[11px] text-gray-500">
                 Actor: {event.actor || 'system'}{event.pid > 0 ? ` | PID ${event.pid}` : ''}
               </p>
