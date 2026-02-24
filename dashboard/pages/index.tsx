@@ -146,6 +146,22 @@ interface ReplayHistory {
   points: ReplayHistoryPoint[];
 }
 
+interface DecisionReplayHealth {
+  contract_version: string;
+  limit: number;
+  scanned: number;
+  healthy: boolean;
+  match_count: number;
+  mismatch_count: number;
+  missing_digest_count: number;
+  legacy_fallback_count: number;
+  unreplayable_count: number;
+  mismatch_ratio: number;
+  checked_at: string;
+  mismatch_trace_ids: number[];
+  missing_digest_trace_ids: number[];
+}
+
 interface RequestTraceEvent {
   event_id: string;
   created_at: string;
@@ -249,6 +265,28 @@ export default function Dashboard() {
         oldest_age_seconds: 0,
         newest_age_seconds: 0,
         points: []
+      }
+    }
+  );
+  const { data: decisionReplayHealth } = useSWR<DecisionReplayHealth>(
+    `${API_BASE}/v1/ops/decisions/replay/health?limit=500`,
+    async (url: string): Promise<DecisionReplayHealth> => (await fetchJSON(url)) as DecisionReplayHealth,
+    {
+      refreshInterval: 10000,
+      fallbackData: {
+        contract_version: '',
+        limit: 500,
+        scanned: 0,
+        healthy: true,
+        match_count: 0,
+        mismatch_count: 0,
+        missing_digest_count: 0,
+        legacy_fallback_count: 0,
+        unreplayable_count: 0,
+        mismatch_ratio: 0,
+        checked_at: '',
+        mismatch_trace_ids: [],
+        missing_digest_trace_ids: []
       }
     }
   );
@@ -392,7 +430,11 @@ export default function Dashboard() {
     (lifecycleSLO?.restartComplianceRatio ?? 0) >= 0.95 &&
     (lifecycleSLO?.idempotencyConflicts ?? 0) <= 0 &&
     (lifecycleSLO?.replayRows ?? 0) <= REPLAY_ROW_CAP_TARGET &&
-    (lifecycleSLO?.replayStatsError ?? 0) === 0;
+    (lifecycleSLO?.replayStatsError ?? 0) === 0 &&
+    (decisionReplayHealth?.healthy ?? true);
+  const decisionReplayMismatchPct = ((decisionReplayHealth?.mismatch_ratio ?? 0) * 100).toFixed(2);
+  const mismatchTraceSamples = (decisionReplayHealth?.mismatch_trace_ids ?? []).slice(0, 3);
+  const missingDigestTraceSamples = (decisionReplayHealth?.missing_digest_trace_ids ?? []).slice(0, 3);
   const actionSummary =
     latestActionedIncident?.exit_reason === 'LOOP_DETECTED'
       ? 'FlowForge stopped the process to prevent runaway cost.'
@@ -919,6 +961,61 @@ export default function Dashboard() {
                     })}
                   </div>
                   <p className="mt-2 text-[11px] text-gray-500">format: replay/conflict (total)</p>
+                </div>
+                <div className="mt-3 rounded-md bg-black/20 p-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-500">Decision Replay Integrity</p>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                      decisionReplayHealth?.healthy
+                        ? 'border-green-500/30 bg-green-500/20 text-green-300'
+                        : 'border-amber-500/30 bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {decisionReplayHealth?.healthy ? 'HEALTHY' : 'AT RISK'}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Scanned</p>
+                      <p className="font-mono text-gray-200">{Math.round(decisionReplayHealth?.scanned ?? 0)}</p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Mismatch Ratio</p>
+                      <p className={`font-mono ${(decisionReplayHealth?.mismatch_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {decisionReplayMismatchPct}%
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Mismatches</p>
+                      <p className={`font-mono ${(decisionReplayHealth?.mismatch_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {Math.round(decisionReplayHealth?.mismatch_count ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Missing Digest</p>
+                      <p className={`font-mono ${(decisionReplayHealth?.missing_digest_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {Math.round(decisionReplayHealth?.missing_digest_count ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Legacy Fallback</p>
+                      <p className="font-mono text-gray-200">{Math.round(decisionReplayHealth?.legacy_fallback_count ?? 0)}</p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Unreplayable</p>
+                      <p className={`font-mono ${(decisionReplayHealth?.unreplayable_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {Math.round(decisionReplayHealth?.unreplayable_count ?? 0)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[11px] text-gray-500">
+                    <p>contract {decisionReplayHealth?.contract_version || 'n/a'} • sample limit {Math.round(decisionReplayHealth?.limit ?? 0)}</p>
+                    {mismatchTraceSamples.length > 0 && (
+                      <p className="mt-1 font-mono text-amber-300">mismatch traces: {mismatchTraceSamples.join(', ')}</p>
+                    )}
+                    {missingDigestTraceSamples.length > 0 && (
+                      <p className="mt-1 font-mono text-amber-300">missing digest traces: {missingDigestTraceSamples.join(', ')}</p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">

@@ -132,6 +132,7 @@ process -> monitor -> decision -> action -> DB events -> API -> dashboard
 - `GET /v1/metrics`
 - `GET /v1/ops/controlplane/replay/history?days=<n>`
 - `GET /v1/ops/decisions/replay/{trace_id}`
+- `GET /v1/ops/decisions/replay/health?limit=<n>&strict=1`
 - `GET /v1/ops/requests/{request_id}?limit=<n>`
 - `POST /v1/process/kill`
 - `POST /v1/process/restart`
@@ -153,6 +154,7 @@ Error responses use RFC 7807 Problem Details (`application/problem+json`) with s
 API echoes `X-Request-Id` (or generates one) so operators can correlate failed requests with audit evidence.
 Use `GET /v1/ops/requests/{request_id}` to retrieve the full correlated event chain for that request id.
 Use `GET /v1/ops/decisions/replay/{trace_id}` to recompute and verify deterministic replay digest integrity for a recorded decision trace.
+Use `GET /v1/ops/decisions/replay/health` to audit recent replay integrity at fleet level (`strict=1` returns `409` when mismatches, missing digests, or unreplayable traces are detected).
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`
@@ -160,6 +162,16 @@ Use `GET /v1/ops/decisions/replay/{trace_id}` to recompute and verify determinis
 - `flowforge_stop_latency_last_seconds`
 - `flowforge_restart_latency_last_seconds`
 - `flowforge_restart_budget_block_total`
+- `flowforge_decision_replay_checked_rows`
+- `flowforge_decision_replay_match_rows`
+- `flowforge_decision_replay_mismatch_rows`
+- `flowforge_decision_replay_missing_digest_rows`
+- `flowforge_decision_replay_legacy_fallback_rows`
+- `flowforge_decision_replay_unreplayable_rows`
+- `flowforge_decision_replay_mismatch_ratio`
+- `flowforge_decision_replay_healthiness`
+- `flowforge_decision_replay_health_sample_limit`
+- `flowforge_decision_replay_stats_error`
 
 ## Detection Benchmark Baseline
 

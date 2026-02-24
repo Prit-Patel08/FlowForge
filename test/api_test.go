@@ -1098,6 +1098,15 @@ func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
 	if statsErr, ok := metricValue(body, "flowforge_controlplane_replay_stats_error"); !ok || statsErr != 0 {
 		t.Fatalf("expected flowforge_controlplane_replay_stats_error=0, got %v (ok=%v)", statsErr, ok)
 	}
+	if _, ok := metricValue(body, "flowforge_decision_replay_checked_rows"); !ok {
+		t.Fatalf("expected flowforge_decision_replay_checked_rows metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_decision_replay_mismatch_rows"); !ok {
+		t.Fatalf("expected flowforge_decision_replay_mismatch_rows metric in output")
+	}
+	if statsErr, ok := metricValue(body, "flowforge_decision_replay_stats_error"); !ok || statsErr != 0 {
+		t.Fatalf("expected flowforge_decision_replay_stats_error=0, got %v (ok=%v)", statsErr, ok)
+	}
 }
 
 func TestControlPlaneReplayHistoryEndpointContract(t *testing.T) {
@@ -1402,6 +1411,165 @@ func TestDecisionReplayEndpointRejectsInvalidParams(t *testing.T) {
 		errMsg := strings.ToLower(problemDetail(payload))
 		if !strings.Contains(errMsg, strings.ToLower(tc.detailSubstring)) {
 			t.Fatalf("path %s expected detail substring %q, got payload=%#v", tc.path, tc.detailSubstring, payload)
+		}
+	}
+}
+
+func TestDecisionReplayHealthEndpointContract(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-replay-health")
+
+	matchMeta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+		ReplayContract:    policy.DecisionReplayContractVersion,
+	}
+	matchMeta.ReplayDigest = policy.DecisionReplayDigest(policy.DecisionReplayInput{
+		DecisionEngine:   matchMeta.DecisionEngine,
+		EngineVersion:    matchMeta.EngineVersion,
+		DecisionContract: matchMeta.DecisionContract,
+		RolloutMode:      matchMeta.PolicyRolloutMode,
+		Decision:         "KILL",
+		Reason:           "health contract match",
+		CPUScore:         99.0,
+		EntropyScore:     10.0,
+		ConfidenceScore:  96.0,
+	})
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 health_match.py",
+		7010,
+		99.0,
+		10.0,
+		96.0,
+		"KILL",
+		"health contract match",
+		"incident-replay-health-match",
+		matchMeta,
+	); err != nil {
+		t.Fatalf("insert match decision trace: %v", err)
+	}
+
+	mismatchMeta := matchMeta
+	mismatchMeta.ReplayDigest = "badbadbad"
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 health_mismatch.py",
+		7011,
+		95.0,
+		11.0,
+		90.0,
+		"KILL",
+		"health contract mismatch",
+		"incident-replay-health-mismatch",
+		mismatchMeta,
+	); err != nil {
+		t.Fatalf("insert mismatch decision trace: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/ops/decisions/replay/health?limit=10", nil)
+	req.Header.Set("X-Request-Id", "req-decision-replay-health-contract")
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := intValue(payload["scanned"]); got != 2 {
+		t.Fatalf("expected scanned=2, got %d", got)
+	}
+	if got := intValue(payload["match_count"]); got != 1 {
+		t.Fatalf("expected match_count=1, got %d", got)
+	}
+	if got := intValue(payload["mismatch_count"]); got != 1 {
+		t.Fatalf("expected mismatch_count=1, got %d", got)
+	}
+	if healthy, ok := payload["healthy"].(bool); !ok || healthy {
+		t.Fatalf("expected healthy=false, got %#v", payload["healthy"])
+	}
+	if got := stringValue(payload["contract_version"]); got != policy.DecisionReplayContractVersion {
+		t.Fatalf("expected contract_version %q, got %q", policy.DecisionReplayContractVersion, got)
+	}
+}
+
+func TestDecisionReplayHealthEndpointStrictMode(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-replay-health-strict")
+
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "1.1.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+		ReplayContract:    policy.DecisionReplayContractVersion,
+		ReplayDigest:      "invalid-strict-digest",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 strict.py",
+		7020,
+		97.0,
+		10.0,
+		95.0,
+		"KILL",
+		"strict mismatch",
+		"incident-replay-health-strict",
+		meta,
+	); err != nil {
+		t.Fatalf("insert strict decision trace: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/ops/decisions/replay/health?strict=1&limit=10", nil)
+	req.Header.Set("X-Request-Id", "req-decision-replay-health-strict")
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected status 409, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode strict response: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(problemDetail(payload)), "strict health check failed") {
+		t.Fatalf("expected strict health check failure detail, got %#v", payload)
+	}
+	extension, ok := payload["replay_health"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected replay_health extension payload, got %#v", payload["replay_health"])
+	}
+	if got := intValue(extension["mismatch_count"]); got < 1 {
+		t.Fatalf("expected mismatch_count >= 1, got %d", got)
+	}
+}
+
+func TestDecisionReplayHealthEndpointRejectsInvalidLimit(t *testing.T) {
+	setupTempDBForAPI(t)
+	handler := api.NewHandler()
+	for _, path := range []string{
+		"/v1/ops/decisions/replay/health?limit=0",
+		"/v1/ops/decisions/replay/health?limit=5001",
+		"/v1/ops/decisions/replay/health?limit=abc",
+	} {
+		req := httptest.NewRequest("GET", path, nil)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		resp := w.Result()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("path %s expected status 400, got %d", path, resp.StatusCode)
+		}
+		var payload map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			t.Fatalf("path %s decode response: %v", path, err)
+		}
+		detail := strings.ToLower(problemDetail(payload))
+		if !strings.Contains(detail, "limit must be an integer between 1 and 5000") {
+			t.Fatalf("path %s expected limit validation detail, got %#v", path, payload)
 		}
 	}
 }

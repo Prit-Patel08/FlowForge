@@ -42,9 +42,11 @@ type requestContextKey string
 const requestIDContextKey requestContextKey = "flowforge_request_id"
 
 const (
-	requestIDHeader    = "X-Request-Id"
-	maxRequestIDLength = 128
-	problemTypeBaseURI = "https://flowforge.dev/problems/"
+	requestIDHeader                  = "X-Request-Id"
+	maxRequestIDLength               = 128
+	problemTypeBaseURI               = "https://flowforge.dev/problems/"
+	defaultDecisionReplayHealthLimit = 500
+	maxDecisionReplayHealthLimit     = 5000
 )
 
 type statusRecorder struct {
@@ -309,6 +311,7 @@ func NewHandler() http.Handler {
 	registerRoute(mux, "/v1/ops/controlplane/replay/history", HandleControlPlaneReplayHistory)
 	registerRoute(mux, "/v1/ops/requests", HandleRequestTrace)
 	registerRoute(mux, "/v1/ops/requests/", HandleRequestTrace)
+	registerRoute(mux, "/v1/ops/decisions/replay/health", HandleDecisionReplayHealth)
 	registerRoute(mux, "/v1/ops/decisions/replay", HandleDecisionReplay)
 	registerRoute(mux, "/v1/ops/decisions/replay/", HandleDecisionReplay)
 	registerRoute(mux, "/v1/integrations/workspaces/register", HandleIntegrationWorkspaceRegister)
@@ -448,6 +451,7 @@ func HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	_, _ = fmt.Fprint(w, apiMetrics.Prometheus(active))
 	_, _ = fmt.Fprint(w, controlPlaneReplayPrometheus())
+	_, _ = fmt.Fprint(w, decisionReplayPrometheus())
 }
 
 // HandleControlPlaneReplayHistory exposes replay/conflict event trend for recent days.
@@ -622,6 +626,66 @@ func HandleDecisionReplay(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type decisionReplayHealthSummary struct {
+	ContractVersion       string  `json:"contract_version"`
+	Limit                 int     `json:"limit"`
+	Scanned               int     `json:"scanned"`
+	Healthy               bool    `json:"healthy"`
+	MatchCount            int     `json:"match_count"`
+	MismatchCount         int     `json:"mismatch_count"`
+	MissingDigestCount    int     `json:"missing_digest_count"`
+	LegacyFallbackCount   int     `json:"legacy_fallback_count"`
+	UnreplayableCount     int     `json:"unreplayable_count"`
+	MismatchRatio         float64 `json:"mismatch_ratio"`
+	CheckedAt             string  `json:"checked_at"`
+	MismatchTraceIDs      []int   `json:"mismatch_trace_ids,omitempty"`
+	MissingDigestTraceIDs []int   `json:"missing_digest_trace_ids,omitempty"`
+}
+
+// HandleDecisionReplayHealth returns replay integrity summary over recent decision traces.
+func HandleDecisionReplayHealth(w http.ResponseWriter, r *http.Request) {
+	corsMiddleware(w, r)
+	r = ensureRequestContext(w, r)
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeJSONErrorForRequest(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	limit, err := parseDecisionReplayHealthLimit(r.URL.Query().Get("limit"))
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
+	}
+
+	summary, err := buildDecisionReplayHealthSummary(limit)
+	if err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("failed to compute decision replay health: %v", err))
+		return
+	}
+
+	if parseBoolQueryValue(r.URL.Query().Get("strict")) && !summary.Healthy {
+		payload := problemPayload(
+			r,
+			http.StatusConflict,
+			"decision replay strict health check failed",
+			map[string]interface{}{"replay_health": summary},
+		)
+		writeProblem(w, http.StatusConflict, payload)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, summary)
+}
+
 func parseRequestTraceID(path string) (string, error) {
 	const basePath = "/v1/ops/requests"
 	trimmedPath := strings.TrimSpace(path)
@@ -670,6 +734,88 @@ func parseDecisionReplayTraceID(path string) (int, error) {
 	return parsedID, nil
 }
 
+func parseDecisionReplayHealthLimit(raw string) (int, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return defaultDecisionReplayHealthLimit, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil || parsed < 1 || parsed > maxDecisionReplayHealthLimit {
+		return 0, fmt.Errorf("limit must be an integer between 1 and %d", maxDecisionReplayHealthLimit)
+	}
+	return parsed, nil
+}
+
+func parseBoolQueryValue(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildDecisionReplayHealthSummary(limit int) (decisionReplayHealthSummary, error) {
+	if limit <= 0 {
+		limit = defaultDecisionReplayHealthLimit
+	}
+	if limit > maxDecisionReplayHealthLimit {
+		limit = maxDecisionReplayHealthLimit
+	}
+
+	traces, err := database.GetDecisionTraces(limit)
+	if err != nil {
+		return decisionReplayHealthSummary{}, err
+	}
+
+	summary := decisionReplayHealthSummary{
+		ContractVersion: policy.DecisionReplayContractVersion,
+		Limit:           limit,
+		Scanned:         len(traces),
+		CheckedAt:       time.Now().UTC().Format(time.RFC3339),
+	}
+
+	for _, trace := range traces {
+		verification := policy.VerifyDecisionReplay(trace.ReplayDigest, policy.DecisionReplayInput{
+			DecisionEngine:   trace.DecisionEngine,
+			EngineVersion:    trace.DecisionEngineVersion,
+			DecisionContract: trace.DecisionContract,
+			RolloutMode:      trace.PolicyRolloutMode,
+			Decision:         trace.Decision,
+			Reason:           trace.Reason,
+			CPUScore:         trace.CPUScore,
+			EntropyScore:     trace.EntropyScore,
+			ConfidenceScore:  trace.ConfidenceScore,
+		})
+
+		switch verification.Status {
+		case policy.ReplayStatusMatch:
+			summary.MatchCount++
+		case policy.ReplayStatusMismatch:
+			summary.MismatchCount++
+			if len(summary.MismatchTraceIDs) < 20 {
+				summary.MismatchTraceIDs = append(summary.MismatchTraceIDs, trace.ID)
+			}
+		case policy.ReplayStatusMissing:
+			summary.MissingDigestCount++
+			if len(summary.MissingDigestTraceIDs) < 20 {
+				summary.MissingDigestTraceIDs = append(summary.MissingDigestTraceIDs, trace.ID)
+			}
+		case policy.ReplayStatusLegacy:
+			summary.LegacyFallbackCount++
+		default:
+			summary.UnreplayableCount++
+		}
+	}
+
+	if summary.Scanned > 0 {
+		summary.MismatchRatio = float64(summary.MismatchCount) / float64(summary.Scanned)
+	}
+	summary.Healthy = summary.MismatchCount == 0 && summary.MissingDigestCount == 0 && summary.UnreplayableCount == 0
+
+	return summary, nil
+}
+
 func controlPlaneReplayPrometheus() string {
 	var b strings.Builder
 	b.WriteString("# HELP flowforge_controlplane_replay_rows Current number of persisted control-plane replay rows.\n")
@@ -704,6 +850,95 @@ func controlPlaneReplayPrometheus() string {
 	fmt.Fprintf(&b, "flowforge_controlplane_replay_oldest_age_seconds %d\n", stats.OldestAgeSeconds)
 	fmt.Fprintf(&b, "flowforge_controlplane_replay_newest_age_seconds %d\n", stats.NewestAgeSeconds)
 	b.WriteString("flowforge_controlplane_replay_stats_error 0\n")
+	return b.String()
+}
+
+func decisionReplayHealthSampleLimitFromEnv() int {
+	limit := defaultDecisionReplayHealthLimit
+	raw := strings.TrimSpace(os.Getenv("FLOWFORGE_DECISION_REPLAY_HEALTH_LIMIT"))
+	if raw == "" {
+		return limit
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return limit
+	}
+	if parsed < 1 {
+		return 1
+	}
+	if parsed > maxDecisionReplayHealthLimit {
+		return maxDecisionReplayHealthLimit
+	}
+	return parsed
+}
+
+func decisionReplayPrometheus() string {
+	var b strings.Builder
+	b.WriteString("# HELP flowforge_decision_replay_checked_rows Number of decision traces scanned for replay integrity checks.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_checked_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_match_rows Decision traces where deterministic replay digest matched.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_match_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_mismatch_rows Decision traces where deterministic replay digest mismatched.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_mismatch_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_missing_digest_rows Decision traces missing replay digest under non-legacy contract.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_missing_digest_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_legacy_fallback_rows Decision traces replayed using legacy metadata fallback.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_legacy_fallback_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_unreplayable_rows Decision traces not replayable due to incomplete deterministic input.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_unreplayable_rows gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_mismatch_ratio Mismatch ratio across sampled decision traces.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_mismatch_ratio gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_healthiness Replay healthiness flag (1 healthy, 0 at risk).\n")
+	b.WriteString("# TYPE flowforge_decision_replay_healthiness gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_health_sample_limit Sample size used for replay health scan.\n")
+	b.WriteString("# TYPE flowforge_decision_replay_health_sample_limit gauge\n")
+	b.WriteString("# HELP flowforge_decision_replay_stats_error Whether decision replay health collection failed (1) or succeeded (0).\n")
+	b.WriteString("# TYPE flowforge_decision_replay_stats_error gauge\n")
+
+	if err := ensureAPIDBReady(); err != nil {
+		b.WriteString("flowforge_decision_replay_checked_rows 0\n")
+		b.WriteString("flowforge_decision_replay_match_rows 0\n")
+		b.WriteString("flowforge_decision_replay_mismatch_rows 0\n")
+		b.WriteString("flowforge_decision_replay_missing_digest_rows 0\n")
+		b.WriteString("flowforge_decision_replay_legacy_fallback_rows 0\n")
+		b.WriteString("flowforge_decision_replay_unreplayable_rows 0\n")
+		b.WriteString("flowforge_decision_replay_mismatch_ratio 0\n")
+		b.WriteString("flowforge_decision_replay_healthiness 0\n")
+		fmt.Fprintf(&b, "flowforge_decision_replay_health_sample_limit %d\n", decisionReplayHealthSampleLimitFromEnv())
+		b.WriteString("flowforge_decision_replay_stats_error 1\n")
+		return b.String()
+	}
+
+	limit := decisionReplayHealthSampleLimitFromEnv()
+	summary, err := buildDecisionReplayHealthSummary(limit)
+	if err != nil {
+		b.WriteString("flowforge_decision_replay_checked_rows 0\n")
+		b.WriteString("flowforge_decision_replay_match_rows 0\n")
+		b.WriteString("flowforge_decision_replay_mismatch_rows 0\n")
+		b.WriteString("flowforge_decision_replay_missing_digest_rows 0\n")
+		b.WriteString("flowforge_decision_replay_legacy_fallback_rows 0\n")
+		b.WriteString("flowforge_decision_replay_unreplayable_rows 0\n")
+		b.WriteString("flowforge_decision_replay_mismatch_ratio 0\n")
+		b.WriteString("flowforge_decision_replay_healthiness 0\n")
+		fmt.Fprintf(&b, "flowforge_decision_replay_health_sample_limit %d\n", limit)
+		b.WriteString("flowforge_decision_replay_stats_error 1\n")
+		return b.String()
+	}
+
+	fmt.Fprintf(&b, "flowforge_decision_replay_checked_rows %d\n", summary.Scanned)
+	fmt.Fprintf(&b, "flowforge_decision_replay_match_rows %d\n", summary.MatchCount)
+	fmt.Fprintf(&b, "flowforge_decision_replay_mismatch_rows %d\n", summary.MismatchCount)
+	fmt.Fprintf(&b, "flowforge_decision_replay_missing_digest_rows %d\n", summary.MissingDigestCount)
+	fmt.Fprintf(&b, "flowforge_decision_replay_legacy_fallback_rows %d\n", summary.LegacyFallbackCount)
+	fmt.Fprintf(&b, "flowforge_decision_replay_unreplayable_rows %d\n", summary.UnreplayableCount)
+	fmt.Fprintf(&b, "flowforge_decision_replay_mismatch_ratio %.6f\n", summary.MismatchRatio)
+	if summary.Healthy {
+		b.WriteString("flowforge_decision_replay_healthiness 1\n")
+	} else {
+		b.WriteString("flowforge_decision_replay_healthiness 0\n")
+	}
+	fmt.Fprintf(&b, "flowforge_decision_replay_health_sample_limit %d\n", summary.Limit)
+	b.WriteString("flowforge_decision_replay_stats_error 0\n")
 	return b.String()
 }
 
