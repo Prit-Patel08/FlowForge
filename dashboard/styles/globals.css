@@ -9,47 +9,47 @@
     --font-sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'IBM Plex Mono', 'Menlo', 'Consolas', monospace;
 
-    --background: 0 0% 97.5%;
-    --foreground: 220 20% 10%;
+    --background: 220 33% 98%;
+    --foreground: 222 44% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 222 44% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 222 44% 11%;
 
-    --primary: 24 95% 53%;
+    --primary: 24 96% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 94%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 216 33% 95%;
+    --secondary-foreground: 222 27% 20%;
 
-    --muted: 220 14% 95.5%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 218 25% 94%;
+    --muted-foreground: 220 13% 42%;
 
-    --accent: 24 95% 53%;
+    --accent: 24 96% 53%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 74% 54%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 142 71% 40%;
+    --success: 145 69% 37%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 36 94% 46%;
     --warning-foreground: 0 0% 10%;
 
-    --info: 210 100% 52%;
+    --info: 212 100% 47%;
     --info-foreground: 0 0% 100%;
 
-    --critical: 0 72% 51%;
+    --critical: 0 74% 54%;
     --critical-foreground: 0 0% 100%;
 
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 24 95% 53%;
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
+    --ring: 24 96% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
   }
 
   .dark {
@@ -109,6 +109,10 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    background-image:
+      radial-gradient(80rem 28rem at 50% -20%, hsl(24 96% 53% / 0.12), transparent 65%),
+      radial-gradient(70rem 24rem at 20% 110%, hsl(212 100% 47% / 0.08), transparent 65%);
+    background-attachment: fixed;
   }
 
   :focus-visible {
@@ -119,5 +123,14 @@
 @layer components {
   .font-mono {
     font-family: var(--font-mono);
+  }
+
+  .surface-subtle {
+    background-image: linear-gradient(
+      180deg,
+      hsl(var(--card) / 0.98) 0%,
+      hsl(var(--card)) 80%,
+      hsl(var(--muted) / 0.35) 100%
+    );
   }
 }

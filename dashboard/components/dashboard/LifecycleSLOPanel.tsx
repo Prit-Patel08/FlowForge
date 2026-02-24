@@ -44,27 +44,27 @@ export function LifecycleSLOPanel({
       {!isLoading && !error && slo && (
         <div className='space-y-3'>
           <div className='grid grid-cols-2 gap-2 text-xs'>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='text-muted-foreground'>Stop SLO</p>
-              <p className='font-mono text-foreground'>{(slo.stopComplianceRatio * 100).toFixed(1)}%</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Stop SLO</p>
+              <p className='font-mono text-lg text-foreground'>{(slo.stopComplianceRatio * 100).toFixed(1)}%</p>
             </div>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='text-muted-foreground'>Restart SLO</p>
-              <p className='font-mono text-foreground'>{(slo.restartComplianceRatio * 100).toFixed(1)}%</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Restart SLO</p>
+              <p className='font-mono text-lg text-foreground'>{(slo.restartComplianceRatio * 100).toFixed(1)}%</p>
             </div>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='text-muted-foreground'>Replay Ledger Rows</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Replay Ledger Rows</p>
               <p className='font-mono text-foreground'>{Math.round(slo.replayRows)}</p>
             </div>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='text-muted-foreground'>Oldest Replay Age</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Oldest Replay Age</p>
               <p className='font-mono text-foreground'>{(slo.replayOldestAgeSeconds / 3600).toFixed(2)}h</p>
             </div>
           </div>
 
           {lifecycle && (
-            <div className='rounded border border-border bg-muted/20 p-2 text-xs'>
-              <p className='text-muted-foreground'>Worker phase</p>
+            <div className='rounded-lg border border-border bg-muted/30 p-2 text-xs'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Worker phase</p>
               <p className='font-mono text-foreground'>{lifecycle.phase || 'UNKNOWN'} (pid {lifecycle.pid || 0})</p>
             </div>
           )}

@@ -224,14 +224,14 @@ export default function Dashboard() {
       : 'operational';
 
   return (
-    <div className='min-h-screen bg-background'>
+    <div className='min-h-screen bg-background text-foreground'>
       <Head>
         <title>FlowForge Dashboard</title>
       </Head>
 
       <GlobalHeader apiKey={apiKey} onApiKeyChange={setApiKey} systemStatus={systemStatus} />
 
-      <main className='container space-y-5 py-5'>
+      <main className='container space-y-6 py-6'>
         <section aria-label='Key metrics'>
           <KPIRow
             stats={stats}
@@ -254,8 +254,8 @@ export default function Dashboard() {
           />
         </section>
 
-        <div className='grid grid-cols-1 gap-5 lg:grid-cols-12'>
-          <div className='space-y-5 lg:col-span-7'>
+        <div className='grid grid-cols-1 gap-6 lg:grid-cols-12'>
+          <div className='space-y-6 lg:col-span-7'>
             <section aria-label='Recent incidents'>
               <IncidentTable
                 incidents={mappedIncidents}
@@ -276,7 +276,7 @@ export default function Dashboard() {
             </section>
           </div>
 
-          <div className='space-y-5 lg:col-span-5'>
+          <div className='space-y-6 lg:col-span-5'>
             <section aria-label='Lifecycle SLO'>
               <LifecycleSLOPanel
                 lifecycle={lifecycle.data || emptyLifecycle}

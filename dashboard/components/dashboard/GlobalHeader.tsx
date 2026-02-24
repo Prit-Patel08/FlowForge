@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Key, Radio } from 'lucide-react';
+import { Shield, Key, Radio, Activity } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { cn } from '@/lib/utils';
 
@@ -13,14 +13,14 @@ export function GlobalHeader({ apiKey, onApiKeyChange, systemStatus = 'operation
   const [showKeyInput, setShowKeyInput] = useState(false);
 
   return (
-    <header className='sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80'>
-      <div className='container flex h-14 items-center justify-between gap-4'>
+    <header className='sticky top-0 z-50 border-b border-border/80 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85'>
+      <div className='container flex h-16 items-center justify-between gap-4'>
         <div className='flex items-center gap-3'>
-          <div className='flex items-center gap-2'>
-            <Shield className='h-5 w-5 text-primary' />
-            <span className='text-base font-bold tracking-tight text-foreground'>FlowForge</span>
+          <div className='flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1.5'>
+            <Shield className='h-4 w-4 text-primary' />
+            <span className='text-sm font-bold tracking-tight text-foreground'>FlowForge</span>
           </div>
-          <span className='hidden rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex'>
+          <span className='hidden rounded-md border border-border bg-muted/70 px-2 py-1 text-xs font-semibold text-muted-foreground sm:inline-flex'>
             Control Plane
           </span>
         </div>
@@ -33,8 +33,8 @@ export function GlobalHeader({ apiKey, onApiKeyChange, systemStatus = 'operation
             {systemStatus === 'operational' ? 'Operational' : systemStatus === 'degraded' ? 'Degraded' : 'Down'}
           </StatusBadge>
 
-          <div className='hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex'>
-            <Radio className='h-3.5 w-3.5 animate-pulse text-success' />
+          <div className='hidden items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground sm:flex'>
+            <Radio className='h-3.5 w-3.5 animate-pulse-subtle text-success' />
             <span>Live</span>
           </div>
 
@@ -42,10 +42,10 @@ export function GlobalHeader({ apiKey, onApiKeyChange, systemStatus = 'operation
             <button
               onClick={() => setShowKeyInput((prev) => !prev)}
               className={cn(
-                'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition-colors',
                 apiKey
                   ? 'border-success/30 bg-success/5 text-success hover:bg-success/10'
-                  : 'border-border text-muted-foreground hover:bg-muted'
+                  : 'border-border bg-card text-muted-foreground hover:bg-muted'
               )}
               aria-label='Configure API key'
             >
@@ -69,6 +69,10 @@ export function GlobalHeader({ apiKey, onApiKeyChange, systemStatus = 'operation
                 <p className='mt-1.5 text-xs text-muted-foreground'>Stored in session only.</p>
               </div>
             )}
+          </div>
+          <div className='hidden items-center gap-1 text-xs text-muted-foreground lg:flex'>
+            <Activity className='h-3.5 w-3.5 text-primary' />
+            <span>v1.1</span>
           </div>
         </div>
       </div>

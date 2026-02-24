@@ -87,7 +87,7 @@ export function LiveMonitorPanel({ worker, isLoading, error, onRetry, apiKey }: 
       )}
       {!isLoading && !error && worker && (
         <div className='space-y-2'>
-          <div className='flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-sm'>
+          <div className='flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm'>
             <div className='flex min-w-0 items-center gap-2'>
               <StatusBadge variant={severityToVariant(worker.phase || worker.status || 'unknown')} dot>
                 {worker.phase || 'UNKNOWN'}
@@ -100,17 +100,17 @@ export function LiveMonitorPanel({ worker, isLoading, error, onRetry, apiKey }: 
             </div>
           </div>
           <div className='grid grid-cols-2 gap-2 text-xs text-muted-foreground'>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='font-medium text-foreground'>Operation</p>
-              <p className='font-mono'>{worker.operation || 'idle'}</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Operation</p>
+              <p className='font-mono text-foreground'>{worker.operation || 'idle'}</p>
             </div>
-            <div className='rounded border border-border bg-muted/30 p-2'>
-              <p className='font-medium text-foreground'>Lifecycle</p>
-              <p className='font-mono'>{worker.lifecycle || 'unknown'}</p>
+            <div className='rounded-lg border border-border bg-card p-2'>
+              <p className='text-[11px] font-semibold uppercase tracking-wide text-muted-foreground'>Lifecycle</p>
+              <p className='font-mono text-foreground'>{worker.lifecycle || 'unknown'}</p>
             </div>
           </div>
           {worker.last_error && (
-            <div className='rounded border border-critical/20 bg-critical/10 px-2 py-1 text-xs text-critical'>
+            <div className='rounded-lg border border-critical/20 bg-critical/10 px-2 py-1 text-xs text-critical'>
               {worker.last_error}
             </div>
           )}

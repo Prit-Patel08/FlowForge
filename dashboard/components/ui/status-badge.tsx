@@ -11,12 +11,12 @@ interface StatusBadgeProps {
 }
 
 const variantClasses: Record<StatusBadgeVariant, string> = {
-  success: 'bg-success/10 text-success border border-success/20',
-  warning: 'bg-warning/10 text-warning border border-warning/20',
-  critical: 'bg-critical/10 text-critical border border-critical/20',
-  info: 'bg-info/10 text-info border border-info/20',
-  neutral: 'bg-muted text-muted-foreground border border-border',
-  brand: 'bg-primary/10 text-primary border border-primary/20',
+  success: 'border border-success/30 bg-success/10 text-success',
+  warning: 'border border-warning/30 bg-warning/10 text-warning',
+  critical: 'border border-critical/30 bg-critical/10 text-critical',
+  info: 'border border-info/25 bg-info/10 text-info',
+  neutral: 'border border-border bg-muted/70 text-muted-foreground',
+  brand: 'border border-primary/30 bg-primary/10 text-primary',
 };
 
 const dotClasses: Record<StatusBadgeVariant, string> = {
@@ -30,7 +30,13 @@ const dotClasses: Record<StatusBadgeVariant, string> = {
 
 export function StatusBadge({ children, variant = 'neutral', dot = false, className }: StatusBadgeProps) {
   return (
-    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', variantClasses[variant], className)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tracking-wide',
+        variantClasses[variant],
+        className
+      )}
+    >
       {dot && <span className={cn('h-1.5 w-1.5 rounded-full', dotClasses[variant])} />}
       {children}
     </span>
