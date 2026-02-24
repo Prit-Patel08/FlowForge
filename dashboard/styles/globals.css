@@ -1,13 +1,40 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #0b1220;
+  --foreground: #e5e7eb;
+  --panel: #111827;
+  --panel-border: rgba(148, 163, 184, 0.15);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(249, 115, 22, 0.14), transparent 36%),
+    radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.08), transparent 34%);
+  background-attachment: fixed;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@layer components {
+  .ff-panel {
+    @apply rounded-xl border bg-obsidian-800/70 shadow-lg backdrop-blur-sm;
+    border-color: var(--panel-border);
+  }
 }

@@ -5,16 +5,24 @@ module.exports = {
         "./components/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
+        container: {
+            center: true,
+            padding: "1.5rem",
+        },
         extend: {
+            fontFamily: {
+                sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui"],
+                mono: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular"],
+            },
             colors: {
                 obsidian: {
-                    900: '#09090b', // Zinc 950
-                    800: '#18181b', // Zinc 900
-                    700: '#27272a', // Zinc 800
+                    900: '#0b1220',
+                    800: '#111827',
+                    700: '#1f2937',
                 },
                 accent: {
-                    500: '#a855f7', // Purple 500
-                    600: '#9333ea', // Purple 600
+                    500: '#f97316',
+                    600: '#ea580c',
                 }
             }
         },

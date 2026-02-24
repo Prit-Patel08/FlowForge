@@ -11,6 +11,7 @@ import IncidentTable from '../components/IncidentTable';
 import StatCard from '../components/StatCard';
 import TimelinePanel from '../components/TimelinePanel';
 import IncidentDrilldownPanel from '../components/IncidentDrilldownPanel';
+import GlobalHeader from '../components/GlobalHeader';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ShieldAlert, Zap, Activity, ServerCrash, Terminal, Cpu, Skull, RefreshCw } from 'lucide-react';
@@ -622,56 +623,44 @@ export default function Dashboard() {
     await lookupRequestTrace(requestID);
   };
 
+  const handleApiKeyChange = (next: string): void => {
+    setApiKey(next);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.setItem('flowforgeApiKey', next);
+    }
+  };
+
+  const liveStatusLabel =
+    liveStats?.status === 'RUNNING'
+      ? 'Monitoring Active'
+      : liveStats?.status === 'LOOP_DETECTED'
+        ? 'Loop Detected'
+        : liveStats?.status === 'WATCHDOG_ALERT'
+          ? 'Watchdog Alert'
+          : 'System Idle';
+
+  const liveStatusTone: 'operational' | 'degraded' | 'idle' =
+    liveStats?.status === 'RUNNING'
+      ? 'operational'
+      : liveStats?.status === 'LOOP_DETECTED' || liveStats?.status === 'WATCHDOG_ALERT'
+        ? 'degraded'
+        : 'idle';
+
   return (
     <div className="min-h-screen bg-obsidian-900 text-gray-100 font-sans selection:bg-accent-500/30">
       <Head>
         <title>FlowForge Dashboard</title>
       </Head>
 
-      <div className="container mx-auto px-6 py-10 max-w-7xl">
-        <header className="mb-8 flex items-center justify-between border-b border-gray-800 pb-6">
-          <div className="flex items-center gap-4">
-            <div className="rounded-xl bg-accent-600 p-3 shadow-lg shadow-accent-500/20">
-              <ShieldAlert size={32} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-                FlowForge
-                <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 border border-gray-700">v1.1</span>
-              </h1>
-              <p className="mt-1 text-gray-400 font-medium">
-                Autonomous Supervision & Security Layer
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="mb-2">
-              <input
-                type="password"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  setApiKey(next);
-                  if (typeof window !== 'undefined') {
-                    window.sessionStorage.setItem('flowforgeApiKey', next);
-                  }
-                }}
-                placeholder="API key (session only)"
-                className="w-56 rounded-md border border-gray-700 bg-gray-900 px-2 py-1 text-xs text-gray-200 focus:border-accent-500 focus:outline-none"
-              />
-            </div>
-            <div className="flex items-center gap-2 justify-end mb-1">
-              {(liveStats?.status === 'RUNNING' || liveStats?.status === 'LOOP_DETECTED' || liveStats?.status === 'WATCHDOG_ALERT') && (
-                <span className={`animate-pulse inline-flex h-2 w-2 rounded-full mr-1 ${liveStats?.status === 'WATCHDOG_ALERT' ? 'bg-amber-400' : 'bg-accent-400'}`}></span>
-              )}
-              <span className="font-medium text-gray-200">
-                {liveStats?.status === 'RUNNING' ? 'Monitoring Active' : liveStats?.status === 'LOOP_DETECTED' ? 'Loop Detected' : liveStats?.status === 'WATCHDOG_ALERT' ? 'Watchdog Alert' : 'System Idle'}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 font-mono">PORT: 8080 • <span className="text-accent-400">LIVE</span></p>
-          </div>
-        </header>
+      <GlobalHeader
+        apiKey={apiKey}
+        onApiKeyChange={handleApiKeyChange}
+        systemLabel={liveStatusLabel}
+        status={liveStatusTone}
+        apiBase={API_BASE}
+      />
+
+      <div className="container mx-auto max-w-7xl px-6 py-8">
 
         <main className="space-y-8">
           {/* Live Monitor Section */}
