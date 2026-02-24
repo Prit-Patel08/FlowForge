@@ -51,10 +51,14 @@ const (
 	maxDecisionReplayHealthLimit                  = 5000
 	defaultDecisionSignalBaselineLimit            = 500
 	maxDecisionSignalBaselineLimit                = 5000
-	decisionSignalBaselineContractVersion         = "decision-signal-baseline.v1"
+	decisionSignalBaselineContractVersion         = "decision-signal-baseline.v2"
 	defaultDecisionSignalCPUDeltaThreshold        = 25.0
 	defaultDecisionSignalEntropyDeltaThreshold    = 20.0
 	defaultDecisionSignalConfidenceDeltaThreshold = 20.0
+	defaultDecisionSignalBaselineMinSamples       = 3
+	defaultDecisionSignalBaselineRequiredStreak   = 2
+	maxDecisionSignalBaselineMinSamples           = 100
+	maxDecisionSignalBaselineRequiredStreak       = 10
 )
 
 type statusRecorder struct {
@@ -680,6 +684,11 @@ type decisionSignalBaselineThresholds struct {
 	ConfidenceDelta float64 `json:"confidence_delta"`
 }
 
+type decisionSignalBaselineGuardrails struct {
+	MinBaselineSamples int `json:"min_baseline_samples"`
+	RequiredStreak     int `json:"required_consecutive_breaches"`
+}
+
 type decisionSignalBaselineBucket struct {
 	BucketKey              string  `json:"bucket_key"`
 	DecisionEngine         string  `json:"decision_engine"`
@@ -701,25 +710,50 @@ type decisionSignalBaselineBucket struct {
 	CPUDrift               bool    `json:"cpu_drift"`
 	EntropyDrift           bool    `json:"entropy_drift"`
 	ConfidenceDrift        bool    `json:"confidence_drift"`
+	BreachSignalCount      int     `json:"breach_signal_count"`
+	ConsecutiveBreachCount int     `json:"consecutive_breach_count"`
+	PendingEscalation      bool    `json:"pending_escalation"`
+	InsufficientHistory    bool    `json:"insufficient_history"`
+	Status                 string  `json:"status"`
+	StateTransition        string  `json:"state_transition,omitempty"`
 	Healthy                bool    `json:"healthy"`
 }
 
 type decisionSignalBaselineSummary struct {
-	ContractVersion       string                           `json:"contract_version"`
-	Limit                 int                              `json:"limit"`
-	Scanned               int                              `json:"scanned"`
-	BucketCount           int                              `json:"bucket_count"`
-	AtRiskBucketCount     int                              `json:"at_risk_bucket_count"`
-	MaxCPUDeltaAbs        float64                          `json:"max_cpu_delta_abs"`
-	MaxEntropyDeltaAbs    float64                          `json:"max_entropy_delta_abs"`
-	MaxConfidenceDeltaAbs float64                          `json:"max_confidence_delta_abs"`
-	Healthy               bool                             `json:"healthy"`
-	CheckedAt             string                           `json:"checked_at"`
-	Filter                decisionSignalBaselineFilter     `json:"filter"`
-	Thresholds            decisionSignalBaselineThresholds `json:"thresholds"`
-	Buckets               []decisionSignalBaselineBucket   `json:"buckets"`
-	AtRiskBucketKeys      []string                         `json:"at_risk_bucket_keys,omitempty"`
+	ContractVersion        string                           `json:"contract_version"`
+	Limit                  int                              `json:"limit"`
+	Scanned                int                              `json:"scanned"`
+	BucketCount            int                              `json:"bucket_count"`
+	AtRiskBucketCount      int                              `json:"at_risk_bucket_count"`
+	PendingBucketCount     int                              `json:"pending_bucket_count"`
+	InsufficientCount      int                              `json:"insufficient_history_bucket_count"`
+	TransitionCount        int                              `json:"transition_count"`
+	MaxCPUDeltaAbs         float64                          `json:"max_cpu_delta_abs"`
+	MaxEntropyDeltaAbs     float64                          `json:"max_entropy_delta_abs"`
+	MaxConfidenceDeltaAbs  float64                          `json:"max_confidence_delta_abs"`
+	Healthy                bool                             `json:"healthy"`
+	CheckedAt              string                           `json:"checked_at"`
+	Filter                 decisionSignalBaselineFilter     `json:"filter"`
+	Thresholds             decisionSignalBaselineThresholds `json:"thresholds"`
+	Guardrails             decisionSignalBaselineGuardrails `json:"guardrails"`
+	Buckets                []decisionSignalBaselineBucket   `json:"buckets"`
+	AtRiskBucketKeys       []string                         `json:"at_risk_bucket_keys,omitempty"`
+	PendingBucketKeys      []string                         `json:"pending_bucket_keys,omitempty"`
+	InsufficientBucketKeys []string                         `json:"insufficient_history_bucket_keys,omitempty"`
 }
+
+type decisionSignalBaselineBuildOptions struct {
+	PersistState         bool
+	EmitAuditTransitions bool
+	RequestID            string
+}
+
+const (
+	signalBaselineStatusHealthy             = "healthy"
+	signalBaselineStatusPending             = "pending"
+	signalBaselineStatusAtRisk              = "at_risk"
+	signalBaselineStatusInsufficientHistory = "insufficient_history"
+)
 
 // HandleDecisionReplayHealth returns replay integrity summary over recent decision traces.
 func HandleDecisionReplayHealth(w http.ResponseWriter, r *http.Request) {
@@ -795,7 +829,18 @@ func HandleDecisionSignalBaseline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	thresholds := decisionSignalBaselineThresholdsFromEnv()
-	summary, err := buildDecisionSignalBaselineSummary(limit, filter, thresholds)
+	guardrails := decisionSignalBaselineGuardrailsFromEnv()
+	summary, err := buildDecisionSignalBaselineSummary(
+		limit,
+		filter,
+		thresholds,
+		guardrails,
+		decisionSignalBaselineBuildOptions{
+			PersistState:         true,
+			EmitAuditTransitions: true,
+			RequestID:            requestIDFromRequest(r),
+		},
+	)
 	if err != nil {
 		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("failed to compute decision signal baseline: %v", err))
 		return
@@ -965,6 +1010,23 @@ func decisionSignalBaselineThresholdsFromEnv() decisionSignalBaselineThresholds 
 	}
 }
 
+func decisionSignalBaselineGuardrailsFromEnv() decisionSignalBaselineGuardrails {
+	return decisionSignalBaselineGuardrails{
+		MinBaselineSamples: positiveIntFromEnv(
+			"FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES",
+			defaultDecisionSignalBaselineMinSamples,
+			1,
+			maxDecisionSignalBaselineMinSamples,
+		),
+		RequiredStreak: positiveIntFromEnv(
+			"FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE",
+			defaultDecisionSignalBaselineRequiredStreak,
+			1,
+			maxDecisionSignalBaselineRequiredStreak,
+		),
+	}
+}
+
 func positiveFloatFromEnv(name string, fallback float64) float64 {
 	raw := strings.TrimSpace(os.Getenv(name))
 	if raw == "" {
@@ -973,6 +1035,24 @@ func positiveFloatFromEnv(name string, fallback float64) float64 {
 	parsed, err := strconv.ParseFloat(raw, 64)
 	if err != nil || parsed <= 0 {
 		return fallback
+	}
+	return parsed
+}
+
+func positiveIntFromEnv(name string, fallback, minValue, maxValue int) int {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return fallback
+	}
+	if parsed < minValue {
+		return minValue
+	}
+	if parsed > maxValue {
+		return maxValue
 	}
 	return parsed
 }
@@ -1005,13 +1085,32 @@ func meanSignalScores(traces []database.DecisionTrace) (cpu, entropy, confidence
 	return cpu / n, entropy / n, confidence / n
 }
 
-func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaselineFilter, thresholds decisionSignalBaselineThresholds) (decisionSignalBaselineSummary, error) {
+func buildDecisionSignalBaselineSummary(
+	limit int,
+	filter decisionSignalBaselineFilter,
+	thresholds decisionSignalBaselineThresholds,
+	guardrails decisionSignalBaselineGuardrails,
+	options decisionSignalBaselineBuildOptions,
+) (decisionSignalBaselineSummary, error) {
 	if limit <= 0 {
 		limit = defaultDecisionSignalBaselineLimit
 	}
 	if limit > maxDecisionSignalBaselineLimit {
 		limit = maxDecisionSignalBaselineLimit
 	}
+	if guardrails.MinBaselineSamples <= 0 {
+		guardrails.MinBaselineSamples = defaultDecisionSignalBaselineMinSamples
+	}
+	if guardrails.MinBaselineSamples > maxDecisionSignalBaselineMinSamples {
+		guardrails.MinBaselineSamples = maxDecisionSignalBaselineMinSamples
+	}
+	if guardrails.RequiredStreak <= 0 {
+		guardrails.RequiredStreak = defaultDecisionSignalBaselineRequiredStreak
+	}
+	if guardrails.RequiredStreak > maxDecisionSignalBaselineRequiredStreak {
+		guardrails.RequiredStreak = maxDecisionSignalBaselineRequiredStreak
+	}
+	options.RequestID = strings.TrimSpace(options.RequestID)
 
 	traces, err := database.GetDecisionTraces(limit)
 	if err != nil {
@@ -1032,6 +1131,7 @@ func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaseline
 		CheckedAt:       time.Now().UTC().Format(time.RFC3339),
 		Filter:          filter,
 		Thresholds:      thresholds,
+		Guardrails:      guardrails,
 	}
 	if len(filtered) == 0 {
 		summary.Healthy = true
@@ -1061,13 +1161,85 @@ func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaseline
 		cpuDrift := math.Abs(cpuDelta) >= thresholds.CPUDelta
 		entropyDrift := math.Abs(entropyDelta) >= thresholds.EntropyDelta
 		confidenceDrift := math.Abs(confidenceDelta) >= thresholds.ConfidenceDelta
-		healthy := !(cpuDrift || entropyDrift || confidenceDrift)
+		breachSignalCount := 0
+		if cpuDrift {
+			breachSignalCount++
+		}
+		if entropyDrift {
+			breachSignalCount++
+		}
+		if confidenceDrift {
+			breachSignalCount++
+		}
+		insufficientHistory := len(baselineTraces) < guardrails.MinBaselineSamples
 		engine := normalizeSignalBucketDimension(latest.DecisionEngine, "unknown-engine")
 		version := normalizeSignalBucketDimension(latest.DecisionEngineVersion, "unknown-version")
 		rollout := normalizeSignalBucketDimension(latest.PolicyRolloutMode, "unknown-rollout")
 
-		if !healthy {
+		previous := database.DecisionSignalBaselineState{
+			BucketKey: key,
+			Status:    signalBaselineStatusHealthy,
+		}
+		hasPrevious := false
+		loadedState, err := database.GetDecisionSignalBaselineState(key)
+		if err == nil {
+			hasPrevious = true
+			previous = loadedState
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return decisionSignalBaselineSummary{}, err
+		}
+		previous.Status = normalizeSignalBaselineStatus(previous.Status)
+		if previous.ConsecutiveBreach < 0 {
+			previous.ConsecutiveBreach = 0
+		}
+		if previous.LatestTraceID < 0 {
+			previous.LatestTraceID = 0
+		}
+		latestIsNew := !hasPrevious || latest.ID != previous.LatestTraceID
+		consecutiveBreachCount := previous.ConsecutiveBreach
+		status := signalBaselineStatusHealthy
+		pendingEscalation := false
+
+		switch {
+		case insufficientHistory:
+			consecutiveBreachCount = 0
+			status = signalBaselineStatusInsufficientHistory
+		case breachSignalCount == 0:
+			consecutiveBreachCount = 0
+			status = signalBaselineStatusHealthy
+		default:
+			if latestIsNew {
+				if previous.Status == signalBaselineStatusPending || previous.Status == signalBaselineStatusAtRisk {
+					consecutiveBreachCount++
+				} else {
+					consecutiveBreachCount = 1
+				}
+			}
+			if consecutiveBreachCount <= 0 {
+				consecutiveBreachCount = 1
+			}
+			if consecutiveBreachCount >= guardrails.RequiredStreak {
+				status = signalBaselineStatusAtRisk
+			} else {
+				status = signalBaselineStatusPending
+				pendingEscalation = true
+			}
+		}
+
+		stateTransition := ""
+		if hasPrevious && previous.Status != status {
+			stateTransition = fmt.Sprintf("%s->%s", previous.Status, status)
+			summary.TransitionCount++
+		}
+
+		healthy := status != signalBaselineStatusAtRisk
+		switch status {
+		case signalBaselineStatusAtRisk:
 			summary.AtRiskBucketKeys = append(summary.AtRiskBucketKeys, key)
+		case signalBaselineStatusPending:
+			summary.PendingBucketKeys = append(summary.PendingBucketKeys, key)
+		case signalBaselineStatusInsufficientHistory:
+			summary.InsufficientBucketKeys = append(summary.InsufficientBucketKeys, key)
 		}
 		if abs := math.Abs(cpuDelta); abs > summary.MaxCPUDeltaAbs {
 			summary.MaxCPUDeltaAbs = abs
@@ -1100,8 +1272,36 @@ func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaseline
 			CPUDrift:               cpuDrift,
 			EntropyDrift:           entropyDrift,
 			ConfidenceDrift:        confidenceDrift,
+			BreachSignalCount:      breachSignalCount,
+			ConsecutiveBreachCount: consecutiveBreachCount,
+			PendingEscalation:      pendingEscalation,
+			InsufficientHistory:    insufficientHistory,
+			Status:                 status,
+			StateTransition:        stateTransition,
 			Healthy:                healthy,
 		})
+
+		if options.PersistState {
+			shouldPersist := !hasPrevious ||
+				previous.LatestTraceID != latest.ID ||
+				previous.ConsecutiveBreach != consecutiveBreachCount ||
+				previous.Status != status
+			if shouldPersist {
+				if err := database.UpsertDecisionSignalBaselineState(database.DecisionSignalBaselineState{
+					BucketKey:         key,
+					LatestTraceID:     latest.ID,
+					ConsecutiveBreach: consecutiveBreachCount,
+					Status:            status,
+				}); err != nil {
+					return decisionSignalBaselineSummary{}, err
+				}
+			}
+			if options.EmitAuditTransitions && hasPrevious && previous.Status != status {
+				if err := emitSignalBaselineTransitionEvent(options.RequestID, key, previous.Status, status, guardrails, thresholds, latest, breachSignalCount, consecutiveBreachCount, cpuDelta, entropyDelta, confidenceDelta); err != nil {
+					return decisionSignalBaselineSummary{}, err
+				}
+			}
+		}
 	}
 
 	sort.Slice(buckets, func(i, j int) bool {
@@ -1111,12 +1311,101 @@ func buildDecisionSignalBaselineSummary(limit int, filter decisionSignalBaseline
 		return buckets[i].SampleCount > buckets[j].SampleCount
 	})
 	sort.Strings(summary.AtRiskBucketKeys)
+	sort.Strings(summary.PendingBucketKeys)
+	sort.Strings(summary.InsufficientBucketKeys)
 
 	summary.Buckets = buckets
 	summary.BucketCount = len(buckets)
 	summary.AtRiskBucketCount = len(summary.AtRiskBucketKeys)
+	summary.PendingBucketCount = len(summary.PendingBucketKeys)
+	summary.InsufficientCount = len(summary.InsufficientBucketKeys)
 	summary.Healthy = summary.AtRiskBucketCount == 0
 	return summary, nil
+}
+
+func normalizeSignalBaselineStatus(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case signalBaselineStatusPending:
+		return signalBaselineStatusPending
+	case signalBaselineStatusAtRisk:
+		return signalBaselineStatusAtRisk
+	case signalBaselineStatusInsufficientHistory:
+		return signalBaselineStatusInsufficientHistory
+	default:
+		return signalBaselineStatusHealthy
+	}
+}
+
+func emitSignalBaselineTransitionEvent(
+	requestID string,
+	bucketKey string,
+	previousStatus string,
+	currentStatus string,
+	guardrails decisionSignalBaselineGuardrails,
+	thresholds decisionSignalBaselineThresholds,
+	latest database.DecisionTrace,
+	breachSignalCount int,
+	consecutiveBreachCount int,
+	cpuDelta float64,
+	entropyDelta float64,
+	confidenceDelta float64,
+) error {
+	previousStatus = normalizeSignalBaselineStatus(previousStatus)
+	currentStatus = normalizeSignalBaselineStatus(currentStatus)
+	if !(previousStatus == signalBaselineStatusAtRisk || currentStatus == signalBaselineStatusAtRisk) {
+		return nil
+	}
+	title := "SIGNAL_BASELINE_RECOVERED"
+	summary := fmt.Sprintf("signal baseline recovered for %s", bucketKey)
+	if currentStatus == signalBaselineStatusAtRisk {
+		title = "SIGNAL_BASELINE_AT_RISK"
+		summary = fmt.Sprintf("signal baseline drift breached guardrail for %s", bucketKey)
+	}
+	reason := fmt.Sprintf(
+		"signal baseline transition %s -> %s (bucket=%s, breaches=%d, streak=%d/%d)",
+		previousStatus,
+		currentStatus,
+		bucketKey,
+		breachSignalCount,
+		consecutiveBreachCount,
+		guardrails.RequiredStreak,
+	)
+	payload := map[string]interface{}{
+		"bucket_key":                    bucketKey,
+		"previous_status":               previousStatus,
+		"status":                        currentStatus,
+		"latest_trace_id":               latest.ID,
+		"latest_timestamp":              latest.Timestamp,
+		"decision_engine":               normalizeSignalBucketDimension(latest.DecisionEngine, "unknown-engine"),
+		"engine_version":                normalizeSignalBucketDimension(latest.DecisionEngineVersion, "unknown-version"),
+		"rollout_mode":                  normalizeSignalBucketDimension(latest.PolicyRolloutMode, "unknown-rollout"),
+		"breach_signal_count":           breachSignalCount,
+		"consecutive_breach_count":      consecutiveBreachCount,
+		"required_consecutive_breaches": guardrails.RequiredStreak,
+		"min_baseline_samples":          guardrails.MinBaselineSamples,
+		"cpu_delta":                     cpuDelta,
+		"entropy_delta":                 entropyDelta,
+		"confidence_delta":              confidenceDelta,
+		"cpu_delta_threshold":           thresholds.CPUDelta,
+		"entropy_delta_threshold":       thresholds.EntropyDelta,
+		"confidence_delta_threshold":    thresholds.ConfidenceDelta,
+	}
+	_, err := database.InsertEventWithPayloadAndRequestID(
+		"audit",
+		"decision-intelligence",
+		reason,
+		"ops-signal-baseline",
+		"",
+		title,
+		summary,
+		latest.PID,
+		latest.CPUScore,
+		latest.EntropyScore,
+		latest.ConfidenceScore,
+		requestID,
+		payload,
+	)
+	return err
 }
 
 func controlPlaneReplayPrometheus() string {
@@ -1272,6 +1561,12 @@ func decisionSignalBaselinePrometheus() string {
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_bucket_count gauge\n")
 	b.WriteString("# HELP flowforge_decision_signal_baseline_at_risk_buckets Number of signal baseline buckets currently marked at risk.\n")
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_at_risk_buckets gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_pending_buckets Number of baseline buckets that breached once but have not reached escalation streak.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_pending_buckets gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_insufficient_history_buckets Number of baseline buckets skipped due to insufficient baseline sample history.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_insufficient_history_buckets gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_transition_count Number of bucket status transitions detected in this baseline evaluation.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_transition_count gauge\n")
 	b.WriteString("# HELP flowforge_decision_signal_baseline_max_cpu_delta_abs Maximum absolute CPU-score delta from baseline.\n")
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_max_cpu_delta_abs gauge\n")
 	b.WriteString("# HELP flowforge_decision_signal_baseline_max_entropy_delta_abs Maximum absolute entropy-score delta from baseline.\n")
@@ -1282,34 +1577,59 @@ func decisionSignalBaselinePrometheus() string {
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_healthiness gauge\n")
 	b.WriteString("# HELP flowforge_decision_signal_baseline_sample_limit Sample size used for signal baseline scan.\n")
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_sample_limit gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_required_streak Required consecutive breaches before a bucket is marked at risk.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_required_streak gauge\n")
+	b.WriteString("# HELP flowforge_decision_signal_baseline_min_baseline_samples Minimum baseline samples required before drift escalation logic applies.\n")
+	b.WriteString("# TYPE flowforge_decision_signal_baseline_min_baseline_samples gauge\n")
 	b.WriteString("# HELP flowforge_decision_signal_baseline_stats_error Whether signal baseline collection failed (1) or succeeded (0).\n")
 	b.WriteString("# TYPE flowforge_decision_signal_baseline_stats_error gauge\n")
+
+	guardrails := decisionSignalBaselineGuardrailsFromEnv()
+	limit := decisionSignalBaselineSampleLimitFromEnv()
 
 	if err := ensureAPIDBReady(); err != nil {
 		b.WriteString("flowforge_decision_signal_baseline_checked_rows 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_bucket_count 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_at_risk_buckets 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_max_cpu_delta_abs 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_max_entropy_delta_abs 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_max_confidence_delta_abs 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
-		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", decisionSignalBaselineSampleLimitFromEnv())
-		b.WriteString("flowforge_decision_signal_baseline_stats_error 1\n")
-		return b.String()
-	}
-
-	thresholds := decisionSignalBaselineThresholdsFromEnv()
-	limit := decisionSignalBaselineSampleLimitFromEnv()
-	summary, err := buildDecisionSignalBaselineSummary(limit, decisionSignalBaselineFilter{}, thresholds)
-	if err != nil {
-		b.WriteString("flowforge_decision_signal_baseline_checked_rows 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_bucket_count 0\n")
-		b.WriteString("flowforge_decision_signal_baseline_at_risk_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_pending_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_insufficient_history_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_transition_count 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_max_cpu_delta_abs 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_max_entropy_delta_abs 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_max_confidence_delta_abs 0\n")
 		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
 		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", limit)
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_required_streak %d\n", guardrails.RequiredStreak)
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_min_baseline_samples %d\n", guardrails.MinBaselineSamples)
+		b.WriteString("flowforge_decision_signal_baseline_stats_error 1\n")
+		return b.String()
+	}
+
+	thresholds := decisionSignalBaselineThresholdsFromEnv()
+	summary, err := buildDecisionSignalBaselineSummary(
+		limit,
+		decisionSignalBaselineFilter{},
+		thresholds,
+		guardrails,
+		decisionSignalBaselineBuildOptions{
+			PersistState:         true,
+			EmitAuditTransitions: false,
+		},
+	)
+	if err != nil {
+		b.WriteString("flowforge_decision_signal_baseline_checked_rows 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_bucket_count 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_at_risk_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_pending_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_insufficient_history_buckets 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_transition_count 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_cpu_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_entropy_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_max_confidence_delta_abs 0\n")
+		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", limit)
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_required_streak %d\n", guardrails.RequiredStreak)
+		fmt.Fprintf(&b, "flowforge_decision_signal_baseline_min_baseline_samples %d\n", guardrails.MinBaselineSamples)
 		b.WriteString("flowforge_decision_signal_baseline_stats_error 1\n")
 		return b.String()
 	}
@@ -1317,6 +1637,9 @@ func decisionSignalBaselinePrometheus() string {
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_checked_rows %d\n", summary.Scanned)
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_bucket_count %d\n", summary.BucketCount)
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_at_risk_buckets %d\n", summary.AtRiskBucketCount)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_pending_buckets %d\n", summary.PendingBucketCount)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_insufficient_history_buckets %d\n", summary.InsufficientCount)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_transition_count %d\n", summary.TransitionCount)
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_cpu_delta_abs %.6f\n", summary.MaxCPUDeltaAbs)
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_entropy_delta_abs %.6f\n", summary.MaxEntropyDeltaAbs)
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_max_confidence_delta_abs %.6f\n", summary.MaxConfidenceDeltaAbs)
@@ -1326,6 +1649,8 @@ func decisionSignalBaselinePrometheus() string {
 		b.WriteString("flowforge_decision_signal_baseline_healthiness 0\n")
 	}
 	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_sample_limit %d\n", summary.Limit)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_required_streak %d\n", summary.Guardrails.RequiredStreak)
+	fmt.Fprintf(&b, "flowforge_decision_signal_baseline_min_baseline_samples %d\n", summary.Guardrails.MinBaselineSamples)
 	b.WriteString("flowforge_decision_signal_baseline_stats_error 0\n")
 	return b.String()
 }

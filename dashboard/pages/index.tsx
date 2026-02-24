@@ -168,6 +168,11 @@ interface DecisionSignalBaselineThresholds {
   confidence_delta: number;
 }
 
+interface DecisionSignalBaselineGuardrails {
+  min_baseline_samples: number;
+  required_consecutive_breaches: number;
+}
+
 interface DecisionSignalBaselineBucket {
   bucket_key: string;
   decision_engine: string;
@@ -189,6 +194,12 @@ interface DecisionSignalBaselineBucket {
   cpu_drift: boolean;
   entropy_drift: boolean;
   confidence_drift: boolean;
+  breach_signal_count: number;
+  consecutive_breach_count: number;
+  pending_escalation: boolean;
+  insufficient_history: boolean;
+  status: string;
+  state_transition?: string;
   healthy: boolean;
 }
 
@@ -198,14 +209,20 @@ interface DecisionSignalBaseline {
   scanned: number;
   bucket_count: number;
   at_risk_bucket_count: number;
+  pending_bucket_count: number;
+  insufficient_history_bucket_count: number;
+  transition_count: number;
   max_cpu_delta_abs: number;
   max_entropy_delta_abs: number;
   max_confidence_delta_abs: number;
   healthy: boolean;
   checked_at: string;
   thresholds: DecisionSignalBaselineThresholds;
+  guardrails: DecisionSignalBaselineGuardrails;
   buckets: DecisionSignalBaselineBucket[];
   at_risk_bucket_keys: string[];
+  pending_bucket_keys: string[];
+  insufficient_history_bucket_keys: string[];
 }
 
 interface RequestTraceEvent {
@@ -347,6 +364,9 @@ export default function Dashboard() {
         scanned: 0,
         bucket_count: 0,
         at_risk_bucket_count: 0,
+        pending_bucket_count: 0,
+        insufficient_history_bucket_count: 0,
+        transition_count: 0,
         max_cpu_delta_abs: 0,
         max_entropy_delta_abs: 0,
         max_confidence_delta_abs: 0,
@@ -357,8 +377,14 @@ export default function Dashboard() {
           entropy_delta: 20,
           confidence_delta: 20
         },
+        guardrails: {
+          min_baseline_samples: 3,
+          required_consecutive_breaches: 2
+        },
         buckets: [],
-        at_risk_bucket_keys: []
+        at_risk_bucket_keys: [],
+        pending_bucket_keys: [],
+        insufficient_history_bucket_keys: []
       }
     }
   );
@@ -509,6 +535,7 @@ export default function Dashboard() {
   const mismatchTraceSamples = (decisionReplayHealth?.mismatch_trace_ids ?? []).slice(0, 3);
   const missingDigestTraceSamples = (decisionReplayHealth?.missing_digest_trace_ids ?? []).slice(0, 3);
   const atRiskSignalBucket = (decisionSignalBaseline?.buckets ?? []).find((bucket) => !bucket.healthy);
+  const pendingSignalBucket = (decisionSignalBaseline?.buckets ?? []).find((bucket) => bucket.status === 'pending');
   const actionSummary =
     latestActionedIncident?.exit_reason === 'LOOP_DETECTED'
       ? 'FlowForge stopped the process to prevent runaway cost.'
@@ -1118,6 +1145,30 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Pending Buckets</p>
+                      <p className={`font-mono ${(decisionSignalBaseline?.pending_bucket_count ?? 0) > 0 ? 'text-amber-300' : 'text-gray-200'}`}>
+                        {Math.round(decisionSignalBaseline?.pending_bucket_count ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Insufficient History</p>
+                      <p className="font-mono text-gray-200">
+                        {Math.round(decisionSignalBaseline?.insufficient_history_bucket_count ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Required Streak</p>
+                      <p className="font-mono text-gray-200">
+                        {Math.round(decisionSignalBaseline?.guardrails?.required_consecutive_breaches ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
+                      <p className="text-gray-500">Min Baseline Samples</p>
+                      <p className="font-mono text-gray-200">
+                        {Math.round(decisionSignalBaseline?.guardrails?.min_baseline_samples ?? 0)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-black/30 p-2">
                       <p className="text-gray-500">Max |CPU Delta|</p>
                       <p className={`font-mono ${(decisionSignalBaseline?.max_cpu_delta_abs ?? 0) >= (decisionSignalBaseline?.thresholds?.cpu_delta ?? 25) ? 'text-amber-300' : 'text-gray-200'}`}>
                         {(decisionSignalBaseline?.max_cpu_delta_abs ?? 0).toFixed(1)}
@@ -1140,7 +1191,15 @@ export default function Dashboard() {
                     <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
                       <p className="font-mono">{atRiskSignalBucket.bucket_key}</p>
                       <p className="font-mono">
-                        Δcpu {atRiskSignalBucket.cpu_delta.toFixed(1)} | Δentropy {atRiskSignalBucket.entropy_delta.toFixed(1)} | Δconfidence {atRiskSignalBucket.confidence_delta.toFixed(1)}
+                        Δcpu {atRiskSignalBucket.cpu_delta.toFixed(1)} | Δentropy {atRiskSignalBucket.entropy_delta.toFixed(1)} | Δconfidence {atRiskSignalBucket.confidence_delta.toFixed(1)} | streak {atRiskSignalBucket.consecutive_breach_count}
+                      </p>
+                    </div>
+                  )}
+                  {!atRiskSignalBucket && pendingSignalBucket && (
+                    <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
+                      <p className="font-mono">{pendingSignalBucket.bucket_key}</p>
+                      <p className="font-mono">
+                        pending escalation: streak {pendingSignalBucket.consecutive_breach_count}/{Math.round(decisionSignalBaseline?.guardrails?.required_consecutive_breaches ?? 0)}
                       </p>
                     </div>
                   )}

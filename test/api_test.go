@@ -1113,6 +1113,18 @@ func TestMetricsIncludeLifecycleLatencySLOSignals(t *testing.T) {
 	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_at_risk_buckets"); !ok {
 		t.Fatalf("expected flowforge_decision_signal_baseline_at_risk_buckets metric in output")
 	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_pending_buckets"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_pending_buckets metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_insufficient_history_buckets"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_insufficient_history_buckets metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_required_streak"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_required_streak metric in output")
+	}
+	if _, ok := metricValue(body, "flowforge_decision_signal_baseline_min_baseline_samples"); !ok {
+		t.Fatalf("expected flowforge_decision_signal_baseline_min_baseline_samples metric in output")
+	}
 	if statsErr, ok := metricValue(body, "flowforge_decision_signal_baseline_stats_error"); !ok || statsErr != 0 {
 		t.Fatalf("expected flowforge_decision_signal_baseline_stats_error=0, got %v (ok=%v)", statsErr, ok)
 	}
@@ -1586,6 +1598,8 @@ func TestDecisionReplayHealthEndpointRejectsInvalidLimit(t *testing.T) {
 func TestDecisionSignalBaselineEndpointContract(t *testing.T) {
 	setupTempDBForAPI(t)
 	database.SetRunID("run-decision-signal-baseline")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES", "1")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE", "1")
 
 	primaryMeta := database.DecisionTraceMeta{
 		DecisionEngine:    "threshold-decider",
@@ -1679,8 +1693,8 @@ func TestDecisionSignalBaselineEndpointContract(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if got := stringValue(payload["contract_version"]); got != "decision-signal-baseline.v1" {
-		t.Fatalf("expected contract_version decision-signal-baseline.v1, got %q", got)
+	if got := stringValue(payload["contract_version"]); got != "decision-signal-baseline.v2" {
+		t.Fatalf("expected contract_version decision-signal-baseline.v2, got %q", got)
 	}
 	if got := intValue(payload["scanned"]); got != 5 {
 		t.Fatalf("expected scanned=5, got %d", got)
@@ -1690,6 +1704,12 @@ func TestDecisionSignalBaselineEndpointContract(t *testing.T) {
 	}
 	if got := intValue(payload["at_risk_bucket_count"]); got != 1 {
 		t.Fatalf("expected at_risk_bucket_count=1, got %d", got)
+	}
+	if got := intValue(payload["pending_bucket_count"]); got != 0 {
+		t.Fatalf("expected pending_bucket_count=0, got %d", got)
+	}
+	if got := intValue(payload["insufficient_history_bucket_count"]); got != 0 {
+		t.Fatalf("expected insufficient_history_bucket_count=0, got %d", got)
 	}
 	if healthy, ok := payload["healthy"].(bool); !ok || healthy {
 		t.Fatalf("expected healthy=false, got %#v", payload["healthy"])
@@ -1728,11 +1748,19 @@ func TestDecisionSignalBaselineEndpointContract(t *testing.T) {
 	if drift, ok := primaryBucket["confidence_drift"].(bool); !ok || !drift {
 		t.Fatalf("expected confidence_drift=true, got %#v", primaryBucket["confidence_drift"])
 	}
+	if status := stringValue(primaryBucket["status"]); status != "at_risk" {
+		t.Fatalf("expected status=at_risk, got %q", status)
+	}
+	if got := intValue(primaryBucket["consecutive_breach_count"]); got != 1 {
+		t.Fatalf("expected consecutive_breach_count=1, got %d", got)
+	}
 }
 
 func TestDecisionSignalBaselineEndpointStrictMode(t *testing.T) {
 	setupTempDBForAPI(t)
 	database.SetRunID("run-decision-signal-baseline-strict")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES", "1")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE", "1")
 
 	meta := database.DecisionTraceMeta{
 		DecisionEngine:    "threshold-decider",
@@ -1789,6 +1817,199 @@ func TestDecisionSignalBaselineEndpointStrictMode(t *testing.T) {
 	}
 	if got := intValue(extension["at_risk_bucket_count"]); got < 1 {
 		t.Fatalf("expected at_risk_bucket_count >= 1, got %d", got)
+	}
+}
+
+func TestDecisionSignalBaselineEndpointHardeningRequiresConsecutiveBreach(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-signal-baseline-hardening")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES", "1")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE", "2")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_CPU_DELTA_THRESHOLD", "10")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_ENTROPY_DELTA_THRESHOLD", "10")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_CONFIDENCE_DELTA_THRESHOLD", "10")
+
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "2.0.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 hardening-baseline.py",
+		7301,
+		40.0,
+		30.0,
+		70.0,
+		"ALLOW",
+		"hardening baseline",
+		"incident-hardening-1",
+		meta,
+	); err != nil {
+		t.Fatalf("insert hardening baseline sample: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 hardening-drift-1.py",
+		7302,
+		92.0,
+		62.0,
+		35.0,
+		"KILL",
+		"hardening drift 1",
+		"incident-hardening-2",
+		meta,
+	); err != nil {
+		t.Fatalf("insert hardening drift sample 1: %v", err)
+	}
+
+	handler := api.NewHandler()
+	firstReq := httptest.NewRequest("GET", "/v1/ops/decisions/signals/baseline?strict=1&limit=20", nil)
+	firstReq.Header.Set("X-Request-Id", "req-signal-hardening-1")
+	firstW := httptest.NewRecorder()
+	handler.ServeHTTP(firstW, firstReq)
+	firstResp := firstW.Result()
+	if firstResp.StatusCode != http.StatusOK {
+		t.Fatalf("first strict request expected status 200, got %d", firstResp.StatusCode)
+	}
+	var firstPayload map[string]interface{}
+	if err := json.NewDecoder(firstResp.Body).Decode(&firstPayload); err != nil {
+		t.Fatalf("decode first response: %v", err)
+	}
+	if got := intValue(firstPayload["at_risk_bucket_count"]); got != 0 {
+		t.Fatalf("expected at_risk_bucket_count=0 on first breach, got %d", got)
+	}
+	if got := intValue(firstPayload["pending_bucket_count"]); got != 1 {
+		t.Fatalf("expected pending_bucket_count=1 on first breach, got %d", got)
+	}
+	firstBuckets, ok := firstPayload["buckets"].([]interface{})
+	if !ok || len(firstBuckets) == 0 {
+		t.Fatalf("expected at least one bucket in first response, got %#v", firstPayload["buckets"])
+	}
+	firstBucket, ok := firstBuckets[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map bucket payload, got %#v", firstBuckets[0])
+	}
+	if status := stringValue(firstBucket["status"]); status != "pending" {
+		t.Fatalf("expected first bucket status=pending, got %q", status)
+	}
+	if got := intValue(firstBucket["consecutive_breach_count"]); got != 1 {
+		t.Fatalf("expected first bucket consecutive_breach_count=1, got %d", got)
+	}
+
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 hardening-drift-2.py",
+		7303,
+		95.0,
+		65.0,
+		30.0,
+		"KILL",
+		"hardening drift 2",
+		"incident-hardening-3",
+		meta,
+	); err != nil {
+		t.Fatalf("insert hardening drift sample 2: %v", err)
+	}
+
+	secondReq := httptest.NewRequest("GET", "/v1/ops/decisions/signals/baseline?strict=1&limit=20", nil)
+	secondReq.Header.Set("X-Request-Id", "req-signal-hardening-2")
+	secondW := httptest.NewRecorder()
+	handler.ServeHTTP(secondW, secondReq)
+	secondResp := secondW.Result()
+	if secondResp.StatusCode != http.StatusConflict {
+		t.Fatalf("second strict request expected status 409, got %d", secondResp.StatusCode)
+	}
+
+	var secondPayload map[string]interface{}
+	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
+		t.Fatalf("decode second response: %v", err)
+	}
+	extension, ok := secondPayload["signal_baseline"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected signal_baseline extension in strict conflict response, got %#v", secondPayload["signal_baseline"])
+	}
+	if got := intValue(extension["at_risk_bucket_count"]); got != 1 {
+		t.Fatalf("expected at_risk_bucket_count=1 on second breach, got %d", got)
+	}
+	if got := intValue(extension["pending_bucket_count"]); got != 0 {
+		t.Fatalf("expected pending_bucket_count=0 on second breach, got %d", got)
+	}
+
+	events, err := database.GetUnifiedEventsByRequestID("req-signal-hardening-2", 20)
+	if err != nil {
+		t.Fatalf("GetUnifiedEventsByRequestID: %v", err)
+	}
+	foundTransition := false
+	for _, event := range events {
+		if strings.EqualFold(event.Title, "SIGNAL_BASELINE_AT_RISK") {
+			foundTransition = true
+			break
+		}
+	}
+	if !foundTransition {
+		t.Fatalf("expected SIGNAL_BASELINE_AT_RISK event for second strict request, got %#v", events)
+	}
+}
+
+func TestDecisionSignalBaselineEndpointHardeningInsufficientHistory(t *testing.T) {
+	setupTempDBForAPI(t)
+	database.SetRunID("run-decision-signal-baseline-insufficient")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES", "3")
+	t.Setenv("FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE", "2")
+
+	meta := database.DecisionTraceMeta{
+		DecisionEngine:    "threshold-decider",
+		EngineVersion:     "3.0.0",
+		DecisionContract:  "decision-trace.v1",
+		PolicyRolloutMode: "enforce",
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 insufficient-baseline.py",
+		7401,
+		45.0,
+		22.0,
+		80.0,
+		"ALLOW",
+		"insufficient baseline",
+		"incident-insufficient-1",
+		meta,
+	); err != nil {
+		t.Fatalf("insert insufficient baseline sample: %v", err)
+	}
+	if err := database.LogDecisionTraceWithIncidentAndMeta(
+		"python3 insufficient-drift.py",
+		7402,
+		92.0,
+		66.0,
+		35.0,
+		"KILL",
+		"insufficient drift",
+		"incident-insufficient-2",
+		meta,
+	); err != nil {
+		t.Fatalf("insert insufficient drift sample: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/ops/decisions/signals/baseline?strict=1&limit=20", nil)
+	req.Header.Set("X-Request-Id", "req-signal-insufficient")
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200 with insufficient history guardrail, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := intValue(payload["at_risk_bucket_count"]); got != 0 {
+		t.Fatalf("expected at_risk_bucket_count=0, got %d", got)
+	}
+	if got := intValue(payload["insufficient_history_bucket_count"]); got != 1 {
+		t.Fatalf("expected insufficient_history_bucket_count=1, got %d", got)
+	}
+	if healthy, ok := payload["healthy"].(bool); !ok || !healthy {
+		t.Fatalf("expected healthy=true under insufficient-history guardrail, got %#v", payload["healthy"])
 	}
 }
 

@@ -156,7 +156,12 @@ API echoes `X-Request-Id` (or generates one) so operators can correlate failed r
 Use `GET /v1/ops/requests/{request_id}` to retrieve the full correlated event chain for that request id.
 Use `GET /v1/ops/decisions/replay/{trace_id}` to recompute and verify deterministic replay digest integrity for a recorded decision trace.
 Use `GET /v1/ops/decisions/replay/health` to audit recent replay integrity at fleet level (`strict=1` returns `409` when mismatches, missing digests, or unreplayable traces are detected).
-Use `GET /v1/ops/decisions/signals/baseline` to audit signal-history drift by decision-engine bucket (`strict=1` returns `409` when baseline deltas exceed configured thresholds).
+Use `GET /v1/ops/decisions/signals/baseline` to audit signal-history drift by decision-engine bucket.
+Hardening guardrails now require both:
+1. minimum baseline history (`FLOWFORGE_DECISION_SIGNAL_BASELINE_MIN_SAMPLES`, default `3`)
+2. consecutive breaches before escalation (`FLOWFORGE_DECISION_SIGNAL_BASELINE_REQUIRED_CONSECUTIVE`, default `2`)
+
+With these guardrails, `strict=1` returns `409` only when at least one bucket reaches `status=at_risk` (not on single-breach `pending` buckets).
 
 `/metrics` now includes lifecycle SLO/latency metrics:
 - `flowforge_stop_slo_compliance_ratio`
@@ -177,11 +182,16 @@ Use `GET /v1/ops/decisions/signals/baseline` to audit signal-history drift by de
 - `flowforge_decision_signal_baseline_checked_rows`
 - `flowforge_decision_signal_baseline_bucket_count`
 - `flowforge_decision_signal_baseline_at_risk_buckets`
+- `flowforge_decision_signal_baseline_pending_buckets`
+- `flowforge_decision_signal_baseline_insufficient_history_buckets`
+- `flowforge_decision_signal_baseline_transition_count`
 - `flowforge_decision_signal_baseline_max_cpu_delta_abs`
 - `flowforge_decision_signal_baseline_max_entropy_delta_abs`
 - `flowforge_decision_signal_baseline_max_confidence_delta_abs`
 - `flowforge_decision_signal_baseline_healthiness`
 - `flowforge_decision_signal_baseline_sample_limit`
+- `flowforge_decision_signal_baseline_required_streak`
+- `flowforge_decision_signal_baseline_min_baseline_samples`
 - `flowforge_decision_signal_baseline_stats_error`
 
 ## Detection Benchmark Baseline

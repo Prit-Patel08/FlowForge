@@ -437,6 +437,41 @@ func InitDB() error {
 		return err
 	}
 
+	createSignalBaselineStateTableSQL := `CREATE TABLE IF NOT EXISTS decision_signal_baseline_state (
+		bucket_key TEXT PRIMARY KEY,
+		latest_trace_id INTEGER NOT NULL DEFAULT 0,
+		consecutive_breach_count INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'healthy',
+		last_transition_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_checked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);`
+	if _, err := db.Exec(createSignalBaselineStateTableSQL); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_signal_baseline_state", "latest_trace_id", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_signal_baseline_state", "consecutive_breach_count", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_signal_baseline_state", "status", "TEXT NOT NULL DEFAULT 'healthy'"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_signal_baseline_state", "last_transition_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"); err != nil {
+		return err
+	}
+	if err := ensureColumnExists("decision_signal_baseline_state", "last_checked_at", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"); err != nil {
+		return err
+	}
+	db.Exec("UPDATE decision_signal_baseline_state SET latest_trace_id = COALESCE(latest_trace_id, 0);")
+	db.Exec("UPDATE decision_signal_baseline_state SET consecutive_breach_count = COALESCE(consecutive_breach_count, 0);")
+	db.Exec("UPDATE decision_signal_baseline_state SET status = COALESCE(NULLIF(TRIM(status), ''), 'healthy');")
+	db.Exec("UPDATE decision_signal_baseline_state SET last_transition_at = COALESCE(last_transition_at, CURRENT_TIMESTAMP);")
+	db.Exec("UPDATE decision_signal_baseline_state SET last_checked_at = COALESCE(last_checked_at, CURRENT_TIMESTAMP);")
+	if _, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_signal_baseline_state_last_checked ON decision_signal_baseline_state(last_checked_at DESC);"); err != nil {
+		return err
+	}
+
 	return nil
 }
 
