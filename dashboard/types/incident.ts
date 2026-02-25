@@ -86,12 +86,20 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     return isRecord(value) ? value : undefined;
 }
 
-export function parseIncidentsPayload(payload: unknown): Incident[] {
-    if (!Array.isArray(payload)) {
-        throw new Error('Invalid incidents payload');
+function getCollectionItems(payload: unknown, errorMessage: string): unknown[] {
+    if (Array.isArray(payload)) {
+        return payload;
     }
+    if (isRecord(payload) && Array.isArray(payload.items)) {
+        return payload.items;
+    }
+    throw new Error(errorMessage);
+}
 
-    return payload.flatMap((entry) => {
+export function parseIncidentsPayload(payload: unknown): Incident[] {
+    const items = getCollectionItems(payload, 'Invalid incidents payload');
+
+    return items.flatMap((entry) => {
         if (!isRecord(entry)) {
             return [];
         }
@@ -115,11 +123,9 @@ export function parseIncidentsPayload(payload: unknown): Incident[] {
 }
 
 export function parseTimelinePayload(payload: unknown): TimelineEvent[] {
-    if (!Array.isArray(payload)) {
-        throw new Error('Invalid timeline payload');
-    }
+    const items = getCollectionItems(payload, 'Invalid timeline payload');
 
-    return payload.flatMap((entry) => {
+    return items.flatMap((entry) => {
         if (!isRecord(entry)) {
             return [];
         }

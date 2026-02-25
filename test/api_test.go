@@ -48,6 +48,22 @@ func intValue(v interface{}) int {
 	return int(f)
 }
 
+func objectSlice(v interface{}) []map[string]interface{} {
+	raw, ok := v.([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]interface{}, 0, len(raw))
+	for _, entry := range raw {
+		item, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
 func problemDetail(payload map[string]interface{}) string {
 	if payload == nil {
 		return ""
@@ -2234,6 +2250,184 @@ func TestV1CoreEndpointAliases(t *testing.T) {
 				t.Fatalf("%s expected status %d, got %d", tc.path, tc.wantStatus, resp.StatusCode)
 			}
 		})
+	}
+}
+
+func TestV1IncidentsPaginationContract(t *testing.T) {
+	setupTempDBForAPI(t)
+
+	if err := database.LogIncidentWithDecision(
+		"python3 worker_a.py",
+		"gpt-4",
+		"LOOP_DETECTED",
+		95.1,
+		"repeat loop",
+		0.75,
+		120,
+		0.12,
+		"agent-a",
+		"1.0.0",
+		"contract test incident A",
+		95.0,
+		10.0,
+		96.0,
+		"terminated",
+		0,
+	); err != nil {
+		t.Fatalf("LogIncidentWithDecision A: %v", err)
+	}
+	if err := database.LogIncidentWithDecision(
+		"python3 worker_b.py",
+		"gpt-4",
+		"COMMAND_FAILURE",
+		88.4,
+		"N/A",
+		0.42,
+		90,
+		0.09,
+		"agent-b",
+		"1.0.0",
+		"contract test incident B",
+		0.0,
+		0.0,
+		0.0,
+		"",
+		0,
+	); err != nil {
+		t.Fatalf("LogIncidentWithDecision B: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/incidents?limit=1", nil)
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode incidents payload: %v", err)
+	}
+	items := objectSlice(payload["items"])
+	if len(items) != 1 {
+		t.Fatalf("expected 1 incident item, got %d", len(items))
+	}
+	hasMore, ok := payload["has_more"].(bool)
+	if !ok || !hasMore {
+		t.Fatalf("expected has_more=true, got %#v", payload["has_more"])
+	}
+	nextCursor := stringValue(payload["next_cursor"])
+	if nextCursor == "" {
+		t.Fatalf("expected non-empty next_cursor, got %q", nextCursor)
+	}
+	if intValue(payload["limit"]) != 1 {
+		t.Fatalf("expected limit=1, got %v", payload["limit"])
+	}
+
+	secondReq := httptest.NewRequest("GET", "/v1/incidents?limit=1&cursor="+nextCursor, nil)
+	secondW := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(secondW, secondReq)
+	if secondW.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected second page status 200, got %d", secondW.Result().StatusCode)
+	}
+	var secondPayload map[string]interface{}
+	if err := json.NewDecoder(secondW.Body).Decode(&secondPayload); err != nil {
+		t.Fatalf("decode second incidents payload: %v", err)
+	}
+	secondItems := objectSlice(secondPayload["items"])
+	if len(secondItems) != 1 {
+		t.Fatalf("expected 1 second-page incident item, got %d", len(secondItems))
+	}
+	firstID := intValue(items[0]["id"])
+	secondID := intValue(secondItems[0]["id"])
+	if firstID == secondID {
+		t.Fatalf("expected distinct incidents across pages, got duplicate id %d", firstID)
+	}
+}
+
+func TestV1TimelinePaginationContract(t *testing.T) {
+	setupTempDBForAPI(t)
+
+	if _, err := database.InsertEvent(
+		"decision",
+		"system",
+		"timeline contract event A",
+		"run-v1-timeline",
+		"incident-v1-timeline",
+		"KILL",
+		"CPU 90 / Entropy 9 / Confidence 92",
+		5151,
+		90.0,
+		9.0,
+		92.0,
+	); err != nil {
+		t.Fatalf("InsertEvent A: %v", err)
+	}
+	if _, err := database.InsertEvent(
+		"audit",
+		"api-key",
+		"timeline contract event B",
+		"run-v1-timeline",
+		"incident-v1-timeline",
+		"RESTART",
+		"operator restart request",
+		5151,
+		0,
+		0,
+		0,
+	); err != nil {
+		t.Fatalf("InsertEvent B: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/v1/timeline?limit=1", nil)
+	w := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode timeline payload: %v", err)
+	}
+	items := objectSlice(payload["items"])
+	if len(items) != 1 {
+		t.Fatalf("expected 1 timeline item, got %d", len(items))
+	}
+	hasMore, ok := payload["has_more"].(bool)
+	if !ok || !hasMore {
+		t.Fatalf("expected has_more=true, got %#v", payload["has_more"])
+	}
+	nextCursor := stringValue(payload["next_cursor"])
+	if nextCursor == "" {
+		t.Fatalf("expected non-empty next_cursor, got %q", nextCursor)
+	}
+	if intValue(payload["limit"]) != 1 {
+		t.Fatalf("expected limit=1, got %v", payload["limit"])
+	}
+
+	secondReq := httptest.NewRequest("GET", "/v1/timeline?limit=1&cursor="+nextCursor, nil)
+	secondW := httptest.NewRecorder()
+	api.NewHandler().ServeHTTP(secondW, secondReq)
+	if secondW.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected second page status 200, got %d", secondW.Result().StatusCode)
+	}
+	var secondPayload map[string]interface{}
+	if err := json.NewDecoder(secondW.Body).Decode(&secondPayload); err != nil {
+		t.Fatalf("decode second timeline payload: %v", err)
+	}
+	secondItems := objectSlice(secondPayload["items"])
+	if len(secondItems) != 1 {
+		t.Fatalf("expected 1 second-page timeline item, got %d", len(secondItems))
+	}
+	firstEventID := stringValue(items[0]["event_id"])
+	secondEventID := stringValue(secondItems[0]["event_id"])
+	if firstEventID == "" || secondEventID == "" {
+		t.Fatalf("expected non-empty event ids, got %q and %q", firstEventID, secondEventID)
+	}
+	if firstEventID == secondEventID {
+		t.Fatalf("expected distinct timeline events across pages, got duplicate event_id %q", firstEventID)
 	}
 }
 

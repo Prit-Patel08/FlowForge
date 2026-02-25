@@ -640,6 +640,35 @@ func GetAllIncidents() ([]Incident, error) {
 	return getAllIncidentsLegacy()
 }
 
+func GetIncidentsPage(limit int, cursorID int64) ([]Incident, int64, bool, error) {
+	if db == nil {
+		return nil, 0, false, fmt.Errorf("db missing")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	if cursorID < 0 {
+		cursorID = 0
+	}
+
+	incidents, nextCursor, hasMore, err := getIncidentsFromUnifiedEventsPage(limit, cursorID)
+	if err == nil && len(incidents) > 0 {
+		return incidents, nextCursor, hasMore, nil
+	}
+	if err == nil && cursorID > 0 {
+		return []Incident{}, 0, false, nil
+	}
+
+	legacy, legacyNextCursor, legacyHasMore, legacyErr := getLegacyIncidentsPage(limit, cursorID)
+	if legacyErr != nil {
+		if err != nil {
+			return nil, 0, false, err
+		}
+		return nil, 0, false, legacyErr
+	}
+	return legacy, legacyNextCursor, legacyHasMore, nil
+}
+
 func getAllIncidentsLegacy() ([]Incident, error) {
 	rows, err := db.Query("SELECT id, timestamp, command, COALESCE(model_name, 'unknown'), exit_reason, max_cpu, pattern, token_savings_estimate, COALESCE(token_count, 0), COALESCE(cost, 0.0), COALESCE(agent_id, ''), COALESCE(agent_version, ''), COALESCE(reason, ''), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(recovery_status, ''), COALESCE(restart_count, 0) FROM incidents ORDER BY id DESC")
 	if err != nil {
@@ -658,6 +687,47 @@ func getAllIncidentsLegacy() ([]Incident, error) {
 		list = append(list, i)
 	}
 	return list, nil
+}
+
+func getLegacyIncidentsPage(limit int, cursorID int64) ([]Incident, int64, bool, error) {
+	query := "SELECT id, timestamp, command, COALESCE(model_name, 'unknown'), exit_reason, max_cpu, pattern, token_savings_estimate, COALESCE(token_count, 0), COALESCE(cost, 0.0), COALESCE(agent_id, ''), COALESCE(agent_version, ''), COALESCE(reason, ''), COALESCE(cpu_score, 0.0), COALESCE(entropy_score, 0.0), COALESCE(confidence_score, 0.0), COALESCE(recovery_status, ''), COALESCE(restart_count, 0) FROM incidents"
+	args := []interface{}{}
+	if cursorID > 0 {
+		query += " WHERE id < ?"
+		args = append(args, cursorID)
+	}
+	query += " ORDER BY id DESC LIMIT ?"
+	args = append(args, limit+1)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	defer rows.Close()
+
+	list := make([]Incident, 0, limit+1)
+	for rows.Next() {
+		var i Incident
+		if err := rows.Scan(&i.ID, &i.Timestamp, &i.Command, &i.ModelName, &i.ExitReason, &i.MaxCPU, &i.Pattern, &i.TokenSavingsEstimate, &i.TokenCount, &i.Cost, &i.AgentID, &i.AgentVersion, &i.Reason, &i.CPUScore, &i.EntropyScore, &i.ConfidenceScore, &i.RecoveryStatus, &i.RestartCount); err != nil {
+			return nil, 0, false, err
+		}
+		i.Command = decryptIfPossible(i.Command)
+		i.Pattern = decryptIfPossible(i.Pattern)
+		list = append(list, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, false, err
+	}
+
+	hasMore := len(list) > limit
+	if hasMore {
+		list = list[:limit]
+	}
+	var nextCursor int64
+	if hasMore && len(list) > 0 {
+		nextCursor = int64(list[len(list)-1].ID)
+	}
+	return list, nextCursor, hasMore, nil
 }
 
 func LogAuditEvent(actor, action, reason, source string, pid int, details string) error {
@@ -883,33 +953,60 @@ func GetTimeline(limit int) ([]TimelineEvent, error) {
 	if err == nil && len(events) > 0 {
 		out := make([]TimelineEvent, 0, len(events))
 		for _, e := range events {
-			out = append(out, TimelineEvent{
-				EventID:               e.EventID,
-				RunID:                 e.RunID,
-				IncidentID:            e.IncidentID,
-				RequestID:             e.RequestID,
-				Type:                  e.EventType,
-				Timestamp:             e.CreatedAt,
-				Title:                 e.Title,
-				Summary:               e.Summary,
-				Reason:                e.ReasonText,
-				Actor:                 e.Actor,
-				PID:                   e.PID,
-				CPUScore:              e.CPUScore,
-				Entropy:               e.Entropy,
-				Confidence:            e.Confidence,
-				DecisionEngine:        e.DecisionEngine,
-				DecisionEngineVersion: e.DecisionEngineVersion,
-				DecisionContract:      e.DecisionContract,
-				PolicyRolloutMode:     e.PolicyRolloutMode,
-				ReplayContract:        e.ReplayContract,
-				ReplayDigest:          e.ReplayDigest,
-				Evidence:              e.Evidence,
-			})
+			out = append(out, timelineEventFromUnifiedEvent(e))
 		}
 		return out, nil
 	}
 	return getLegacyTimeline(limit)
+}
+
+func GetTimelinePage(limit int, cursorID int64) ([]TimelineEvent, int64, bool, error) {
+	events, nextCursor, hasMore, err := GetUnifiedEventsPage(limit, cursorID)
+	if err == nil && len(events) > 0 {
+		out := make([]TimelineEvent, 0, len(events))
+		for _, e := range events {
+			out = append(out, timelineEventFromUnifiedEvent(e))
+		}
+		return out, nextCursor, hasMore, nil
+	}
+
+	legacy, legacyErr := getLegacyTimeline(limit)
+	if legacyErr != nil {
+		if err != nil {
+			return nil, 0, false, err
+		}
+		return nil, 0, false, legacyErr
+	}
+	if cursorID > 0 {
+		return []TimelineEvent{}, 0, false, nil
+	}
+	return legacy, 0, false, nil
+}
+
+func timelineEventFromUnifiedEvent(e UnifiedEvent) TimelineEvent {
+	return TimelineEvent{
+		EventID:               e.EventID,
+		RunID:                 e.RunID,
+		IncidentID:            e.IncidentID,
+		RequestID:             e.RequestID,
+		Type:                  e.EventType,
+		Timestamp:             e.CreatedAt,
+		Title:                 e.Title,
+		Summary:               e.Summary,
+		Reason:                e.ReasonText,
+		Actor:                 e.Actor,
+		PID:                   e.PID,
+		CPUScore:              e.CPUScore,
+		Entropy:               e.Entropy,
+		Confidence:            e.Confidence,
+		DecisionEngine:        e.DecisionEngine,
+		DecisionEngineVersion: e.DecisionEngineVersion,
+		DecisionContract:      e.DecisionContract,
+		PolicyRolloutMode:     e.PolicyRolloutMode,
+		ReplayContract:        e.ReplayContract,
+		ReplayDigest:          e.ReplayDigest,
+		Evidence:              e.Evidence,
+	}
 }
 
 func getLegacyTimeline(limit int) ([]TimelineEvent, error) {
@@ -1072,6 +1169,96 @@ LIMIT ?`, limit)
 		list = append(list, e)
 	}
 	return list, nil
+}
+
+func GetUnifiedEventsPage(limit int, cursorID int64) ([]UnifiedEvent, int64, bool, error) {
+	if db == nil {
+		return nil, 0, false, fmt.Errorf("db missing")
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := `
+SELECT
+	id,
+	COALESCE(event_id, ''),
+	COALESCE(run_id, ''),
+	COALESCE(incident_id, ''),
+	COALESCE(request_id, ''),
+	COALESCE(event_type, type, ''),
+	COALESCE(actor, 'system'),
+	COALESCE(reason_text, reason, ''),
+	COALESCE(created_at, timestamp, CURRENT_TIMESTAMP),
+	COALESCE(created_at, timestamp, CURRENT_TIMESTAMP),
+	COALESCE(event_type, type, ''),
+	COALESCE(title, ''),
+	COALESCE(summary, ''),
+	COALESCE(reason_text, reason, ''),
+	COALESCE(pid, 0),
+	COALESCE(cpu_score, 0.0),
+	COALESCE(entropy_score, 0.0),
+	COALESCE(confidence_score, 0.0),
+	COALESCE(payload_json, '{}')
+FROM events`
+	args := []interface{}{}
+	if cursorID > 0 {
+		query += "\nWHERE id < ?"
+		args = append(args, cursorID)
+	}
+	query += "\nORDER BY id DESC\nLIMIT ?"
+	args = append(args, limit+1)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	defer rows.Close()
+
+	list := make([]UnifiedEvent, 0, limit+1)
+	for rows.Next() {
+		var e UnifiedEvent
+		var payloadRaw string
+		if err := rows.Scan(
+			&e.ID,
+			&e.EventID,
+			&e.RunID,
+			&e.IncidentID,
+			&e.RequestID,
+			&e.EventType,
+			&e.Actor,
+			&e.ReasonText,
+			&e.CreatedAt,
+			&e.Timestamp,
+			&e.Type,
+			&e.Title,
+			&e.Summary,
+			&e.Reason,
+			&e.PID,
+			&e.CPUScore,
+			&e.Entropy,
+			&e.Confidence,
+			&payloadRaw,
+		); err != nil {
+			return nil, 0, false, err
+		}
+		e.Evidence = parseEvidencePayload(payloadRaw)
+		hydrateDecisionMetadataFromEvidence(&e)
+		list = append(list, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, false, err
+	}
+
+	hasMore := len(list) > limit
+	if hasMore {
+		list = list[:limit]
+	}
+	var nextCursor int64
+	if hasMore && len(list) > 0 {
+		nextCursor = int64(list[len(list)-1].ID)
+	}
+	return list, nextCursor, hasMore, nil
 }
 
 func GetIncidentTimelineByIncidentID(incidentID string, limit int) ([]UnifiedEvent, error) {
@@ -1466,6 +1653,91 @@ ORDER BY created_at DESC, id DESC`)
 		})
 	}
 	return incidents, nil
+}
+
+func getIncidentsFromUnifiedEventsPage(limit int, cursorID int64) ([]Incident, int64, bool, error) {
+	query := `
+SELECT
+	id,
+	COALESCE(payload_json, '{}'),
+	COALESCE(created_at, timestamp, CURRENT_TIMESTAMP)
+FROM events
+WHERE event_type = 'incident'`
+	args := []interface{}{}
+	if cursorID > 0 {
+		query += "\n  AND id < ?"
+		args = append(args, cursorID)
+	}
+	query += "\nORDER BY id DESC\nLIMIT ?"
+	args = append(args, limit+1)
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	defer rows.Close()
+
+	incidents := make([]Incident, 0, limit+1)
+	cursorCandidates := make([]int64, 0, limit+1)
+	for rows.Next() {
+		var rowID int64
+		var payloadRaw, ts string
+		if err := rows.Scan(&rowID, &payloadRaw, &ts); err != nil {
+			return nil, 0, false, err
+		}
+		payloadRaw = strings.TrimSpace(payloadRaw)
+		if payloadRaw == "" || payloadRaw == "{}" {
+			continue
+		}
+
+		var payload incidentEventPayload
+		if err := json.Unmarshal([]byte(payloadRaw), &payload); err != nil {
+			continue
+		}
+		if strings.TrimSpace(payload.ExitReason) == "" {
+			continue
+		}
+
+		incidentID := payload.ID
+		if incidentID <= 0 {
+			incidentID = int(rowID)
+		}
+		incidents = append(incidents, Incident{
+			ID:                   incidentID,
+			Timestamp:            ts,
+			Command:              decryptIfPossible(payload.Command),
+			ModelName:            payload.ModelName,
+			ExitReason:           payload.ExitReason,
+			MaxCPU:               payload.MaxCPU,
+			Pattern:              decryptIfPossible(payload.Pattern),
+			TokenSavingsEstimate: payload.TokenSavingsEstimate,
+			TokenCount:           payload.TokenCount,
+			Cost:                 payload.Cost,
+			AgentID:              payload.AgentID,
+			AgentVersion:         payload.AgentVersion,
+			Reason:               payload.Reason,
+			CPUScore:             payload.CPUScore,
+			EntropyScore:         payload.EntropyScore,
+			ConfidenceScore:      payload.ConfidenceScore,
+			RecoveryStatus:       payload.RecoveryStatus,
+			RestartCount:         payload.RestartCount,
+		})
+		cursorCandidates = append(cursorCandidates, rowID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, false, err
+	}
+
+	hasMore := len(incidents) > limit
+	if hasMore {
+		incidents = incidents[:limit]
+		cursorCandidates = cursorCandidates[:limit]
+	}
+	var nextCursor int64
+	if hasMore && len(cursorCandidates) > 0 {
+		nextCursor = cursorCandidates[len(cursorCandidates)-1]
+	}
+	return incidents, nextCursor, hasMore, nil
 }
 
 func migrateLegacyRowsToUnifiedEvents() error {

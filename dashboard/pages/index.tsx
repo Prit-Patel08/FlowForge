@@ -136,14 +136,14 @@ export default function Dashboard() {
   const [selectedIncident, setSelectedIncident] = useState<DashboardIncident | null>(null);
 
   const incidents = usePollingData<LegacyIncident[]>({
-    path: '/v1/incidents',
+    path: '/v1/incidents?limit=200',
     apiKey,
     interval: 6000,
     transform: parseIncidentsPayload,
   });
 
   const timeline = usePollingData<LegacyTimelineEvent[]>({
-    path: '/v1/timeline',
+    path: '/v1/timeline?limit=200',
     apiKey,
     interval: 8000,
     transform: parseTimelinePayload,

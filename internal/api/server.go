@@ -47,6 +47,8 @@ const (
 	requestIDHeader                               = "X-Request-Id"
 	maxRequestIDLength                            = 128
 	problemTypeBaseURI                            = "https://flowforge.dev/problems/"
+	defaultCursorPageLimit                        = 100
+	maxCursorPageLimit                            = 500
 	defaultDecisionReplayHealthLimit              = 500
 	maxDecisionReplayHealthLimit                  = 5000
 	defaultDecisionSignalBaselineLimit            = 500
@@ -64,6 +66,20 @@ const (
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+}
+
+type paginatedIncidentsResponse struct {
+	Items      []database.Incident `json:"items"`
+	NextCursor string              `json:"next_cursor,omitempty"`
+	HasMore    bool                `json:"has_more"`
+	Limit      int                 `json:"limit"`
+}
+
+type paginatedTimelineResponse struct {
+	Items      []database.TimelineEvent `json:"items"`
+	NextCursor string                   `json:"next_cursor,omitempty"`
+	HasMore    bool                     `json:"has_more"`
+	Limit      int                      `json:"limit"`
 }
 
 func (s *statusRecorder) WriteHeader(status int) {
@@ -941,6 +957,29 @@ func parseDecisionSignalBaselineLimit(raw string) (int, error) {
 	return parsed, nil
 }
 
+func parseCursorPageQuery(rawLimit, rawCursor string, defaultLimit, maxLimit int) (int, int64, error) {
+	limit := defaultLimit
+	rawLimit = strings.TrimSpace(rawLimit)
+	if rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 1 || parsed > maxLimit {
+			return 0, 0, fmt.Errorf("limit must be an integer between 1 and %d", maxLimit)
+		}
+		limit = parsed
+	}
+
+	cursor := int64(0)
+	rawCursor = strings.TrimSpace(rawCursor)
+	if rawCursor != "" {
+		parsed, err := strconv.ParseInt(rawCursor, 10, 64)
+		if err != nil || parsed <= 0 {
+			return 0, 0, fmt.Errorf("cursor must be a positive integer")
+		}
+		cursor = parsed
+	}
+	return limit, cursor, nil
+}
+
 func parseBoolQueryValue(raw string) bool {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "1", "true", "yes", "on":
@@ -1703,11 +1742,9 @@ func HandleTimeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if database.GetDB() == nil {
-		if err := database.InitDB(); err != nil {
-			writeJSONErrorForRequest(w, r, http.StatusInternalServerError, "Database not initialized")
-			return
-		}
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
 	}
 
 	if incidentID := strings.TrimSpace(r.URL.Query().Get("incident_id")); incidentID != "" {
@@ -1720,6 +1757,36 @@ func HandleTimeline(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewEncoder(w).Encode(events); err != nil {
 			writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("Encode error: %v", err))
 		}
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/v1/") {
+		limit, cursor, err := parseCursorPageQuery(
+			r.URL.Query().Get("limit"),
+			r.URL.Query().Get("cursor"),
+			defaultCursorPageLimit,
+			maxCursorPageLimit,
+		)
+		if err != nil {
+			writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		events, nextCursor, hasMore, err := database.GetTimelinePage(limit, cursor)
+		if err != nil {
+			writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("Database error: %v", err))
+			return
+		}
+
+		payload := paginatedTimelineResponse{
+			Items:   events,
+			HasMore: hasMore,
+			Limit:   limit,
+		}
+		if hasMore && nextCursor > 0 {
+			payload.NextCursor = strconv.FormatInt(nextCursor, 10)
+		}
+		writeJSON(w, http.StatusOK, payload)
 		return
 	}
 
@@ -1747,13 +1814,39 @@ func HandleIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	if err := ensureAPIDBReady(); err != nil {
+		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("database init failed: %v", err))
+		return
+	}
 
-	if database.GetDB() == nil {
-		if err := database.InitDB(); err != nil {
-			writeJSONErrorForRequest(w, r, http.StatusInternalServerError, "Database not initialized")
+	if strings.HasPrefix(r.URL.Path, "/v1/") {
+		limit, cursor, err := parseCursorPageQuery(
+			r.URL.Query().Get("limit"),
+			r.URL.Query().Get("cursor"),
+			defaultCursorPageLimit,
+			maxCursorPageLimit,
+		)
+		if err != nil {
+			writeJSONErrorForRequest(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
+
+		incidents, nextCursor, hasMore, err := database.GetIncidentsPage(limit, cursor)
+		if err != nil {
+			writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("Database error: %v", err))
+			return
+		}
+
+		payload := paginatedIncidentsResponse{
+			Items:   incidents,
+			HasMore: hasMore,
+			Limit:   limit,
+		}
+		if hasMore && nextCursor > 0 {
+			payload.NextCursor = strconv.FormatInt(nextCursor, 10)
+		}
+		writeJSON(w, http.StatusOK, payload)
+		return
 	}
 
 	incidents, err := database.GetAllIncidents()
@@ -1762,9 +1855,7 @@ func HandleIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(incidents); err != nil {
-		writeJSONErrorForRequest(w, r, http.StatusInternalServerError, fmt.Sprintf("Encode error: %v", err))
-	}
+	writeJSON(w, http.StatusOK, incidents)
 }
 
 // HandleProcessKill is exported for testing.

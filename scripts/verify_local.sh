@@ -94,32 +94,35 @@ GO_TEST_PKGS=(
   ./test
 )
 
-echo "[1/7] go build explicit Go package set"
+echo "[1/8] go build explicit Go package set"
 go build "${GO_BUILD_PKGS[@]}"
 
-echo "[2/7] go test explicit Go package set -v"
+echo "[2/8] go test explicit Go package set -v"
 go test "${GO_TEST_PKGS[@]}" -v
 
-echo "[3/7] go test explicit Go package set -race -v"
+echo "[3/8] go test explicit Go package set -race -v"
 go test "${GO_TEST_PKGS[@]}" -race -v
 
-echo "[4/7] go vet explicit Go package set"
+echo "[4/8] go vet explicit Go package set"
 go vet "${GO_TEST_PKGS[@]}"
 
-echo "[5/7] staticcheck explicit Go package set"
+echo "[5/8] staticcheck explicit Go package set"
 if ! run_optional_tool "staticcheck" "${GO_TEST_PKGS[@]}"; then
   echo "ERROR: staticcheck failed." >&2
   exit 1
 fi
 
-echo "[6/7] govulncheck explicit Go package set"
+echo "[6/8] govulncheck explicit Go package set"
 if ! run_optional_tool "govulncheck" "${GO_TEST_PKGS[@]}"; then
   echo "ERROR: govulncheck failed." >&2
   echo "If this is a Go standard library advisory, upgrade your local Go patch toolchain (e.g. 1.25.7+)." >&2
   exit 1
 fi
 
-echo "[7/7] dashboard build"
+echo "[7/8] openapi contract validation"
+./scripts/validate_openapi.sh
+
+echo "[8/8] dashboard build"
 if [[ "$SKIP_DASHBOARD" == "1" ]]; then
   echo "Skipping dashboard build (--skip-dashboard)."
 else

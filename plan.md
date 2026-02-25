@@ -4990,6 +4990,9 @@ Build FlowForge into the trusted deterministic execution-control infrastructure 
 - [x] deterministic replay hardening implemented (fleet replay-health endpoint + strict integrity mode + Prometheus replay health gauges + Lifecycle SLO dashboard integrity panel + release gate coverage)
 - [x] signal history baselining foundation implemented (`/v1/ops/decisions/signals/baseline` API + strict mode + baseline drift Prometheus gauges + Lifecycle SLO signal-baseline panel + release gate contract coverage)
 - [x] signal history baselining hardening implemented (persistent bucket streak state + insufficient-history suppression + consecutive-breach escalation + transition audit evidence + dashboard/metrics/release-gate coverage)
+- [x] cursor pagination implemented for core v1 read endpoints (`/v1/incidents`, `/v1/timeline`) with page contract tests and backward-compatible legacy routes
+- [x] dashboard data polling hardened to paginated API contracts (`/v1/incidents?limit=200`, `/v1/timeline?limit=200`) with array/envelope parsing compatibility
+- [x] OpenAPI contract baseline added (`api/openapi/v1.yaml`) with automated validation in local strict verify and CI backend gate
 
 Definition of done for the external validation checkbox:
 1. run `scripts/onboarding_usability_test.sh --mode external` with a non-contributor tester.

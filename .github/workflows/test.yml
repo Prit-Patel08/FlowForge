@@ -117,6 +117,9 @@ jobs:
       - name: Install pinned Go toolchain helpers
         run: bash ./scripts/install_go_tools.sh
 
+      - name: Validate OpenAPI contract
+        run: ./scripts/validate_openapi.sh
+
       - name: Build
         run: go build $GO_BUILD_PKGS
 

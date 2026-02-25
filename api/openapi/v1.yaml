@@ -1,0 +1,494 @@
+openapi: 3.0.3
+info:
+  title: FlowForge Control Plane API
+  version: 1.1.0
+  description: |
+    FlowForge local-first process supervision API.
+    This contract covers production dashboard endpoints and mutation controls.
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local default
+paths:
+  /v1/healthz:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /v1/metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Prometheus text exposition format
+          content:
+            text/plain:
+              schema:
+                type: string
+  /v1/incidents:
+    get:
+      summary: List incidents (cursor pagination)
+      operationId: listIncidents
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/CursorParam"
+      responses:
+        "200":
+          description: Paginated incident list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedIncidentsResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "500":
+          $ref: "#/components/responses/ProblemResponse"
+  /v1/timeline:
+    get:
+      summary: List timeline events
+      description: |
+        Returns paginated timeline events by default. If `incident_id` is provided,
+        returns the correlated chain for one incident as a flat array.
+      operationId: listTimeline
+      parameters:
+        - $ref: "#/components/parameters/LimitParam"
+        - $ref: "#/components/parameters/CursorParam"
+        - name: incident_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Timeline payload
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/PaginatedTimelineResponse"
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/UnifiedEvent"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "500":
+          $ref: "#/components/responses/ProblemResponse"
+  /v1/worker/lifecycle:
+    get:
+      summary: Current worker lifecycle snapshot
+      operationId: getWorkerLifecycle
+      responses:
+        "200":
+          description: Worker lifecycle status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkerLifecycleSnapshot"
+  /v1/process/kill:
+    post:
+      summary: Request controlled process kill
+      operationId: requestProcessKill
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Already in progress or previously completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessMutationResponse"
+        "202":
+          description: Accepted kill request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessMutationResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+  /v1/process/restart:
+    post:
+      summary: Request controlled process restart
+      operationId: requestProcessRestart
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Already in progress or previously completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessMutationResponse"
+        "202":
+          description: Accepted restart request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessMutationResponse"
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/ProblemResponse"
+  /v1/ops/controlplane/replay/history:
+    get:
+      summary: Control-plane idempotency replay history
+      operationId: getControlPlaneReplayHistory
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 7
+      responses:
+        "200":
+          description: Daily replay/conflict trend
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReplayHistoryResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "500":
+          $ref: "#/components/responses/ProblemResponse"
+  /v1/ops/requests/{request_id}:
+    get:
+      summary: Correlated request trace
+      operationId: getRequestTrace
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 200
+      responses:
+        "200":
+          description: Correlated events for request id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestTraceResponse"
+        "400":
+          $ref: "#/components/responses/ProblemResponse"
+        "500":
+          $ref: "#/components/responses/ProblemResponse"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    CursorParam:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor from `next_cursor`
+      schema:
+        type: string
+  responses:
+    ProblemResponse:
+      description: Error payload in RFC 9457-compatible format
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        error:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+        timestamp:
+          type: string
+        command:
+          type: string
+        model_name:
+          type: string
+        exit_reason:
+          type: string
+        max_cpu:
+          type: number
+        pattern:
+          type: string
+        token_savings_estimate:
+          type: number
+        token_count:
+          type: integer
+        cost:
+          type: number
+        agent_uuid:
+          type: string
+        agent_version:
+          type: string
+        reason:
+          type: string
+        cpu_score:
+          type: number
+        entropy_score:
+          type: number
+        confidence_score:
+          type: number
+        recovery_status:
+          type: string
+        restart_count:
+          type: integer
+    PaginatedIncidentsResponse:
+      type: object
+      required: [items, has_more, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Incident"
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+        limit:
+          type: integer
+    TimelineEvent:
+      type: object
+      properties:
+        event_id:
+          type: string
+        run_id:
+          type: string
+        incident_id:
+          type: string
+        request_id:
+          type: string
+        type:
+          type: string
+        timestamp:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        reason:
+          type: string
+        actor:
+          type: string
+        pid:
+          type: integer
+        cpu_score:
+          type: number
+        entropy_score:
+          type: number
+        confidence_score:
+          type: number
+        decision_engine:
+          type: string
+        engine_version:
+          type: string
+        decision_contract_version:
+          type: string
+        rollout_mode:
+          type: string
+        replay_contract_version:
+          type: string
+        replay_digest:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+    PaginatedTimelineResponse:
+      type: object
+      required: [items, has_more, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEvent"
+        next_cursor:
+          type: string
+        has_more:
+          type: boolean
+        limit:
+          type: integer
+    UnifiedEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        event_id:
+          type: string
+        run_id:
+          type: string
+        incident_id:
+          type: string
+        request_id:
+          type: string
+        event_type:
+          type: string
+        actor:
+          type: string
+        reason_text:
+          type: string
+        created_at:
+          type: string
+        timestamp:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        reason:
+          type: string
+        pid:
+          type: integer
+        cpu_score:
+          type: number
+        entropy_score:
+          type: number
+        confidence_score:
+          type: number
+        decision_engine:
+          type: string
+        engine_version:
+          type: string
+        decision_contract_version:
+          type: string
+        rollout_mode:
+          type: string
+        replay_contract_version:
+          type: string
+        replay_digest:
+          type: string
+        evidence:
+          type: object
+          additionalProperties: true
+    ProcessMutationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        pid:
+          type: integer
+        lifecycle:
+          type: string
+        request_id:
+          type: string
+        operation:
+          type: string
+        replayed:
+          type: boolean
+        idempotency_key:
+          type: string
+    WorkerLifecycleSnapshot:
+      type: object
+      properties:
+        phase:
+          type: string
+        operation:
+          type: string
+        pid:
+          type: integer
+        managed:
+          type: boolean
+        last_error:
+          type: string
+        status:
+          type: string
+        lifecycle:
+          type: string
+        command:
+          type: string
+        timestamp:
+          type: integer
+    ReplayHistoryPoint:
+      type: object
+      properties:
+        day:
+          type: string
+        replay_events:
+          type: integer
+        conflict_events:
+          type: integer
+    ReplayHistoryResponse:
+      type: object
+      properties:
+        days:
+          type: integer
+        row_count:
+          type: integer
+        oldest_age_seconds:
+          type: integer
+        newest_age_seconds:
+          type: integer
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReplayHistoryPoint"
+    RequestTraceResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+        count:
+          type: integer
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnifiedEvent"
