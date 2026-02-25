@@ -94,7 +94,7 @@ func corsMiddleware(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Vary", "Origin")
 	w.Header().Set("Access-Control-Allow-Origin", origin)
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Idempotency-Key")
 }
 
@@ -140,7 +140,7 @@ func requireAuth(w http.ResponseWriter, r *http.Request) bool {
 	apiKey := os.Getenv("FLOWFORGE_API_KEY")
 
 	if apiKey == "" {
-		if r.Method == "POST" {
+		if isUnsafeMethod(r.Method) {
 			writeJSONErrorForRequest(w, r, http.StatusForbidden, "Security Alert: You must set FLOWFORGE_API_KEY environment variable to perform mutations.")
 			return false
 		}
@@ -171,6 +171,15 @@ func requireAuth(w http.ResponseWriter, r *http.Request) bool {
 
 	apiLimiter.clearAuthFailures(ip)
 	return true
+}
+
+func isUnsafeMethod(method string) bool {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
+		return false
+	default:
+		return true
+	}
 }
 
 func withRequestID(r *http.Request) *http.Request {

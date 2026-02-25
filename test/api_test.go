@@ -234,6 +234,9 @@ func TestCORSHeaders(t *testing.T) {
 	if methods == "" {
 		t.Error("Expected Access-Control-Allow-Methods header to be set")
 	}
+	if !strings.Contains(methods, "DELETE") {
+		t.Errorf("Expected CORS methods to include DELETE, got %q", methods)
+	}
 }
 
 func TestCORSHeadersAllowLoopbackOrigin(t *testing.T) {
@@ -327,6 +330,34 @@ func TestKillEndpointNoKeySetIsBlocked(t *testing.T) {
 	// Should be 403 Forbidden when no key is set (Mutations blocked for security)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Expected 403 Forbidden when FLOWFORGE_API_KEY is not set, but got %d", resp.StatusCode)
+	}
+}
+
+func TestIntegrationUnsafeMutationNoKeySetIsBlocked(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Unsetenv("FLOWFORGE_API_KEY")
+
+	req := httptest.NewRequest("DELETE", "/v1/integrations/workspaces/ws-no-key", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 when FLOWFORGE_API_KEY is unset for DELETE mutation, got %d", resp.StatusCode)
+	}
+}
+
+func TestIntegrationSafeReadWithoutKeyStillAllowed(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Unsetenv("FLOWFORGE_API_KEY")
+
+	req := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-no-key/status", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing workspace on safe GET without key, got %d", resp.StatusCode)
 	}
 }
 
@@ -2733,6 +2764,45 @@ func TestIntegrationWorkspaceRegisterAndStatus(t *testing.T) {
 	enabled, ok := payload["protection_enabled"].(bool)
 	if !ok || !enabled {
 		t.Fatalf("expected protection_enabled=true, got %#v", payload["protection_enabled"])
+	}
+}
+
+func TestIntegrationWorkspaceStatusIsReadOnly(t *testing.T) {
+	setupTempDBForAPI(t)
+	os.Setenv("FLOWFORGE_API_KEY", "test-secret-key-12345")
+	defer os.Unsetenv("FLOWFORGE_API_KEY")
+
+	registerWorkspaceForTest(t, "ws-status-readonly", "/tmp/ws-status-readonly")
+	if err := database.UpdateIntegrationWorkspaceActivePID("ws-status-readonly", 77); err != nil {
+		t.Fatalf("seed active_pid: %v", err)
+	}
+
+	state.UpdateState(0, "", "RUNNING", "/bin/sh -c sleep 60", []string{"/bin/sh", "-c", "sleep 60"}, "", 4242)
+	t.Cleanup(func() {
+		state.UpdateState(0, "", "STOPPED", "", nil, "", 0)
+	})
+
+	req := httptest.NewRequest("GET", "/v1/integrations/workspaces/ws-status-readonly/status", nil)
+	w := httptest.NewRecorder()
+	api.HandleIntegrationWorkspaceScoped(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Result().StatusCode)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got := intValue(payload["active_pid"]); got != 4242 {
+		t.Fatalf("expected active_pid 4242 from runtime state, got %d", got)
+	}
+
+	ws, err := database.GetIntegrationWorkspace("ws-status-readonly")
+	if err != nil {
+		t.Fatalf("reload workspace: %v", err)
+	}
+	if ws.ActivePID != 77 {
+		t.Fatalf("expected persisted active_pid to remain 77 after GET status, got %d", ws.ActivePID)
 	}
 }
 

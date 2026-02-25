@@ -258,21 +258,16 @@ func handleIntegrationWorkspaceStatus(w http.ResponseWriter, r *http.Request, wo
 	}
 
 	currentState := state.GetState()
-	activePID := 0
+	activePID := ws.ActivePID
 	if currentState.PID > 0 && currentState.Status != "STOPPED" {
 		activePID = currentState.PID
-	}
-	if err := database.UpdateIntegrationWorkspaceActivePID(workspaceID, activePID); err == nil {
-		if refreshed, getErr := database.GetIntegrationWorkspace(workspaceID); getErr == nil {
-			ws = refreshed
-		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"workspace_id":       ws.WorkspaceID,
 		"protection_enabled": ws.ProtectionEnabled,
 		"profile":            ws.Profile,
-		"active_pid":         ws.ActivePID,
+		"active_pid":         activePID,
 		"last_updated":       ws.LastUpdated,
 	})
 }
