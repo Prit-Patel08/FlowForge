@@ -35,7 +35,7 @@ jobs:
         run: ./scripts/release_checkpoint.sh ci_artifacts
 
       - name: Upload checkpoint artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-checkpoint
           path: ci_artifacts
