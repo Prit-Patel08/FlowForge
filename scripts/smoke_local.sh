@@ -11,6 +11,7 @@ API_BASE="http://127.0.0.1:${API_PORT}"
 ARTIFACT_DIR="${1:-smoke_artifacts/$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "$ARTIFACT_DIR"
 SMOKE_DB_PATH="$ARTIFACT_DIR/flowforge-smoke.db"
+SMOKE_MASTER_KEY="${FLOWFORGE_SMOKE_MASTER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
 
 DEMO_LOG="$ARTIFACT_DIR/demo.log"
 API_LOG="$ARTIFACT_DIR/api.log"
@@ -74,14 +75,14 @@ echo "[2/5] Building dashboard production assets..."
 ) >"$ARTIFACT_DIR/dashboard-build.log" 2>&1
 
 echo "[3/5] Running demo for incident generation..."
-FLOWFORGE_DB_PATH="$SMOKE_DB_PATH" ./flowforge demo >"$DEMO_LOG" 2>&1
+FLOWFORGE_DB_PATH="$SMOKE_DB_PATH" FLOWFORGE_MASTER_KEY="$SMOKE_MASTER_KEY" ./flowforge demo >"$DEMO_LOG" 2>&1
 
 grep -q "Runaway detected in" "$DEMO_LOG"
 grep -q "CPU peaked at" "$DEMO_LOG"
 grep -q "Process recovered" "$DEMO_LOG"
 
 echo "[4/5] Starting API + dashboard..."
-FLOWFORGE_DB_PATH="$SMOKE_DB_PATH" FLOWFORGE_BIND_HOST=127.0.0.1 ./flowforge dashboard --foreground >"$API_LOG" 2>&1 &
+FLOWFORGE_DB_PATH="$SMOKE_DB_PATH" FLOWFORGE_MASTER_KEY="$SMOKE_MASTER_KEY" FLOWFORGE_BIND_HOST=127.0.0.1 ./flowforge dashboard --foreground >"$API_LOG" 2>&1 &
 API_PID=$!
 wait_for_http "$API_BASE/healthz" 30 1
 
