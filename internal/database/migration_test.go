@@ -10,6 +10,7 @@ import (
 
 func withTempDBPath(t *testing.T) string {
 	t.Helper()
+	setMasterKeyForTest(t, testMasterKeyHex)
 	oldPath, hadPath := os.LookupEnv("FLOWFORGE_DB_PATH")
 	dbPath := filepath.Join(t.TempDir(), "flowforge-migration-test.db")
 	if err := os.Setenv("FLOWFORGE_DB_PATH", dbPath); err != nil {

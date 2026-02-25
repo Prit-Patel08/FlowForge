@@ -12,6 +12,12 @@ import (
 
 var masterKey []byte
 
+// ResetForTests clears cached encryption state.
+// Intended for tests that need deterministic key/env behavior.
+func ResetForTests() {
+	masterKey = nil
+}
+
 // Init loads the master key from environment variables.
 func Init() error {
 	// 1. Check Env Var

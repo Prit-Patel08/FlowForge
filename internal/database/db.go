@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"flowforge/internal/encryption"
+	"flowforge/internal/redact"
 	"fmt"
 	"os"
 	"sort"
@@ -564,17 +565,17 @@ func LogIncidentWithDecisionForIncident(
 	if db == nil {
 		return fmt.Errorf("db not initialized")
 	}
+	sanitizedCommand := sanitizePersistedText(command)
+	sanitizedPattern := sanitizePersistedText(pattern)
 
-	// Encrypt sensitive fields
-	encCmd, _ := encryption.Encrypt(command)
-	encPat, _ := encryption.Encrypt(pattern)
-
-	// Fallback to raw if encryption returns empty string
-	if encCmd == "" {
-		encCmd = command
+	// Fail closed: incident persistence must never store raw sensitive command/pattern data.
+	encCmd, err := encryption.Encrypt(sanitizedCommand)
+	if err != nil {
+		return fmt.Errorf("encrypt incident command: %w", err)
 	}
-	if encPat == "" {
-		encPat = pattern
+	encPat, err := encryption.Encrypt(sanitizedPattern)
+	if err != nil {
+		return fmt.Errorf("encrypt incident pattern: %w", err)
 	}
 
 	stmt, err := db.Prepare("INSERT INTO incidents(command, model_name, exit_reason, max_cpu, pattern, token_savings_estimate, token_count, cost, agent_id, agent_version, reason, cpu_score, entropy_score, confidence_score, recovery_status, restart_count) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -687,6 +688,7 @@ func LogAuditEventWithIncidentAndIDAndRequestID(actor, action, reason, source st
 	if db == nil {
 		return 0, fmt.Errorf("db not initialized")
 	}
+	details = sanitizePersistedText(details)
 	stmt, err := db.Prepare("INSERT INTO audit_events(actor, action, reason, source, pid, details, request_id) VALUES(?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return 0, err
@@ -749,6 +751,7 @@ func LogDecisionTraceWithIncidentAndMeta(command string, pid int, cpuScore, entr
 	if db == nil {
 		return fmt.Errorf("db not initialized")
 	}
+	command = sanitizePersistedText(command)
 	stmt, err := db.Prepare("INSERT INTO decision_traces(command, pid, cpu_score, entropy_score, confidence_score, decision, reason, decision_engine, engine_version, decision_contract_version, rollout_mode, replay_contract_version, replay_digest) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
@@ -1233,6 +1236,7 @@ func LogPolicyDryRun(command string, pid int, reason string, confidenceScore flo
 }
 
 func LogPolicyDryRunWithIncident(command string, pid int, reason string, confidenceScore float64, incidentID string) error {
+	command = sanitizePersistedText(command)
 	summary := fmt.Sprintf("Dry-run for %s", command)
 	return logUnifiedEventWithMeta("policy_dry_run", "POLICY_DRY_RUN", summary, reason, "system", incidentID, pid, 0, 0, confidenceScore)
 }
@@ -1402,6 +1406,10 @@ func decryptIfPossible(value string) string {
 		return dec
 	}
 	return value
+}
+
+func sanitizePersistedText(value string) string {
+	return redact.Line(value)
 }
 
 func getIncidentsFromUnifiedEvents() ([]Incident, error) {

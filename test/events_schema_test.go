@@ -11,6 +11,10 @@ import (
 
 func setupTempDB(t *testing.T) {
 	t.Helper()
+	oldMasterKey, hadMasterKey := os.LookupEnv("FLOWFORGE_MASTER_KEY")
+	if err := os.Setenv("FLOWFORGE_MASTER_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"); err != nil {
+		t.Fatalf("set FLOWFORGE_MASTER_KEY: %v", err)
+	}
 	oldPath, hadPath := os.LookupEnv("FLOWFORGE_DB_PATH")
 	dbPath := filepath.Join(t.TempDir(), "flowforge-test.db")
 	if err := os.Setenv("FLOWFORGE_DB_PATH", dbPath); err != nil {
@@ -21,6 +25,11 @@ func setupTempDB(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		database.CloseDB()
+		if hadMasterKey {
+			_ = os.Setenv("FLOWFORGE_MASTER_KEY", oldMasterKey)
+		} else {
+			_ = os.Unsetenv("FLOWFORGE_MASTER_KEY")
+		}
 		if hadPath {
 			_ = os.Setenv("FLOWFORGE_DB_PATH", oldPath)
 		} else {

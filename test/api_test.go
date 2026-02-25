@@ -149,6 +149,7 @@ func snapshotIncidentTimelineEvent(raw map[string]interface{}) map[string]interf
 
 func setupTempDBForAPI(t *testing.T) {
 	t.Helper()
+	setEnvForTest(t, "FLOWFORGE_MASTER_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	oldPath, hadPath := os.LookupEnv("FLOWFORGE_DB_PATH")
 	dbPath := filepath.Join(t.TempDir(), "flowforge-api-test.db")
 
