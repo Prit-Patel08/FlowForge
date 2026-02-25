@@ -110,10 +110,16 @@ type workerLifecycle struct {
 	stopRequestedAt    time.Time
 	restartRequestedAt time.Time
 	restartHistory     []time.Time
+
+	acceptAsync bool
+	asyncWG     sync.WaitGroup
 }
 
 func newWorkerLifecycle() *workerLifecycle {
-	return &workerLifecycle{phase: lifecycleStopped}
+	return &workerLifecycle{
+		phase:       lifecycleStopped,
+		acceptAsync: true,
+	}
 }
 
 type lifecycleEvidence struct {
@@ -231,7 +237,9 @@ func (w *workerLifecycle) requestKill() (lifecycleAction, error) {
 	state.UpdateLifecycle(lifecycleStopping, "STOPPING", pid)
 	emitLifecycleTransition(lifecycleStopping, opKill, pid, w.managed, "", "kill_requested")
 
-	go w.stopAsync(controller, pid, false)
+	w.launchAsyncLocked(func() {
+		w.stopAsync(controller, pid, false)
+	})
 
 	return lifecycleAction{
 		Status:      "stop_requested",
@@ -304,7 +312,9 @@ func (w *workerLifecycle) requestRestart() (lifecycleAction, error) {
 	state.UpdateLifecycle(lifecycleStarting, "STARTING", 0)
 	emitLifecycleTransition(lifecycleStarting, opRestart, 0, w.managed, "", "restart_requested")
 
-	go w.startAsync(spec)
+	w.launchAsyncLocked(func() {
+		w.startAsync(spec)
+	})
 
 	return lifecycleAction{
 		Status:      "restart_requested",
@@ -364,6 +374,13 @@ func (w *workerLifecycle) stopAsync(controller WorkerController, pid int, fromWa
 }
 
 func (w *workerLifecycle) startAsync(spec workerSpec) {
+	w.mu.Lock()
+	if !w.acceptAsync {
+		w.mu.Unlock()
+		return
+	}
+	w.mu.Unlock()
+
 	startedAt := time.Now()
 	w.mu.Lock()
 	if !w.restartRequestedAt.IsZero() {
@@ -394,6 +411,12 @@ func (w *workerLifecycle) startAsync(spec workerSpec) {
 
 	pid := sup.PID()
 	w.mu.Lock()
+	if !w.acceptAsync {
+		w.mu.Unlock()
+		_ = sup.Stop(250 * time.Millisecond)
+		apiMetrics.ObserveRestartLatency(time.Since(startedAt).Seconds(), false)
+		return
+	}
 	w.controller = sup
 	w.managed = true
 	w.pid = pid
@@ -414,8 +437,58 @@ func (w *workerLifecycle) startAsync(spec workerSpec) {
 func (w *workerLifecycle) startWatcherLocked(controller WorkerController, managed bool) uint64 {
 	w.watchID++
 	id := w.watchID
-	go w.waitForController(id, controller, managed)
+	w.launchAsyncLocked(func() {
+		w.waitForController(id, controller, managed)
+	})
 	return id
+}
+
+func (w *workerLifecycle) launchAsyncLocked(task func()) {
+	if !w.acceptAsync {
+		return
+	}
+	w.asyncWG.Add(1)
+	go func() {
+		defer w.asyncWG.Done()
+		task()
+	}()
+}
+
+func (w *workerLifecycle) shutdownForTests(timeout time.Duration) {
+	w.mu.Lock()
+	w.acceptAsync = false
+	controller := w.controller
+	pid := w.activePIDLocked()
+	w.watchID++
+	w.controller = nil
+	w.managed = false
+	w.pid = 0
+	w.phase = lifecycleStopped
+	w.operation = opNone
+	w.lastErr = ""
+	w.stopRequestedAt = time.Time{}
+	w.restartRequestedAt = time.Time{}
+	w.mu.Unlock()
+
+	if controller != nil {
+		_ = controller.Stop(250 * time.Millisecond)
+	} else if pid > 0 {
+		_ = killProcessTree(pid)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		w.asyncWG.Wait()
+		close(done)
+	}()
+
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
 }
 
 func (w *workerLifecycle) waitForController(id uint64, controller WorkerController, managed bool) {
@@ -635,6 +708,8 @@ func WorkerLifecycleSnapshot() map[string]interface{} {
 // ResetWorkerControlForTests resets global lifecycle state.
 // Intended only for test isolation.
 func ResetWorkerControlForTests() {
+	previous := workerControl
+	previous.shutdownForTests(3 * time.Second)
 	workerControl = newWorkerLifecycle()
 	state.UpdateLifecycle(lifecycleStopped, "STOPPED", 0)
 }

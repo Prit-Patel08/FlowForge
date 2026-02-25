@@ -150,6 +150,7 @@ func snapshotIncidentTimelineEvent(raw map[string]interface{}) map[string]interf
 func setupTempDBForAPI(t *testing.T) {
 	t.Helper()
 	setEnvForTest(t, "FLOWFORGE_MASTER_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	api.ResetWorkerControlForTests()
 	oldPath, hadPath := os.LookupEnv("FLOWFORGE_DB_PATH")
 	dbPath := filepath.Join(t.TempDir(), "flowforge-api-test.db")
 
@@ -163,6 +164,7 @@ func setupTempDBForAPI(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
+		api.ResetWorkerControlForTests()
 		database.CloseDB()
 		if hadPath {
 			_ = os.Setenv("FLOWFORGE_DB_PATH", oldPath)
@@ -255,7 +257,8 @@ func TestCORSHeadersAllowLoopbackOrigin(t *testing.T) {
 
 // TestIncidentsEndpointHealth verifies that /incidents returns 200 + valid JSON.
 func TestIncidentsEndpointHealth(t *testing.T) {
-	// Initialize the database first
+	setupTempDBForAPI(t)
+
 	req := httptest.NewRequest("GET", "/incidents", nil)
 	w := httptest.NewRecorder()
 
