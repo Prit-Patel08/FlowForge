@@ -1,12 +1,13 @@
 module flowforge
 
 go 1.25
+
 toolchain go1.25.7
 
 require (
 	github.com/adrg/strutil v0.3.1
 	github.com/google/uuid v1.6.0
-	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/mattn/go-sqlite3 v1.14.42
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.10.2
